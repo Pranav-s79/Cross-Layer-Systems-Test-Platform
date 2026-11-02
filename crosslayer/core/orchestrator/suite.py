@@ -236,6 +236,14 @@ class SuiteRunner:
         return candidate
 
     def run(self, suite: Suite, *, on_result: Callable[[SuiteEntryResult], None] | None = None) -> SuiteResult:
+        # Validate every experiment (adapter, faults, contracts) before running
+        # any of them, so a mistake in the last entry cannot leave a half-run suite.
+        for entry in suite.entries:
+            try:
+                self._runner_factory(self.output_root).plan(entry.experiment)
+            except ConfigError as exc:
+                raise ConfigError(f"experiment '{entry.id}': {exc}") from exc
+
         suite_dir = self._suite_dir(suite)
         runner = self._runner_factory(suite_dir / "runs")
         status: dict[str, str] = {}

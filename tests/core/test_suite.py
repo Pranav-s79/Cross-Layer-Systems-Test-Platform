@@ -119,3 +119,13 @@ def test_transitive_blocking(tmp_path):
     ]))
     outcome = _runner(tmp_path).run(suite)
     assert [(r.entry.id, r.status) for r in outcome.results] == [("a", "unmet"), ("b", "blocked"), ("c", "blocked")]
+
+
+def test_misconfigured_entry_fails_before_anything_runs(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "first", "path": _experiment(tmp_path, "first")},
+        {"id": "broken", "path": _experiment(tmp_path, "broken", ["no_such_fault"])},
+    ]))
+    with pytest.raises(ConfigError, match="experiment 'broken'.*unknown faults"):
+        _runner(tmp_path).run(suite)
+    assert not (tmp_path / "out").exists()  # not even the first experiment ran
