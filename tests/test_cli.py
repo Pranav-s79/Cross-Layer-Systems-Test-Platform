@@ -56,3 +56,22 @@ def test_bad_inputs_exit_cleanly_with_code_4(tmp_path, capsys):
     assert main(["compare", str(tmp_path), str(tmp_path)]) == 4
     assert main(["verify", str(tmp_path)]) == 4
     assert "not a run bundle" in capsys.readouterr().err
+
+
+def test_lint_exit_codes(tmp_path, capsys):
+    assert main(["lint", str(EXPERIMENTS / "baseline.yaml"), "--strict"]) == 0
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(
+        "schema_version: 1\ncontracts:\n  - {id: a.b, title: t, owner: o, source: proc, destination: proc,\n"
+        "     rule: {kind: count, select: {event_type: packet.teleported}, min: 1}}\n",
+        encoding="utf-8",
+    )
+    assert main(["lint", str(bad)]) == 0  # nothing to check without an adapter catalog
+    assert main(["lint", str(bad), "--adapter", "sensor_pipeline"]) == 1
+    assert "CL010" in capsys.readouterr().out
+
+
+def test_test_contracts_command(capsys):
+    path = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contract_tests.yaml"
+    assert main(["test-contracts", str(path), "--require-coverage"]) == 0
+    assert "coverage: 8/8" in capsys.readouterr().out

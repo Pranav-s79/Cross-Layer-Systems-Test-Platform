@@ -26,6 +26,7 @@ from crosslayer.core.adapters.base import (
     AdapterDescription,
     Artifact,
     Capability,
+    EventSpec,
     ExecutionResult,
     ExecutionStatus,
     FaultRequest,
@@ -165,6 +166,24 @@ class SensorPipelineAdapter(SystemAdapter):
 
     def contracts(self) -> list[BoundaryContract]:
         return load_contracts_file(CONTRACTS_PATH)
+
+    def event_catalog(self) -> list[EventSpec]:
+        unparsed = "pipeline.unparsed_*"  # unknown log fields are kept under this prefix
+        return [
+            EventSpec("system.boot", ("sys",),
+                      ("pipeline.firmware", "pipeline.seed", "pipeline.buffer_capacity", unparsed)),
+            EventSpec("system.halt", ("sys",),
+                      ("pipeline.rx", "pipeline.done", "pipeline.dropped", unparsed)),
+            EventSpec("packet.received", ("sensor_rx",),
+                      ("pipeline.seq", "pipeline.len", "pipeline.crc_rx", unparsed), ("packet",)),
+            EventSpec("packet.dropped", ("sensor_rx",),
+                      ("pipeline.seq", "pipeline.drop_reason", "pipeline.occupancy", unparsed), ("packet",)),
+            EventSpec("packet.processed", ("proc",),
+                      ("pipeline.seq", "pipeline.crc_rx", "pipeline.crc_calc", "pipeline.latency_us", unparsed),
+                      ("packet",)),
+            EventSpec("process.exit", ("host",), ("process.exit_code",),
+                      description="synthesized from the process record; timestamp inferred"),
+        ]
 
     def validate_parameters(self, parameters: Mapping[str, Any]) -> None:
         unknown = set(parameters) - set(_PARAMETERS)

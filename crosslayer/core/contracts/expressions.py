@@ -118,6 +118,25 @@ class Expression:
     def __repr__(self) -> str:
         return f"Expression({self.source!r})"
 
+    def references(self) -> set[tuple[str, str]]:
+        """Constant keys the expression reads, as ``(field, key)`` pairs.
+
+        ``e.attributes["rtl.pc"]`` gives ``("attributes", "rtl.pc")`` and
+        ``prev.correlation_ids["ue"]`` gives ``("correlation_ids", "ue")``.
+        Used by the linter to check keys against an adapter's event catalog.
+        """
+        refs: set[tuple[str, str]] = set()
+        for node in ast.walk(self._body):
+            if (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Attribute)
+                and node.value.attr in ("attributes", "correlation_ids")
+                and isinstance(node.slice, ast.Constant)
+                and isinstance(node.slice.value, str)
+            ):
+                refs.add((node.value.attr, node.slice.value))
+        return refs
+
     # -- static validation -------------------------------------------------
 
     def _fail(self, message: str) -> None:

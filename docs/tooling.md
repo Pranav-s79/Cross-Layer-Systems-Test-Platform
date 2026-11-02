@@ -49,3 +49,38 @@ The reference adapter ships 25 cases covering all 8 of its contracts
 (`crosslayer/integrations/sensor_pipeline/contract_tests.yaml`). A test
 weakens contracts on purpose (a looser deadline, a looser threshold, a wrong
 sequence step) and checks that the contract tests catch each change.
+
+## Linting
+
+```sh
+crosslayer lint experiments/reference/*.yaml --strict           # experiments: full checks
+crosslayer lint contracts.yaml --adapter sensor_pipeline         # contract file + adapter knowledge
+```
+
+Nothing runs. Experiments are linted against their adapter automatically.
+Contract files are linted on their own, or against an adapter with `--adapter`.
+
+| Code | Level | Finding |
+|---|---|---|
+| CL001 | error | contract endpoint is not a subsystem the adapter declares |
+| CL002 | warning | `severity: critical` with `on_fail: warn`, so a failure can never fail the run |
+| CL003 | warning | state unreachable from the `initial` states |
+| CL004 | info | state machine has no `initial` states, so the first state is never checked |
+| CL005 | info | percentile `min_samples` too low: below 100 samples, nearest-rank p99 *is* the maximum |
+| CL006 | warning | response rule with no deadline and no required end-of-run evidence |
+| CL007 | warning | response deadline not shorter than the run timeout |
+| CL010 | error | selector matches no event type the adapter emits (for example a misspelled `event_type`) |
+| CL011 | error | an attribute or correlation id the contract needs is never present on the matched events |
+| CL012 | warning | that key is missing on *some* matched event types, which will be unresolved |
+
+Exit code 1 on any error (or any warning with `--strict`).
+
+### Event catalogs
+
+CL010–CL012 need the adapter's **event catalog**, an optional
+`event_catalog()` method listing each event type it can emit with its
+subsystems, attribute keys (shell patterns allowed), and correlation ids.
+`check_events_against_catalog(events, catalog)` verifies a real event stream
+stays within the catalog. Run it in the adapter's tests so the catalog cannot
+drift from reality. The reference adapter does this against every reference
+experiment.

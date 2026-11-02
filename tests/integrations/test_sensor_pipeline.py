@@ -230,3 +230,48 @@ def test_contract_tests_catch_a_weakened_contract(tmp_path, original, weakened, 
     report = run_contract_tests(tmp_path / "tests.yaml")
     failed = {r.case.name for r in report.results if not r.passed}
     assert caught_by in failed
+
+
+# -- event catalog and lint (Phase 2) ----------------------------------------------
+
+
+def test_event_catalog_matches_every_emitted_event(runs):
+    """The linter is only as good as the catalog, so check it against reality."""
+    from crosslayer.core.adapters import check_events_against_catalog
+    from crosslayer.core.telemetry import read_events_jsonl
+
+    catalog = SensorPipelineAdapter().event_catalog()
+    for name, result in runs.items():
+        events = read_events_jsonl(result.bundle_dir / "normalized_events.jsonl")
+        assert check_events_against_catalog(events, catalog) == [], name
+
+
+def test_catalog_check_reports_undeclared_output():
+    from crosslayer.core.adapters import check_events_against_catalog
+    from tests.conftest import ev
+
+    catalog = SensorPipelineAdapter().event_catalog()
+    events = [ev("packet.received", 0, subsystem="sensor_rx", ids={"ue": 1}, attrs={"pipeline.secret": 1}),
+              ev("packet.teleported", 1, subsystem="sensor_rx")]
+    problems = check_events_against_catalog(events, catalog)
+    assert len(problems) == 3
+
+
+def test_reference_experiments_have_no_lint_errors_or_warnings():
+    from crosslayer.core.contracts.lint import LintLevel
+    from crosslayer.core.orchestrator.lint import lint_experiment
+
+    for path in sorted(EXPERIMENTS.glob("*.yaml")):
+        findings = lint_experiment(load_experiment(path))
+        assert [f for f in findings if f.level is not LintLevel.INFO] == [], path.name
+
+
+def test_lint_catches_a_misspelled_attribute_in_a_reference_contract(tmp_path):
+    from crosslayer.core.orchestrator.lint import lint_contract_file
+
+    text = (PACKAGE / "contracts.yaml").read_text(encoding="utf-8").replace(
+        'e.attributes["pipeline.crc_calc"]', 'e.attributes["pipeline.crc_calculated"]')
+    path = tmp_path / "contracts.yaml"
+    path.write_text(text, encoding="utf-8")
+    findings = lint_contract_file(path, "sensor_pipeline")
+    assert [(f.code, f.contract_id) for f in findings if f.code == "CL011"] == [("CL011", "pipeline.payload_integrity")]

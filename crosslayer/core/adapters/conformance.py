@@ -7,13 +7,18 @@ check that what the adapter *declares* matches what it *implements*.
 
 from __future__ import annotations
 
+from fnmatch import fnmatchcase
+from typing import Iterable
+
 from crosslayer.core.adapters.base import (
     REQUIRED_CAPABILITIES,
     AdapterDescription,
     Capability,
+    EventSpec,
     SystemAdapter,
 )
 from crosslayer.core.contracts.model import BoundaryContract
+from crosslayer.core.telemetry.events import NormalizedEvent
 
 _OPERATION_FOR = {
     Capability.BUILD: "build",
@@ -76,6 +81,17 @@ def check_adapter_conformance(adapter: SystemAdapter) -> list[str]:
             if end not in subsystems:
                 problems.append(f"interface '{interface.name}' references undeclared subsystem '{end}'")
 
+    catalog = adapter.event_catalog()
+    if catalog is not None:
+        seen_types: set[str] = set()
+        for spec in catalog:
+            if spec.event_type in seen_types:
+                problems.append(f"event catalog lists '{spec.event_type}' twice")
+            seen_types.add(spec.event_type)
+            for sub in spec.subsystems:
+                if sub not in subsystems:
+                    problems.append(f"event catalog: '{spec.event_type}' uses undeclared subsystem '{sub}'")
+
     contracts = adapter.contracts()
     seen_ids: set[str] = set()
     for contract in contracts:
@@ -90,3 +106,27 @@ def check_adapter_conformance(adapter: SystemAdapter) -> list[str]:
                 problems.append(f"contract '{contract.id}' references undeclared subsystem '{end}'")
 
     return problems
+
+
+def check_events_against_catalog(events: Iterable[NormalizedEvent], catalog: list[EventSpec]) -> list[str]:
+    """Check that emitted events stay within the adapter's declared catalog.
+
+    Run this on real output in an adapter's tests: a catalog that lies makes
+    the linter give wrong answers.
+    """
+    specs = {s.event_type: s for s in catalog}
+    problems: set[str] = set()
+    for e in events:
+        spec = specs.get(e.event_type)
+        if spec is None:
+            problems.add(f"event type '{e.event_type}' is not in the catalog")
+            continue
+        if e.subsystem not in spec.subsystems:
+            problems.add(f"'{e.event_type}' emitted by undeclared subsystem '{e.subsystem}'")
+        for key in e.attributes:
+            if not any(fnmatchcase(key, pattern) for pattern in spec.attributes):
+                problems.add(f"'{e.event_type}' carries undeclared attribute '{key}'")
+        for key in e.correlation_ids:
+            if key not in spec.correlation_ids:
+                problems.add(f"'{e.event_type}' carries undeclared correlation id '{key}'")
+    return sorted(problems)

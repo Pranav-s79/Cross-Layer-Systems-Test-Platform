@@ -186,6 +186,19 @@ class Rule(ABC):
     def evaluate(self, events: Sequence[NormalizedEvent]) -> RuleOutcome:
         """Evaluate against time-ordered events."""
 
+    def selectors(self) -> dict[str, Selector]:
+        """Named selectors the rule uses (for static analysis)."""
+        return {}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        """Keys the rule needs on matched events, beyond its selectors' own.
+
+        Each entry is ``(selector_name, field, key)`` with field
+        ``"attributes"`` or ``"correlation_ids"``: events matched by that
+        selector must carry that key, or the rule can only be unresolved.
+        """
+        return []
+
 
 @dataclass(frozen=True)
 class BoundaryContract:

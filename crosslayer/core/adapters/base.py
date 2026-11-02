@@ -89,6 +89,21 @@ class AdapterDescription:
 
 
 @dataclass(frozen=True)
+class EventSpec:
+    """One event type an adapter can emit, for linting contracts statically.
+
+    ``attributes`` and ``correlation_ids`` list the keys the event may carry;
+    attribute entries may be shell patterns such as ``pipeline.unparsed_*``.
+    """
+
+    event_type: str
+    subsystems: tuple[str, ...]
+    attributes: tuple[str, ...] = ()
+    correlation_ids: tuple[str, ...] = ()
+    description: str = ""
+
+
+@dataclass(frozen=True)
 class FaultSpec:
     """A fault the adapter can inject, with the ground-truth location it targets.
 
@@ -240,3 +255,12 @@ class SystemAdapter(ABC):
 
     def faults(self) -> list[FaultSpec]:
         return []
+
+    def event_catalog(self) -> list[EventSpec] | None:
+        """Event types this adapter can emit, or None if unknown.
+
+        Optional. When provided, ``crosslayer lint`` can detect contracts that
+        can never match (misspelled event types, attributes, or correlation
+        ids) before anything runs.
+        """
+        return None

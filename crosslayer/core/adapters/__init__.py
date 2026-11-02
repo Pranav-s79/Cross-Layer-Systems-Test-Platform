@@ -4,6 +4,7 @@ from crosslayer.core.adapters.base import (
     Artifact,
     BuildResult,
     Capability,
+    EventSpec,
     ExecutionResult,
     ExecutionStatus,
     FaultRequest,
@@ -14,7 +15,7 @@ from crosslayer.core.adapters.base import (
     RunContext,
     SystemAdapter,
 )
-from crosslayer.core.adapters.conformance import check_adapter_conformance
+from crosslayer.core.adapters.conformance import check_adapter_conformance, check_events_against_catalog
 from crosslayer.core.adapters.registry import ENTRY_POINT_GROUP, available_adapters, load_adapter
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "Artifact",
     "BuildResult",
     "Capability",
+    "EventSpec",
     "ExecutionResult",
     "ExecutionStatus",
     "FaultRequest",
@@ -35,5 +37,6 @@ __all__ = [
     "SystemAdapter",
     "available_adapters",
     "check_adapter_conformance",
+    "check_events_against_catalog",
     "load_adapter",
 ]

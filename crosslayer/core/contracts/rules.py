@@ -120,6 +120,9 @@ def _insufficient(observed: int, required: int, what: str, stats: dict[str, Any]
 class CountRule(Rule):
     kind = "count"
 
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
     def __init__(self, select: Selector, minimum: int | None, maximum: int | None) -> None:
         self.select = select
         self.minimum = minimum
@@ -182,6 +185,16 @@ class ResponseRule(Rule):
     """
 
     kind = "response"
+
+    def selectors(self) -> dict[str, Selector]:
+        named = {"trigger": self.trigger}
+        named.update({f"response[{i}]": r for i, r in enumerate(self.responses)})
+        return named
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        if self.correlate_by is None:
+            return []
+        return [(name, "correlation_ids", self.correlate_by) for name in self.selectors()]
 
     def __init__(
         self,
@@ -318,6 +331,17 @@ class TransitionsRule(Rule):
     """
 
     kind = "transitions"
+
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        reqs = []
+        if self.group_by is not None:
+            reqs.append(("select", "correlation_ids", self.group_by))
+        if self.state_attribute is not None:
+            reqs.append(("select", "attributes", self.state_attribute))
+        return reqs
 
     def __init__(
         self,
@@ -492,6 +516,12 @@ def nearest_rank_percentile(sorted_values: Sequence[Any], pct: int) -> Any:
 class ThresholdRule(Rule):
     kind = "threshold"
 
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        return [("select", "attributes", self.attribute)] if self.attribute else []
+
     def __init__(
         self,
         select: Selector,
@@ -625,6 +655,12 @@ def _referenced_attributes(expr: Expression, event: NormalizedEvent) -> dict[str
 class InvariantRule(Rule):
     kind = "invariant"
 
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        return [("select", field, key) for field, key in sorted(self.expect.references())]
+
     def __init__(self, select: Selector, expect: Expression, min_matches: int) -> None:
         self.select = select
         self.expect = expect
@@ -678,6 +714,18 @@ class SuccessiveRule(Rule):
     ``when`` filters which pairs the relation applies to."""
 
     kind = "successive"
+
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        refs = set(self.expect.references())
+        if self.when is not None:
+            refs |= self.when.references()
+        reqs = [("select", field, key) for field, key in sorted(refs)]
+        if self.group_by is not None:
+            reqs.append(("select", "correlation_ids", self.group_by))
+        return reqs
 
     def __init__(
         self,

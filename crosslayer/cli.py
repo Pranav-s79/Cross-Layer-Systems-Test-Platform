@@ -5,6 +5,7 @@
     crosslayer adapters [--json]
     crosslayer check FILE...          validate contract or experiment files
     crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
+    crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
     crosslayer verify BUNDLE          check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
@@ -21,7 +22,9 @@ from typing import Sequence
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import verify_bundle
 from crosslayer.core.contracts.loader import parse_contracts_document, read_document
+from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import run_contract_tests
+from crosslayer.core.orchestrator.lint import lint_contract_file, lint_experiment
 from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
 from crosslayer.core.orchestrator.experiment import load_experiment
@@ -139,6 +142,24 @@ def _cmd_test_contracts(args: argparse.Namespace) -> int:
     return 1 if args.require_coverage and uncovered_total else 0
 
 
+def _cmd_lint(args: argparse.Namespace) -> int:
+    worst = 0
+    for path in args.files:
+        doc = read_document(path)
+        if isinstance(doc, dict) and "adapter" in doc and "seed" in doc:
+            findings = lint_experiment(load_experiment(path))
+        else:
+            findings = lint_contract_file(path, args.adapter)
+        print(f"{path}: {len(findings)} finding(s)")
+        for finding in findings:
+            print(f"  {finding}")
+        if any(f.level is LintLevel.ERROR for f in findings):
+            worst = 1
+        elif args.strict and any(f.level is LintLevel.WARNING for f in findings):
+            worst = 1
+    return worst
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
     problems = verify_bundle(args.bundle)
     for problem in problems:
@@ -177,6 +198,12 @@ def build_parser() -> argparse.ArgumentParser:
     tests.add_argument("--require-coverage", action="store_true",
                        help="fail unless every contract has a passing known-good and known-bad case")
     tests.set_defaults(func=_cmd_test_contracts)
+
+    lint = sub.add_parser("lint", help="statically check contract or experiment files")
+    lint.add_argument("files", type=Path, nargs="+")
+    lint.add_argument("--adapter", help="check contract files against this adapter's catalog and subsystems")
+    lint.add_argument("--strict", action="store_true", help="treat warnings as failures")
+    lint.set_defaults(func=_cmd_lint)
 
     verify = sub.add_parser("verify", help="verify a bundle against its manifest hashes")
     verify.add_argument("bundle", type=Path)

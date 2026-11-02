@@ -68,6 +68,22 @@ capabilities you do not declare. The base class raises
 * `validate_parameters` and `validate_faults` reject bad values before
   anything runs.
 
+## 4b. Declare an event catalog (recommended)
+
+```python
+from crosslayer.core.adapters import EventSpec
+
+def event_catalog(self):
+    return [
+        EventSpec("rtl.fetch", ("fetch",), ("rtl.pc", "rtl.instr", "rtl.cycle"), ("hart",)),
+        EventSpec("rtl.writeback", ("regfile",), ("rtl.rd", "rtl.value")),
+    ]
+```
+
+With a catalog, `crosslayer lint` reports contracts that reference event
+types, attributes, or correlation ids your adapter never emits. Keep it
+truthful with `check_events_against_catalog` in your tests.
+
 ## 5. Register and test
 
 ```toml
@@ -81,6 +97,9 @@ from crosslayer.core.adapters import check_adapter_conformance
 def test_conforms():
     assert check_adapter_conformance(MyAdapter()) == []
 ```
+
+Add contract tests (`crosslayer test-contracts`, see [tooling.md](tooling.md))
+so every contract has a trace it must pass and one it must fail.
 
 Then add a baseline experiment that must PASS and at least one controlled
 fault that must FAIL the contract designed to catch it.
