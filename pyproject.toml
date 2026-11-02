@@ -26,6 +26,7 @@ include = ["crosslayer*"]
 
 [tool.setuptools.package-data]
 "crosslayer.integrations.sensor_pipeline" = ["*.yaml", "fixtures/*.jsonl"]
+"crosslayer.scaffold" = ["templates/*.tmpl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

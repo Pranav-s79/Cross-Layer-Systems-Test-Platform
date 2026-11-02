@@ -166,3 +166,26 @@ differs between the two bundles (`[contract changed: v1 -> v2]`). A
 "regression" that comes from tightening a contract is then not mistaken for
 the system getting worse; the event-stream fingerprint shows whether the
 system's behavior changed at all.
+
+## Scaffolding a new adapter
+
+```sh
+crosslayer new adapter rv32i_core --dir integrations/
+cd integrations/rv32i_core && pip install -e . && pytest
+```
+
+Generates a complete project that works **before any edits**:
+
+| File | Purpose |
+|---|---|
+| `rv32i_core/adapter.py` | Log-only adapter: collect + normalize, event catalog, TODOs where your system differs |
+| `rv32i_core/contracts.yaml` | Two example contracts (a response deadline and a lifecycle state machine) |
+| `rv32i_core/contract_tests.yaml` | A known-good and a known-bad case for each contract |
+| `examples/sample.log`, `experiments/analyze_sample.yaml` | A sample log and an experiment that analyzes it |
+| `tests/test_rv32i_core.py` | Conformance, contract tests with full coverage, lint, sample run, catalog check |
+| `pyproject.toml` | Registers the adapter under the `crosslayer.adapters` entry point |
+
+The generated README walks through adapting it: parse your log format,
+describe your subsystems, declare the event catalog, write contracts, and add
+contract tests. Keep `pytest` green at each step. CrossLayer's own test
+suite generates a project and runs its tests, so the scaffold cannot rot.

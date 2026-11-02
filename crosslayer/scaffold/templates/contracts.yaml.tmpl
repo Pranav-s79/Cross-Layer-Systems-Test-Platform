@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/contracts.schema.json
+# Contracts for @@TITLE@@. Each one needs a known-good and a known-bad case in
+# contract_tests.yaml.
+schema_version: 1
+contracts:
+  - id: @@NAME@@.request_completed
+    title: Every request completes within 1 ms
+    owner: @@NAME@@-team  # TODO: the team accountable for this boundary
+    source: controller
+    destination: worker
+    precondition: {event_type: session.start}
+    evidence: [{event_type: session.end}]  # a truncated log gives INCONCLUSIVE, not FAIL
+    rule:
+      kind: response
+      trigger: {event_type: request.received}
+      response: {event_type: request.completed}
+      correlate_by: req
+      within_ms: 1
+
+  - id: @@NAME@@.request_lifecycle
+    title: Each request is received once and completed once
+    owner: @@NAME@@-team
+    source: controller
+    destination: worker
+    rule:
+      kind: transitions
+      select: {event_type: "request.*"}
+      state: event_type
+      group_by: req
+      initial: [request.received]
+      allowed:
+        request.received: [request.completed]
+        request.completed: []

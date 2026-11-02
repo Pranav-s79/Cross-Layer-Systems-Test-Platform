@@ -9,6 +9,7 @@
     crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
     crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
     crosslayer diff-contracts OLD NEW per-owner changelog; fails on unversioned semantic changes
+    crosslayer new adapter NAME       scaffold a working adapter project (--dir DIR)
     crosslayer verify BUNDLE          check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
@@ -35,6 +36,7 @@ from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
 from crosslayer.core.orchestrator.suite import SuiteRunner, load_suite
 from crosslayer.core.schemas import SCHEMAS
+from crosslayer.scaffold import create_adapter_project
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
 
 
@@ -218,6 +220,17 @@ def _cmd_diff_contracts(args: argparse.Namespace) -> int:
     return 1 if any(c.problem for c in changes) else 0
 
 
+def _cmd_new(args: argparse.Namespace) -> int:
+    root = create_adapter_project(args.name, args.dir)
+    print(f"created {root}")
+    print("next:")
+    print(f"  cd {root}")
+    print("  pip install -e .")
+    print("  pytest                       # passes before any edits")
+    print(f"  then follow {root / 'README.md'}")
+    return 0
+
+
 def _schema_text(name: str) -> str:
     return json.dumps(SCHEMAS[name](), indent=2) + "\n"
 
@@ -292,6 +305,12 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("new", type=Path)
     diff.add_argument("--markdown", action="store_true", help="print a Markdown changelog grouped by owner")
     diff.set_defaults(func=_cmd_diff_contracts)
+
+    new = sub.add_parser("new", help="scaffold a new adapter project")
+    new.add_argument("kind", choices=["adapter"])
+    new.add_argument("name", help="snake_case adapter name, e.g. rv32i_core")
+    new.add_argument("--dir", type=Path, default=Path("."), help="parent directory (default: current)")
+    new.set_defaults(func=_cmd_new)
 
     schema = sub.add_parser("schema", help="print or write JSON Schemas for editor validation")
     schema.add_argument("name", nargs="?", choices=sorted(SCHEMAS))

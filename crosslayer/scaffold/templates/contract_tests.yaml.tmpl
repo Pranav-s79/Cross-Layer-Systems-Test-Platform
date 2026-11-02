@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/contract-tests.schema.json
+# Every contract needs a case it must PASS and a case it must FAIL.
+# Run: crosslayer test-contracts @@NAME@@/contract_tests.yaml --require-coverage
+schema_version: 1
+contracts: [contracts.yaml]
+cases:
+  - name: a request completed in time
+    contract: @@NAME@@.request_completed
+    expect: pass
+    events:
+      - {t_us: 0, type: session.start, subsystem: controller, ids: {session: 1}}
+      - {t_us: 100, type: request.received, subsystem: worker, ids: {session: 1, req: 1}}
+      - {t_us: 400, type: request.completed, subsystem: worker, ids: {session: 1, req: 1}}
+      - {t_us: 5000, type: session.end, subsystem: controller, ids: {session: 1}}
+
+  - name: a request that never completes is a violation
+    contract: @@NAME@@.request_completed
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 0, type: session.start, subsystem: controller, ids: {session: 1}}
+      - {t_us: 100, type: request.received, subsystem: worker, ids: {session: 1, req: 1}}
+      - {t_us: 5000, type: session.end, subsystem: controller, ids: {session: 1}}
+
+  - name: received then completed
+    contract: @@NAME@@.request_lifecycle
+    expect: pass
+    events:
+      - {t_us: 1, type: request.received, subsystem: worker, ids: {req: 1}}
+      - {t_us: 2, type: request.completed, subsystem: worker, ids: {req: 1}}
+
+  - name: a request completed twice is illegal
+    contract: @@NAME@@.request_lifecycle
+    expect: fail
+    events:
+      - {t_us: 1, type: request.received, subsystem: worker, ids: {req: 1}}
+      - {t_us: 2, type: request.completed, subsystem: worker, ids: {req: 1}}
+      - {t_us: 3, type: request.completed, subsystem: worker, ids: {req: 1}}

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crosslayer-@@DIST@@"
+version = "0.1.0"
+description = "CrossLayer adapter for @@TITLE@@"
+requires-python = ">=3.11"
+dependencies = ["crosslayer"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+# Registers the adapter so experiments can say `adapter: @@NAME@@`.
+[project.entry-points."crosslayer.adapters"]
+@@NAME@@ = "@@NAME@@.adapter:@@CLASS@@"
+
+[tool.setuptools.packages.find]
+include = ["@@NAME@@*"]
+
+[tool.setuptools.package-data]
+"@@NAME@@" = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
