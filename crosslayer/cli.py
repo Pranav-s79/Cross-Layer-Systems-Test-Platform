@@ -1,6 +1,7 @@
 """Command-line entry point.
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
+    crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json]
     crosslayer check FILE...          validate contract or experiment files
@@ -22,14 +23,15 @@ from typing import Sequence
 
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import verify_bundle
-from crosslayer.core.contracts.loader import parse_contracts_document, read_document
+from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
-from crosslayer.core.contracts.testing import run_contract_tests
+from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
 from crosslayer.core.orchestrator.lint import lint_contract_file, lint_experiment
 from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
 from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
+from crosslayer.core.orchestrator.suite import SuiteRunner, load_suite
 from crosslayer.core.schemas import SCHEMAS
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
 
@@ -101,17 +103,33 @@ def _cmd_adapters(args: argparse.Namespace) -> int:
     return 0
 
 
+def _file_kind(doc: object) -> str:
+    """Tell CrossLayer's YAML file types apart by their top-level keys."""
+    if isinstance(doc, dict):
+        if "experiments" in doc:
+            return "suite"
+        if "cases" in doc:
+            return "contract-tests"
+        if "seed" in doc or "adapter" in doc:
+            return "experiment"
+    return "contracts"
+
+
 def _cmd_check(args: argparse.Namespace) -> int:
     status = 0
     for path in args.files:
         try:
-            doc = read_document(path)
-            if isinstance(doc, dict) and "adapter" in doc:
+            kind = _file_kind(read_document(path))
+            if kind == "suite":
+                detail = f"suite, {len(load_suite(path).entries)} experiments"
+            elif kind == "contract-tests":
+                detail = f"contract tests, {len(load_contract_tests(path)[1])} cases"
+            elif kind == "experiment":
                 load_experiment(path)
-                print(f"ok  {path} (experiment)")
+                detail = "experiment"
             else:
-                contracts = parse_contracts_document(doc, str(path))
-                print(f"ok  {path} ({len(contracts)} contracts)")
+                detail = f"{len(load_contracts_file(path))} contracts"
+            print(f"ok  {path} ({detail})")
         except (ConfigError, OSError, ValueError) as exc:
             print(f"bad {exc}")
             status = EXIT_CONFIG_ERROR
@@ -145,14 +163,22 @@ def _cmd_test_contracts(args: argparse.Namespace) -> int:
 
 
 def _cmd_lint(args: argparse.Namespace) -> int:
-    worst = 0
+    targets: list[tuple[str, list]] = []
     for path in args.files:
-        doc = read_document(path)
-        if isinstance(doc, dict) and "adapter" in doc and "seed" in doc:
-            findings = lint_experiment(load_experiment(path))
+        kind = _file_kind(read_document(path))
+        if kind == "suite":
+            for entry in load_suite(path).entries:
+                targets.append((f"{path} [{entry.id}]", lint_experiment(entry.experiment)))
+        elif kind == "experiment":
+            targets.append((str(path), lint_experiment(load_experiment(path))))
+        elif kind == "contract-tests":
+            print(f"{path}: contract tests are checked with `crosslayer test-contracts`")
         else:
-            findings = lint_contract_file(path, args.adapter)
-        print(f"{path}: {len(findings)} finding(s)")
+            targets.append((str(path), lint_contract_file(path, args.adapter)))
+
+    worst = 0
+    for label, findings in targets:
+        print(f"{label}: {len(findings)} finding(s)")
         for finding in findings:
             print(f"  {finding}")
         if any(f.level is LintLevel.ERROR for f in findings):
@@ -160,6 +186,21 @@ def _cmd_lint(args: argparse.Namespace) -> int:
         elif args.strict and any(f.level is LintLevel.WARNING for f in findings):
             worst = 1
     return worst
+
+
+def _cmd_suite(args: argparse.Namespace) -> int:
+    suite = load_suite(args.suite)
+    print(f"suite     {suite.name} ({len(suite.entries)} experiments)")
+
+    def show(r) -> None:
+        verdict = r.verdict.upper() if r.verdict else "-"
+        detail = f"blocked by {', '.join(r.blocked_by)}" if r.blocked_by else (r.run_id or "")
+        print(f"  {r.status.upper():<8} {r.entry.id:<24} expect {r.entry.expect.upper():<12} got {verdict:<12} {detail}")
+
+    outcome = SuiteRunner(args.out).run(suite, on_result=show)
+    print(f"result    {'PASSED' if outcome.passed else 'FAILED'}")
+    print(f"output    {outcome.suite_dir}")
+    return 0 if outcome.passed else 1
 
 
 def _schema_text(name: str) -> str:
@@ -199,6 +240,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--seed", type=int, help="override the experiment seed")
     run.add_argument("--quiet", action="store_true", help="do not list per-contract results")
     run.set_defaults(func=_cmd_run)
+
+    suite_p = sub.add_parser("suite", help="run a suite of experiments in dependency order")
+    suite_p.add_argument("suite", type=Path)
+    suite_p.add_argument("--out", type=Path, default=Path("runs"), help="output directory (default: runs/)")
+    suite_p.set_defaults(func=_cmd_suite)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
     compare.add_argument("baseline", type=Path)

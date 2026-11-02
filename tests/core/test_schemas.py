@@ -40,6 +40,7 @@ def _repo_files():
     yield from (("contracts", p) for p in ROOT.glob("crosslayer/integrations/*/contracts.yaml"))
     yield from (("contract-tests", p) for p in ROOT.glob("crosslayer/integrations/*/contract_tests.yaml"))
     yield from (("experiment", p) for p in ROOT.glob("experiments/**/*.yaml") if "suite" not in p.name)
+    yield from (("suite", p) for p in ROOT.glob("experiments/**/suite*.yaml"))
 
 
 @pytest.mark.parametrize("name, path", list(_repo_files()), ids=lambda x: getattr(x, "name", x))

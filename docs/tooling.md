@@ -107,3 +107,38 @@ safety, `min <= max`, references between files). Tests keep the schemas
 **no stricter** than the loaders on every YAML file in the repository and on
 a set of valid and invalid documents, so the editor never flags a file that
 CrossLayer accepts.
+
+## Experiment suites
+
+```yaml
+schema_version: 1
+name: reference
+experiments:
+  - id: baseline
+    path: baseline.yaml            # relative to the suite file
+  - id: silent_drop
+    path: fault_silent_drop.yaml
+    expect: fail                   # default: pass
+    depends_on: [baseline]
+```
+
+```sh
+crosslayer suite experiments/reference/suite.yaml --out runs
+```
+
+* An experiment **meets its expectation** when its verdict equals `expect`.
+  Fault-injection experiments should `expect: fail`.
+* An experiment runs only if everything it `depends_on` met its expectation;
+  otherwise it is **blocked** and does not run. Fault results are meaningless
+  if the baseline already fails, so faults depend on the baseline. Blocking is
+  transitive.
+* Order is a topological sort (Kahn's algorithm). Among ready experiments,
+  the one listed first runs first, so runs are deterministic. Cycles are
+  rejected when the suite is loaded, with the cycle spelled out
+  (`dependency cycle: a -> b -> c -> a`).
+* Output goes to `runs/suite-<name>-<time>/`: `summary.json`, `report.md`,
+  `junit.xml` (unmet = failure, blocked = skipped), and each run's bundle
+  under `runs/`. The exit code is 0 only if every experiment met its expectation.
+
+`crosslayer check` and `crosslayer lint` accept suite files too. Lint checks
+every experiment in the suite.

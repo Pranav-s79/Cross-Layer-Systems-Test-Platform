@@ -35,21 +35,12 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: python -m pip install -e .
-      - name: Baseline must pass
-        run: crosslayer run experiments/reference/baseline.yaml --out runs
-      - name: Every injected fault must be detected (exit code 1 = FAIL)
-        shell: bash
-        run: |
-          for experiment in experiments/reference/fault_*.yaml; do
-            set +e
-            crosslayer run "$experiment" --out runs --quiet
-            code=$?
-            set -e
-            if [ "$code" -ne 1 ]; then
-              echo "::error::expected FAIL (exit 1) for $experiment, got exit $code"
-              exit 1
-            fi
-          done
+      - name: Lint contracts and experiments
+        run: crosslayer lint experiments/reference/suite.yaml --strict
+      - name: Contract tests (every contract has a known-good and known-bad case)
+        run: crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage
+      - name: Reference suite (baseline passes, every injected fault is detected)
+        run: crosslayer suite experiments/reference/suite.yaml --out runs
       - name: Upload run bundles
         if: always()
         uses: actions/upload-artifact@v4

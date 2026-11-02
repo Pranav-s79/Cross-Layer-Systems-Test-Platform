@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../schemas/suite.schema.json
+schema_version: 1
+name: reference
+description: >
+  The baseline must pass; every injected fault must then be detected.
+  Fault experiments depend on the baseline: if the system fails without a
+  fault, a "detected" fault proves nothing, so they are blocked instead.
+experiments:
+  - id: baseline
+    path: baseline.yaml
+  - id: silent_drop
+    path: fault_silent_drop.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: slow_consumer
+    path: fault_slow_consumer.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: corrupt_checksum
+    path: fault_corrupt_checksum.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: duplicate_completion
+    path: fault_duplicate_completion.yaml
+    expect: fail
+    depends_on: [baseline]

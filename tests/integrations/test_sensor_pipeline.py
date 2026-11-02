@@ -16,6 +16,7 @@ from crosslayer.integrations.sensor_pipeline import SensorPipelineAdapter
 from crosslayer.integrations.sensor_pipeline import sim
 
 EXPERIMENTS = Path(__file__).resolve().parents[2] / "experiments" / "reference"
+EXPERIMENT_FILES = [EXPERIMENTS / "baseline.yaml", *sorted(EXPERIMENTS.glob("fault_*.yaml"))]
 ALL_CONTRACTS = {
     "pipeline.rx_accounted",
     "pipeline.packet_lifecycle",
@@ -33,7 +34,7 @@ def runs(tmp_path_factory):
     """Run every reference experiment once and share the results."""
     out = tmp_path_factory.mktemp("runs")
     runner = ExperimentRunner(out)
-    return {path.stem: runner.run(load_experiment(path)) for path in sorted(EXPERIMENTS.glob("*.yaml"))}
+    return {path.stem: runner.run(load_experiment(path)) for path in EXPERIMENT_FILES}
 
 
 def _failed(result) -> set[str]:
@@ -261,7 +262,7 @@ def test_reference_experiments_have_no_lint_errors_or_warnings():
     from crosslayer.core.contracts.lint import LintLevel
     from crosslayer.core.orchestrator.lint import lint_experiment
 
-    for path in sorted(EXPERIMENTS.glob("*.yaml")):
+    for path in EXPERIMENT_FILES:
         findings = lint_experiment(load_experiment(path))
         assert [f for f in findings if f.level is not LintLevel.INFO] == [], path.name
 

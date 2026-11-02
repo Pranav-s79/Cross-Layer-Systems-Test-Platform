@@ -207,8 +207,35 @@ def contract_tests_schema() -> dict[str, Any]:
     })
 
 
+def suite_schema() -> dict[str, Any]:
+    entry = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["id", "path"],
+        "properties": {
+            "id": {"type": "string", "pattern": r"^[a-z0-9][a-z0-9_-]*$"},
+            "path": {**_STR, "description": "Experiment file, relative to the suite"},
+            "expect": {"enum": ["pass", "fail", "inconclusive", "skipped", "error"],
+                       "description": "Verdict this experiment should produce (default pass)"},
+            "depends_on": _STR_OR_LIST,
+        },
+    }
+    return _document("suite", "CrossLayer experiment suite", {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["schema_version", "name", "experiments"],
+        "properties": {
+            "schema_version": {"const": 1},
+            "name": _STR,
+            "description": _OPT_TEXT,
+            "experiments": {"type": "array", "items": entry, "minItems": 1},
+        },
+    })
+
+
 SCHEMAS: dict[str, Callable[[], dict[str, Any]]] = {
     "contracts": contracts_schema,
     "experiment": experiment_schema,
     "contract-tests": contract_tests_schema,
+    "suite": suite_schema,
 }
