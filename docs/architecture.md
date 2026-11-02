@@ -1,7 +1,7 @@
 # Architecture
 
 This document describes the architecture **as implemented**. Planned work is
-listed in the README status table. Each layer below is marked with its status.
+in the [roadmap](../ROADMAP.md). Each layer below is marked with its status.
 
 ## Data flow
 
@@ -30,13 +30,13 @@ listed in the README status table. Each layer below is marked with its status.
 
 ## Layers
 
-| Layer | Plan name | Status | Code |
+| Layer | Name | Status | Code |
 |---|---|---|---|
 | 1 | Systems under test | Reference simulation only | `crosslayer/integrations/sensor_pipeline/sim.py` |
 | 2 | Integration adapters | Implemented | `crosslayer/core/adapters/` |
 | 3 | Experiment orchestrator | Implemented (local execution) | `crosslayer/core/orchestrator/` |
 | 4 | Contract verification engine | Implemented | `crosslayer/core/contracts/` |
-| 5 | Fault propagation and diagnosis | Planned (Phase 3) | — |
+| 5 | Fault propagation and diagnosis | Planned (roadmap Phase 7) | — |
 | 6 | Engineering output | Partial: JSON, Markdown, JUnit, comparison | `crosslayer/core/artifacts/`, `orchestrator/compare.py` |
 
 ### Layer 2: adapters
@@ -64,11 +64,11 @@ Adapters are discovered through the `crosslayer.adapters` entry-point group
   bundle exists. Runtime failures are recorded in the bundle with verdict
   ERROR, so there is always something to inspect.
 * `compare.py`: compares two bundles per contract (regression, fixed,
-  lost coverage) and checks event-stream fingerprints for identical-seed
-  repeatability.
+  lost or gained coverage) and checks event-stream fingerprints for
+  identical-seed repeatability.
 
-Not yet implemented from the plan: test dependency ordering, Docker or
-distributed execution backends.
+Not yet implemented: experiment suites with dependency ordering (roadmap
+Phase 2), and container or distributed execution (Phase 12).
 
 ### Layer 4: contracts
 
@@ -91,7 +91,7 @@ observations they are INCONCLUSIVE unless the author opts out. See
 The foundations are in place: contracts carry `source`/`destination`,
 adapters declare subsystems and interfaces, every finding records when it
 became observable (`timestamp_ns`) with evidence references, and every fault
-declares its ground-truth target. Phase 3 will build the dependency graph and
+declares its ground-truth target. Roadmap Phase 7 will build the dependency graph and
 rank hypotheses on top of these.
 
 ## Architectural rules (enforced by tests)
@@ -105,9 +105,9 @@ rank hypotheses on top of these.
 
 ## Package layout note
 
-The plan's tree places `core/` and `integrations/` at the repository root.
-Here they live under one importable package, `crosslayer/`, as
-`crosslayer.core` and `crosslayer.integrations`. That avoids a top-level
+`core` and `integrations` live under one importable package, `crosslayer/`,
+as `crosslayer.core` and `crosslayer.integrations`, rather than as separate
+top-level packages. That avoids a top-level
 package named `core`, which collides easily with other packages, and it keeps
 one namespace for entry points. The import-boundary rule is unchanged and
 is enforced by a test.

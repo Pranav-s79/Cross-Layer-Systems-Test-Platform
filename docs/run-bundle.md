@@ -32,4 +32,5 @@ Every run writes one directory, `<output>/<run_id>/`, where
 
 ## Planned additions
 
-`dependency_graph.json` and `diagnosis.json` (Phase 3), `report.html` (Layer 6).
+`dependency_graph.json` and `diagnosis.json` (roadmap Phase 7), and an HTML
+report with cross-layer timelines (Phase 13).

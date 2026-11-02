@@ -1,60 +1,36 @@
 # CrossLayer
 
-**A cross-stack verification, experimentation, and fault-localization platform.**
+[![CI](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Status](https://img.shields.io/badge/status-Phase%201%20of%2015-orange)
 
-Individual components can pass their own tests while the integrated system
-still fails. These failures tend to happen at subsystem boundaries: timing
-violations, lost or corrupted data, inconsistent assumptions between teams.
-CrossLayer lets you state what must hold at those boundaries as
-machine-readable **contracts**, run controlled **experiments** (including
-deliberate fault injection), and get **evidence-backed verdicts** that point
-back to the exact raw log lines involved.
+**Cross-stack verification for systems built by many teams.**
 
-The core is domain-independent. A system under test plugs in through an
-**adapter**, which runs it, collects its output, and normalizes it into a
-common event schema. The same contract engine, runner, and reports then work
-for RTL simulations, wireless-stack logs, or firmware traces.
+Components often pass their own tests and still fail together, because the
+bugs live *between* them: missed deadlines, silently dropped data, mismatched
+assumptions. CrossLayer lets you write those cross-boundary expectations as
+**contracts**, run controlled **experiments** (including fault injection),
+and get **verdicts backed by evidence** that link straight to the raw log line.
 
-## Status
-
-| Area | State |
-|---|---|
-| Adapter interface, entry-point discovery, conformance checks | Implemented |
-| Normalized event schema (JSONL, integer-ns timestamps) | Implemented |
-| Contract engine: 6 rule kinds, safe expressions, evidence gating | Implemented |
-| Experiment runner: seeds, timeouts, process-tree kill, fault injection | Implemented |
-| Reproducible run bundles: hashed manifest, replay script, JUnit, Markdown report | Implemented |
-| Run comparison: regressions, identical-seed repeatability | Implemented |
-| Reference system under test (simulated sensor pipeline, 4 faults) | Implemented |
-| CI (Linux + Windows, reference fault-detection gate) | Configured |
-| RV32I RTL integration (Icarus Verilog / Verilator) | Planned (Phase 2) |
-| OCUDU-format wireless log integration | Planned (Phase 2) |
-| Dependency graph and ranked fault localization | Planned (Phase 3) |
-| Live OCUDU + Open5GS + UE virtual-radio run | Planned (Phase 4) |
-| Follow-up experiment recommendation | Planned (Phase 5) |
-
-The reference system is a deterministic **simulation** used to validate the
-core end to end. It is not real firmware, and results from it are not claims
-about any real product.
+```mermaid
+flowchart LR
+    SUT["System under test<br/>(RTL sim, RAN stack, firmware)"] -->|raw logs| A[Adapter]
+    A -->|normalized events| E[Contract engine]
+    C[Contracts<br/>YAML] --> E
+    E --> B["Run bundle<br/>verdicts · evidence · replay"]
+```
 
 ## Quick start
 
 ```sh
-python -m venv .venv
-. .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
-pytest                          # 154 tests
-crosslayer adapters             # list discovered adapters
-crosslayer run experiments/reference/baseline.yaml
-crosslayer run experiments/reference/fault_silent_drop.yaml
-crosslayer compare runs/<baseline-run> runs/<faulty-run>
+crosslayer run experiments/reference/baseline.yaml            # PASS
+crosslayer run experiments/reference/fault_silent_drop.yaml   # FAIL, with evidence
+crosslayer compare runs/<baseline> runs/<faulty>              # regression diff
 ```
 
-Example output for the silent-drop fault:
-
-```
-run       20261102T182901Z-8a7b35f0
+```text
 verdict   FAIL
 events    800 (fingerprint 0654f85f7b561e31)
 faults    silent_drop
@@ -65,13 +41,10 @@ faults    silent_drop
   FAIL         pipeline.counter_conservation  held for 0/1 events
 ```
 
-Each violation in `report.md` links to its raw evidence, for example
-`raw_artifacts/sim.log#L315`.
+Every violation in the generated `report.md` points to its source, for
+example `raw_artifacts/sim.log#L315`.
 
-Exit codes: `0` pass, `1` fail or regression, `2` inconclusive, `3` error,
-`4` configuration error.
-
-## A contract
+## Writing a contract
 
 ```yaml
 - id: pipeline.rx_accounted
@@ -79,7 +52,6 @@ Exit codes: `0` pass, `1` fail or regression, `2` inconclusive, `3` error,
   owner: firmware-rx
   source: sensor_rx
   destination: proc
-  severity: critical
   evidence: [{event_type: system.halt}]   # truncated log -> INCONCLUSIVE, not FAIL
   rule:
     kind: response
@@ -89,31 +61,58 @@ Exit codes: `0` pass, `1` fail or regression, `2` inconclusive, `3` error,
     within_ms: 5
 ```
 
-Rule kinds: `count`, `response`, `transitions`, `threshold`, `invariant`,
-`successive`. See [docs/contract-language.md](docs/contract-language.md).
+Six rule kinds cover deadlines, state machines, percentile thresholds,
+invariants, and step-to-step relations such as `PC + 4`.
+→ [Contract language](docs/contract-language.md)
 
-## Repository layout
+## What works today
 
-```
-crosslayer/
-  core/                 domain-independent platform (never imports integrations)
-    adapters/           SystemAdapter interface, registry, conformance checks
-    telemetry/          NormalizedEvent schema, JSONL store, fingerprints
-    contracts/          contract model, rules, safe expressions, evaluator
-    orchestrator/       experiment config, process runner, runner, compare
-    artifacts/          run bundle, environment capture, JUnit, report
-  integrations/
-    sensor_pipeline/    reference simulated system + adapter + contracts
-  cli.py
-experiments/reference/  baseline and fault-injection experiments
-benchmarks/             measurement scripts
-tests/                  unit, integration, and architecture tests
-docs/                   architecture, contract language, adapter guide, bundle format
-```
+- **Pluggable adapters:** any system plugs in through one interface,
+  discovered via entry points. The core never imports a target, and a test
+  enforces that.
+- **Contract engine:** six rule kinds, a sandboxed expression language, and
+  PASS / FAIL / INCONCLUSIVE verdicts with no vacuous passes.
+- **Reproducible runs:** seeded experiments, hashed run bundles, a replay
+  script, and identical-seed repeatability checks.
+- **CI-ready:** JUnit output, meaningful exit codes, and run-to-run regression diffs.
+- **Validated with fault injection:** a reference pipeline with four injected
+  faults. Each one is caught by exactly the contracts designed for it, and the
+  baseline stays clean.
+
+> The reference system is a deterministic **simulation** used to validate the
+> core. It is not real firmware.
+
+## Roadmap
+
+CrossLayer grows from this verified core toward a production verification
+platform:
+
+| Stage | Phases | Status |
+|---|---|---|
+| Foundation | Verification core · contract tooling | ✅ Phase 1 done |
+| Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | 🔜 next |
+| Diagnosis | Fault localization · guided experiments · learning-assisted triage | 📋 planned |
+| Scale | Streaming engine · results store · distributed execution | 📋 planned |
+| Production | Platform service · OpenTelemetry · security and governance | 📋 planned |
+
+→ [Full roadmap with exit criteria](ROADMAP.md)
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [Contract language](docs/contract-language.md)
-- [Writing an adapter](docs/writing-an-adapter.md)
-- [Run bundle format](docs/run-bundle.md)
+| | |
+|---|---|
+| [Architecture](docs/architecture.md) | Layers, data flow, enforced boundaries |
+| [Contract language](docs/contract-language.md) | Fields, selectors, rule kinds, expressions, verdicts |
+| [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system under test |
+| [Run bundle format](docs/run-bundle.md) | What every run records and how to verify it |
+
+## Development
+
+```sh
+python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+pytest
+python benchmarks/bench_core.py
+```
+
+Exit codes: `0` pass · `1` fail/regression · `2` inconclusive · `3` error · `4` config error
