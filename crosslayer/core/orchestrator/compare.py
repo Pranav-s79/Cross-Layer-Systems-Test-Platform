@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from crosslayer.core.artifacts.bundle import load_json, load_manifest
+from crosslayer.core.telemetry.store import canonical_json
 
 REGRESSION_CHANGES = frozenset({"regression", "lost_coverage"})
 
@@ -35,6 +36,11 @@ class ContractDelta:
     baseline: str | None
     candidate: str | None
     change: str
+    contract_changed: bool = False
+    """The contract's definition differs between the two runs, so a verdict
+    change may come from editing the contract rather than from the system."""
+    baseline_version: int | None = None
+    candidate_version: int | None = None
 
 
 @dataclass
@@ -66,20 +72,33 @@ class Comparison:
         }
 
 
-def _verdicts(bundle_dir: Path) -> dict[str, str]:
+def _contracts(bundle_dir: Path) -> dict[str, dict[str, Any]]:
     doc = load_json(bundle_dir, "contracts.json")
-    return {item["result"]["contract_id"]: item["result"]["verdict"] for item in doc["contracts"]}
+    return {
+        item["result"]["contract_id"]: {
+            "verdict": item["result"]["verdict"],
+            "version": item["result"].get("version"),
+            "definition": canonical_json(item.get("definition")),
+        }
+        for item in doc["contracts"]
+    }
 
 
 def compare_bundles(baseline_dir: Path, candidate_dir: Path) -> Comparison:
     base = load_manifest(baseline_dir)
     cand = load_manifest(candidate_dir)
-    base_v = _verdicts(baseline_dir)
-    cand_v = _verdicts(candidate_dir)
-    deltas = [
-        ContractDelta(cid, base_v.get(cid), cand_v.get(cid), classify(base_v.get(cid), cand_v.get(cid)))
-        for cid in sorted(base_v.keys() | cand_v.keys())
-    ]
+    before = _contracts(baseline_dir)
+    after = _contracts(candidate_dir)
+    deltas = []
+    for cid in sorted(before.keys() | after.keys()):
+        b, a = before.get(cid), after.get(cid)
+        bv, av = (b or {}).get("verdict"), (a or {}).get("verdict")
+        deltas.append(ContractDelta(
+            cid, bv, av, classify(bv, av),
+            contract_changed=bool(b and a and b["definition"] != a["definition"]),
+            baseline_version=(b or {}).get("version"),
+            candidate_version=(a or {}).get("version"),
+        ))
     return Comparison(
         baseline_run=base["run_id"],
         candidate_run=cand["run_id"],
@@ -103,9 +122,15 @@ def render_comparison(comparison: Comparison) -> str:
     width = max((len(d.contract_id) for d in c.deltas), default=8)
     for d in c.deltas:
         marker = "!!" if d.change in REGRESSION_CHANGES else "  "
+        note = ""
+        if d.contract_changed:
+            note = f"  [contract changed: v{d.baseline_version} -> v{d.candidate_version}]"
         lines.append(
-            f"{marker} {d.contract_id:<{width}}  {str(d.baseline):<12} -> {str(d.candidate):<12} {d.change}"
+            f"{marker} {d.contract_id:<{width}}  {str(d.baseline):<12} -> {str(d.candidate):<12} {d.change}{note}"
         )
     lines.append("")
     lines.append(f"{len(c.regressions)} regression(s)")
+    changed = [d.contract_id for d in c.deltas if d.contract_changed]
+    if changed:
+        lines.append(f"{len(changed)} contract(s) changed between the runs; their verdict changes may not be system changes")
     return "\n".join(lines)

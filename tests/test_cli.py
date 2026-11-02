@@ -94,3 +94,17 @@ def test_suite_command_and_file_kinds(tmp_path, capsys):
     assert main(["check", str(suite), str(EXPERIMENTS / "baseline.yaml")]) == 0
     assert "suite, 5 experiments" in capsys.readouterr().out
     assert main(["lint", str(suite), "--strict"]) == 0
+
+
+def test_diff_contracts_command(tmp_path, capsys):
+    old = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contracts.yaml"
+    text = old.read_text(encoding="utf-8")
+    unbumped = tmp_path / "unbumped.yaml"
+    unbumped.write_text(text.replace("within_ms: 5", "within_ms: 6"), encoding="utf-8")
+    assert main(["diff-contracts", str(old), str(unbumped)]) == 1
+    assert "without a version bump" in capsys.readouterr().out
+    bumped = tmp_path / "bumped.yaml"
+    bumped.write_text(text.replace("within_ms: 5", "within_ms: 6").replace(
+        "  - id: pipeline.rx_accounted\n", "  - id: pipeline.rx_accounted\n    version: 2\n"), encoding="utf-8")
+    assert main(["diff-contracts", str(old), str(bumped), "--markdown"]) == 0
+    assert "## firmware-rx" in capsys.readouterr().out

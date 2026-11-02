@@ -102,6 +102,8 @@ _CONTRACT = {
     "required": ["id", "title", "owner", "source", "destination", "rule"],
     "properties": {
         "id": _ID,
+        "version": {"type": "integer", "minimum": 1,
+                    "description": "Bump on any change to what the contract checks"},
         "title": _STR,
         "owner": {**_STR, "description": "Team or subsystem accountable for this boundary"},
         "source": _STR,

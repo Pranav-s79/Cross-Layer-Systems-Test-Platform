@@ -276,3 +276,29 @@ def test_lint_catches_a_misspelled_attribute_in_a_reference_contract(tmp_path):
     path.write_text(text, encoding="utf-8")
     findings = lint_contract_file(path, "sensor_pipeline")
     assert [(f.code, f.contract_id) for f in findings if f.code == "CL011"] == [("CL011", "pipeline.payload_integrity")]
+
+
+def test_compare_flags_contract_changes_between_runs(runs, tmp_path):
+    """A verdict change caused by editing a contract must not look like a system regression."""
+    import yaml as _yaml
+
+    from crosslayer.core.orchestrator import parse_experiment
+
+    contracts = _yaml.safe_load((PACKAGE / "contracts.yaml").read_text(encoding="utf-8"))["contracts"]
+    for contract in contracts:
+        if contract["id"] == "pipeline.latency_p99":
+            contract["rule"]["value"] = 1000  # tightened: the baseline now fails it
+            contract["version"] = 2
+    config = parse_experiment(
+        {"schema_version": 1, "name": "tightened", "adapter": "sensor_pipeline", "seed": 1234,
+         "parameters": {"packets": 400, "buffer_capacity": 8}, "contracts": contracts,
+         "include_adapter_contracts": False},
+        base_dir=tmp_path, source="test")
+    tightened = ExperimentRunner(tmp_path / "runs").run(config)
+
+    comparison = compare_bundles(runs["baseline"].bundle_dir, tightened.bundle_dir)
+    assert comparison.fingerprint_match  # the system behaved identically
+    [delta] = [d for d in comparison.deltas if d.contract_id == "pipeline.latency_p99"]
+    assert (delta.change, delta.contract_changed) == ("regression", True)
+    assert (delta.baseline_version, delta.candidate_version) == (1, 2)
+    assert not any(d.contract_changed for d in comparison.deltas if d is not delta)

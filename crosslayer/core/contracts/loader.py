@@ -39,7 +39,7 @@ from crosslayer.core.errors import ConfigError
 SCHEMA_VERSION = 1
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*(\.[a-z0-9_-]+)*$")
 _REQUIRED = {"id", "title", "owner", "source", "destination", "rule"}
-_OPTIONAL = {"description", "severity", "on_fail", "precondition", "evidence", "tags"}
+_OPTIONAL = {"description", "severity", "on_fail", "precondition", "evidence", "tags", "version"}
 
 
 def _text(raw: Mapping[str, Any], key: str, location: str) -> str:
@@ -91,6 +91,10 @@ def parse_contract(raw: Any, location: str, origin: str = "") -> BoundaryContrac
     if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
         raise ConfigError("must be a list of strings", location=f"{location}.tags")
 
+    version = raw.get("version", 1)
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise ConfigError("must be an integer >= 1", location=f"{location}.version")
+
     description = raw.get("description") or ""
     if not isinstance(description, str):
         raise ConfigError("must be a string", location=f"{location}.description")
@@ -109,6 +113,7 @@ def parse_contract(raw: Any, location: str, origin: str = "") -> BoundaryContrac
         evidence=evidence,
         tags=tuple(tags),
         origin=origin,
+        version=version,
         definition=dict(raw),
     )
 

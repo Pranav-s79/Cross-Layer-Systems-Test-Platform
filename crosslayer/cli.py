@@ -8,6 +8,7 @@
     crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
     crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
     crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
+    crosslayer diff-contracts OLD NEW per-owner changelog; fails on unversioned semantic changes
     crosslayer verify BUNDLE          check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
@@ -26,6 +27,7 @@ from crosslayer.core.artifacts.bundle import verify_bundle
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
+from crosslayer.core.contracts.versioning import diff_contracts, render_changelog
 from crosslayer.core.orchestrator.lint import lint_contract_file, lint_experiment
 from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
@@ -203,6 +205,19 @@ def _cmd_suite(args: argparse.Namespace) -> int:
     return 0 if outcome.passed else 1
 
 
+def _cmd_diff_contracts(args: argparse.Namespace) -> int:
+    changes = diff_contracts(load_contracts_file(args.old), load_contracts_file(args.new))
+    if args.markdown:
+        print(render_changelog(changes), end="")
+    else:
+        if not changes:
+            print("no contract changes")
+        for c in changes:
+            flag = f"  PROBLEM: {c.problem}" if c.problem else ""
+            print(f"{c.owner:<16} {c.contract_id:<36} {c.describe()}{flag}")
+    return 1 if any(c.problem for c in changes) else 0
+
+
 def _schema_text(name: str) -> str:
     return json.dumps(SCHEMAS[name](), indent=2) + "\n"
 
@@ -271,6 +286,12 @@ def build_parser() -> argparse.ArgumentParser:
     lint.add_argument("--adapter", help="check contract files against this adapter's catalog and subsystems")
     lint.add_argument("--strict", action="store_true", help="treat warnings as failures")
     lint.set_defaults(func=_cmd_lint)
+
+    diff = sub.add_parser("diff-contracts", help="changelog between two contract files, per owner")
+    diff.add_argument("old", type=Path)
+    diff.add_argument("new", type=Path)
+    diff.add_argument("--markdown", action="store_true", help="print a Markdown changelog grouped by owner")
+    diff.set_defaults(func=_cmd_diff_contracts)
 
     schema = sub.add_parser("schema", help="print or write JSON Schemas for editor validation")
     schema.add_argument("name", nargs="?", choices=sorted(SCHEMAS))

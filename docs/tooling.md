@@ -142,3 +142,27 @@ crosslayer suite experiments/reference/suite.yaml --out runs
 
 `crosslayer check` and `crosslayer lint` accept suite files too. Lint checks
 every experiment in the suite.
+
+## Contract versioning
+
+Contracts carry an optional `version` (integer, default 1). Bump it whenever
+**what the contract checks** changes: `rule`, `source`, `destination`,
+`precondition`, `evidence`, `severity`, or `on_fail`. Wording (`title`,
+`description`, `tags`) and `owner` can change without a bump. Defaults are
+normalized, so omitting `severity` equals `severity: major`.
+
+```sh
+git show main:path/contracts.yaml > /tmp/old.yaml
+crosslayer diff-contracts /tmp/old.yaml path/contracts.yaml             # exit 1 on problems
+crosslayer diff-contracts /tmp/old.yaml path/contracts.yaml --markdown  # changelog per owner
+```
+
+Problems (exit code 1): a semantic change without a version bump, or a
+version that went backwards. Use it in review: the owning team sees exactly
+which of their contracts changed and how.
+
+**Across runs:** `crosslayer compare` marks a contract whose definition
+differs between the two bundles (`[contract changed: v1 -> v2]`). A
+"regression" that comes from tightening a contract is then not mistaken for
+the system getting worse; the event-stream fingerprint shows whether the
+system's behavior changed at all.

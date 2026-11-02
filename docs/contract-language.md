@@ -21,6 +21,7 @@ crosslayer check path/to/contracts.yaml
 | `on_fail` | no | `fail_run` (default) or `warn` (reported, does not fail the run) |
 | `precondition` | no | Selector. If nothing matches, the contract is SKIPPED |
 | `evidence` | no | Selector(s) that must match before a verdict counts. Missing gives INCONCLUSIVE |
+| `version` | no | Integer, default 1. Bump on any change to what the contract checks (see [tooling.md](tooling.md#contract-versioning)) |
 | `description`, `tags` | no | Documentation |
 
 ## Selectors

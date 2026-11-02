@@ -214,6 +214,8 @@ class BoundaryContract:
     precondition: Selector | None = None
     evidence: tuple[Selector, ...] = ()
     tags: tuple[str, ...] = ()
+    version: int = 1
+    """Bumped by the owner on any change to what the contract checks."""
     origin: str = ""
     """Where the contract was defined (file path or adapter name)."""
     definition: Mapping[str, Any] = field(default_factory=dict)
@@ -246,6 +248,7 @@ class ContractResult:
         c = self.contract
         return {
             "contract_id": c.id,
+            "version": c.version,
             "title": c.title,
             "owner": c.owner,
             "source": c.source,
