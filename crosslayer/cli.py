@@ -6,6 +6,7 @@
     crosslayer check FILE...          validate contract or experiment files
     crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
     crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
+    crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
     crosslayer verify BUNDLE          check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
@@ -29,6 +30,7 @@ from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
 from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
+from crosslayer.core.schemas import SCHEMAS
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
 
 
@@ -160,6 +162,25 @@ def _cmd_lint(args: argparse.Namespace) -> int:
     return worst
 
 
+def _schema_text(name: str) -> str:
+    return json.dumps(SCHEMAS[name](), indent=2) + "\n"
+
+
+def _cmd_schema(args: argparse.Namespace) -> int:
+    if args.write:
+        args.write.mkdir(parents=True, exist_ok=True)
+        for name in SCHEMAS:
+            path = args.write / f"{name}.schema.json"
+            path.write_text(_schema_text(name), encoding="utf-8", newline="\n")
+            print(f"wrote {path}")
+        return 0
+    if args.name is None:
+        print("available schemas: " + ", ".join(SCHEMAS))
+        return 0
+    print(_schema_text(args.name), end="")
+    return 0
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
     problems = verify_bundle(args.bundle)
     for problem in problems:
@@ -204,6 +225,11 @@ def build_parser() -> argparse.ArgumentParser:
     lint.add_argument("--adapter", help="check contract files against this adapter's catalog and subsystems")
     lint.add_argument("--strict", action="store_true", help="treat warnings as failures")
     lint.set_defaults(func=_cmd_lint)
+
+    schema = sub.add_parser("schema", help="print or write JSON Schemas for editor validation")
+    schema.add_argument("name", nargs="?", choices=sorted(SCHEMAS))
+    schema.add_argument("--write", type=Path, metavar="DIR", help="write every schema into DIR")
+    schema.set_defaults(func=_cmd_schema)
 
     verify = sub.add_parser("verify", help="verify a bundle against its manifest hashes")
     verify.add_argument("bundle", type=Path)

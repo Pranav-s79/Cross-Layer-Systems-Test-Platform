@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../schemas/contract-tests.schema.json
 # Contract tests for the reference sensor pipeline.
 # Every contract has at least one case it must PASS and one it must FAIL.
 # Run: crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml

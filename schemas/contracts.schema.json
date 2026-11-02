@@ -1,0 +1,480 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/contracts.schema.json",
+  "title": "CrossLayer contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    }
+  },
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "description": "Conjunction of filters over normalized events.",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "event_type": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "Event type or shell pattern, e.g. packet.*"
+        },
+        "subsystem": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "Subsystem name or shell pattern"
+        },
+        "source_system": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "severity": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "attributes": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Exact-match attribute filters"
+        },
+        "where": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression over the event `e`"
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "owner",
+        "source",
+        "destination",
+        "rule"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(\\.[a-z0-9_-]+)*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Team or subsystem accountable for this boundary"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "major",
+            "minor"
+          ]
+        },
+        "on_fail": {
+          "enum": [
+            "fail_run",
+            "warn"
+          ]
+        },
+        "precondition": {
+          "$ref": "#/$defs/selector"
+        },
+        "evidence": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/selector"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/selector"
+              },
+              "minItems": 1
+            }
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "select"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "count"
+                },
+                "select": {
+                  "$ref": "#/$defs/selector"
+                },
+                "min": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "anyOf": [
+                {
+                  "required": [
+                    "min"
+                  ]
+                },
+                {
+                  "required": [
+                    "max"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "trigger",
+                "response"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "response"
+                },
+                "trigger": {
+                  "$ref": "#/$defs/selector"
+                },
+                "response": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/selector"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/selector"
+                      },
+                      "minItems": 1
+                    }
+                  ]
+                },
+                "correlate_by": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Correlation-id key shared by trigger and response"
+                },
+                "within_ms": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Deadline in milliseconds"
+                },
+                "min_triggers": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "select",
+                "state",
+                "allowed"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "transitions"
+                },
+                "select": {
+                  "$ref": "#/$defs/selector"
+                },
+                "state": {
+                  "oneOf": [
+                    {
+                      "const": "event_type"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "attribute"
+                      ],
+                      "properties": {
+                        "attribute": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  ]
+                },
+                "group_by": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "initial": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "minItems": 1
+                    }
+                  ]
+                },
+                "allowed": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "additionalProperties": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    ]
+                  }
+                },
+                "allow_repeat": {
+                  "type": "boolean"
+                },
+                "min_events": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "select",
+                "aggregate",
+                "op",
+                "value"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "threshold"
+                },
+                "select": {
+                  "$ref": "#/$defs/selector"
+                },
+                "attribute": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "aggregate": {
+                  "enum": [
+                    "max",
+                    "min",
+                    "mean",
+                    "sum",
+                    "count",
+                    "p50",
+                    "p90",
+                    "p95",
+                    "p99"
+                  ]
+                },
+                "op": {
+                  "enum": [
+                    "<",
+                    "<=",
+                    ">",
+                    ">=",
+                    "==",
+                    "!="
+                  ]
+                },
+                "value": {
+                  "type": "number"
+                },
+                "min_samples": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "if": {
+                "properties": {
+                  "aggregate": {
+                    "not": {
+                      "const": "count"
+                    }
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "attribute"
+                ]
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "select",
+                "expect"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "invariant"
+                },
+                "select": {
+                  "$ref": "#/$defs/selector"
+                },
+                "expect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Expression over the event `e` that must be true"
+                },
+                "min_matches": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "select",
+                "expect"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "successive"
+                },
+                "select": {
+                  "$ref": "#/$defs/selector"
+                },
+                "expect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Expression over `prev` and `curr`"
+                },
+                "when": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Only check pairs where this is true"
+                },
+                "group_by": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "min_pairs": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

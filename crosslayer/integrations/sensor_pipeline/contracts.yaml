@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../schemas/contracts.schema.json
 # Default boundary contracts for the reference sensor pipeline.
 # Subsystems: sensor -> sensor_rx -> ring_buffer -> proc, plus sys and host.
 schema_version: 1

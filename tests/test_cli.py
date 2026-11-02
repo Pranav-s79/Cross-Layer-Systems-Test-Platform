@@ -75,3 +75,13 @@ def test_test_contracts_command(capsys):
     path = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contract_tests.yaml"
     assert main(["test-contracts", str(path), "--require-coverage"]) == 0
     assert "coverage: 8/8" in capsys.readouterr().out
+
+
+def test_schema_command(tmp_path, capsys):
+    import json
+
+    assert main(["schema", "contracts"]) == 0
+    assert json.loads(capsys.readouterr().out)["title"] == "CrossLayer contracts"
+    assert main(["schema", "--write", str(tmp_path)]) == 0
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "contract-tests.schema.json", "contracts.schema.json", "experiment.schema.json"]

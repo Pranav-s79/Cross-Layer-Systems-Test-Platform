@@ -84,3 +84,26 @@ subsystems, attribute keys (shell patterns allowed), and correlation ids.
 stays within the catalog. Run it in the adapter's tests so the catalog cannot
 drift from reality. The reference adapter does this against every reference
 experiment.
+
+## Editor support (JSON Schema)
+
+```sh
+crosslayer schema contracts            # print one schema
+crosslayer schema --write schemas/     # regenerate the checked-in copies
+```
+
+Schemas for contract files, experiments, and contract tests are in
+[`schemas/`](../schemas). With the YAML language server (for example the
+Red Hat YAML extension in VS Code), add a first-line modeline to get
+validation and autocomplete while typing:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/contracts.schema.json
+```
+
+The repository's own YAML files use relative modelines. The Python loaders
+remain authoritative. They also check what a schema cannot (expression
+safety, `min <= max`, references between files). Tests keep the schemas
+**no stricter** than the loaders on every YAML file in the repository and on
+a set of valid and invalid documents, so the editor never flags a file that
+CrossLayer accepts.
