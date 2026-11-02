@@ -1,0 +1,13 @@
+schema_version: 1
+name: sensor-pipeline-duplicate-completion
+description: >
+  Every 40th completion is reported twice. Ground truth: proc.
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
+faults:
+  - name: duplicate_completion
+    params: {every: 40}

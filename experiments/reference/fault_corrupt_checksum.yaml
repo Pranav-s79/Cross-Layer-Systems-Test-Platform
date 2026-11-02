@@ -1,0 +1,15 @@
+schema_version: 1
+name: sensor-pipeline-corrupt-checksum
+description: >
+  A single bit is flipped in every 10th packet that waits in the ring buffer.
+  Ground truth: ring_buffer (interface buffer_to_proc). The ring buffer emits
+  no events itself, so the corruption only becomes visible at proc.
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
+faults:
+  - name: corrupt_checksum
+    params: {every: 10}

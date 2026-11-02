@@ -1,0 +1,14 @@
+schema_version: 1
+name: sensor-pipeline-slow-consumer
+description: >
+  Consumer service time tripled so the ring buffer saturates.
+  Ground truth: proc.
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
+faults:
+  - name: slow_consumer
+    params: {factor: 3}

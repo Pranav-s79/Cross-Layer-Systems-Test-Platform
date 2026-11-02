@@ -1,0 +1,121 @@
+# Default boundary contracts for the reference sensor pipeline.
+# Subsystems: sensor -> sensor_rx -> ring_buffer -> proc, plus sys and host.
+schema_version: 1
+contracts:
+  - id: pipeline.rx_accounted
+    title: Every received packet is processed or explicitly dropped within 5 ms
+    owner: firmware-rx
+    source: sensor_rx
+    destination: proc
+    severity: critical
+    description: >
+      Buffer policy: a packet that reaches the RX path must either be processed
+      by the consumer or dropped with an explicit DROP record. A packet that
+      disappears silently is lost data. The HALT record is required evidence,
+      so a truncated log gives INCONCLUSIVE instead of false failures.
+    precondition: {event_type: system.boot}
+    evidence:
+      - {event_type: system.halt}
+    rule:
+      kind: response
+      trigger: {event_type: packet.received}
+      response:
+        - {event_type: packet.processed}
+        - {event_type: packet.dropped}
+      correlate_by: packet
+      within_ms: 5
+
+  - id: pipeline.packet_lifecycle
+    title: Each packet is received once, then processed once or dropped once
+    owner: firmware-proc
+    source: sensor_rx
+    destination: proc
+    severity: major
+    rule:
+      kind: transitions
+      select: {event_type: "packet.*"}
+      state: event_type
+      group_by: packet
+      initial: [packet.received]
+      allowed:
+        packet.received: [packet.processed, packet.dropped]
+        packet.processed: []
+        packet.dropped: []
+
+  - id: pipeline.payload_integrity
+    title: Checksum recomputed by the consumer matches the checksum at reception
+    owner: firmware-proc
+    source: ring_buffer
+    destination: proc
+    severity: critical
+    rule:
+      kind: invariant
+      select: {event_type: packet.processed}
+      expect: e.attributes["pipeline.crc_rx"] == e.attributes["pipeline.crc_calc"]
+
+  - id: pipeline.latency_p99
+    title: 99th-percentile processing latency is at most 3 ms
+    owner: firmware-proc
+    source: ring_buffer
+    destination: proc
+    severity: major
+    rule:
+      kind: threshold
+      select: {event_type: packet.processed}
+      attribute: pipeline.latency_us
+      aggregate: p99
+      op: "<="
+      value: 3000
+      min_samples: 20
+
+  - id: pipeline.sequence_contiguous
+    title: Sensor sequence numbers increase by exactly one
+    owner: firmware-rx
+    source: sensor
+    destination: sensor_rx
+    severity: major
+    rule:
+      kind: successive
+      select: {event_type: packet.received}
+      expect: curr.attributes["pipeline.seq"] == prev.attributes["pipeline.seq"] + 1
+
+  - id: pipeline.counter_conservation
+    title: Firmware counters account for every received packet (rx == done + drop)
+    owner: firmware-rx
+    source: sensor_rx
+    destination: sys
+    severity: major
+    rule:
+      kind: invariant
+      select: {event_type: system.halt}
+      expect: >-
+        e.attributes["pipeline.rx"]
+        == e.attributes["pipeline.done"] + e.attributes["pipeline.dropped"]
+
+  - id: pipeline.drop_budget
+    title: Explicit drops stay within 5% of received packets
+    owner: system-test
+    source: sensor_rx
+    destination: ring_buffer
+    severity: minor
+    on_fail: warn
+    rule:
+      kind: invariant
+      select: {event_type: system.halt}
+      expect: e.attributes["pipeline.dropped"] * 100 <= e.attributes["pipeline.rx"] * 5
+
+  - id: host.clean_exit
+    title: The system under test exits with status 0
+    owner: system-test
+    source: host
+    destination: host
+    severity: major
+    description: Skipped when analyzing an existing log, since there is no process to observe.
+    precondition: {event_type: process.exit}
+    rule:
+      kind: count
+      select:
+        event_type: process.exit
+        attributes: {process.exit_code: 0}
+      min: 1
+      max: 1

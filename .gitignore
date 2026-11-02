@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+
+# CrossLayer run bundles (generated; CI uploads them as artifacts)
+runs/
+replays/
+
+# Personal notes, kept local and never published
+docs/interview-prep/
+docs/plan/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

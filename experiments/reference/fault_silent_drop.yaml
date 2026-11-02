@@ -1,0 +1,13 @@
+schema_version: 1
+name: sensor-pipeline-silent-drop
+description: >
+  Same traffic as the baseline, but the RX overflow path discards packets
+  without logging them. Ground truth: sensor_rx (interface rx_to_buffer).
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
+faults:
+  - silent_drop

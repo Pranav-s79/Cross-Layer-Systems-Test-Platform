@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crosslayer"
+version = "0.1.0"
+description = "Cross-stack verification, experimentation and fault-localization platform"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+crosslayer = "crosslayer.cli:main"
+
+# Adapters are discovered through this entry-point group, so the core never
+# imports an integration package directly.
+[project.entry-points."crosslayer.adapters"]
+sensor_pipeline = "crosslayer.integrations.sensor_pipeline:SensorPipelineAdapter"
+
+[tool.setuptools.packages.find]
+include = ["crosslayer*"]
+
+[tool.setuptools.package-data]
+"crosslayer.integrations.sensor_pipeline" = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

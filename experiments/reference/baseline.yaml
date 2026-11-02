@@ -1,0 +1,9 @@
+schema_version: 1
+name: sensor-pipeline-baseline
+description: Nominal traffic, no faults. Every fail_run contract is expected to pass.
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
