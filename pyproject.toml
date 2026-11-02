@@ -25,7 +25,7 @@ sensor_pipeline = "crosslayer.integrations.sensor_pipeline:SensorPipelineAdapter
 include = ["crosslayer*"]
 
 [tool.setuptools.package-data]
-"crosslayer.integrations.sensor_pipeline" = ["*.yaml"]
+"crosslayer.integrations.sensor_pipeline" = ["*.yaml", "fixtures/*.jsonl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

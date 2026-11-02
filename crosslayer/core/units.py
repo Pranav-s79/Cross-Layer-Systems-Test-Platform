@@ -9,6 +9,16 @@ NS_PER_MS = 1_000_000
 NS_PER_S = 1_000_000_000
 
 
+def _to_ns(value: int | float | str, scale: int, unit: str) -> int:
+    try:
+        ns = Decimal(str(value)) * scale
+    except InvalidOperation as exc:
+        raise ValueError(f"not a number: {value!r}") from exc
+    if not ns.is_finite() or ns != ns.to_integral_value():
+        raise ValueError(f"{value} {unit} is not a whole number of nanoseconds")
+    return int(ns)
+
+
 def ms_to_ns(value: int | float | str) -> int:
     """Convert milliseconds to integer nanoseconds without float rounding.
 
@@ -16,13 +26,12 @@ def ms_to_ns(value: int | float | str) -> int:
     1.001 has no exact binary representation. Going through
     ``Decimal(str(x))`` gives exactly 1_001_000.
     """
-    try:
-        ns = Decimal(str(value)) * NS_PER_MS
-    except InvalidOperation as exc:
-        raise ValueError(f"not a number: {value!r}") from exc
-    if ns != ns.to_integral_value():
-        raise ValueError(f"{value} ms is not a whole number of nanoseconds")
-    return int(ns)
+    return _to_ns(value, NS_PER_MS, "ms")
+
+
+def us_to_ns(value: int | float | str) -> int:
+    """Convert microseconds to integer nanoseconds without float rounding."""
+    return _to_ns(value, NS_PER_US, "us")
 
 
 def decimal_seconds_to_ns(text: str) -> int:

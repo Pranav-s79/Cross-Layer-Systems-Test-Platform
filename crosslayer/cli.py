@@ -4,6 +4,7 @@
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json]
     crosslayer check FILE...          validate contract or experiment files
+    crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
     crosslayer verify BUNDLE          check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
@@ -20,6 +21,7 @@ from typing import Sequence
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import verify_bundle
 from crosslayer.core.contracts.loader import parse_contracts_document, read_document
+from crosslayer.core.contracts.testing import run_contract_tests
 from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
 from crosslayer.core.orchestrator.experiment import load_experiment
@@ -111,6 +113,32 @@ def _cmd_check(args: argparse.Namespace) -> int:
     return status
 
 
+def _cmd_test_contracts(args: argparse.Namespace) -> int:
+    failed = 0
+    uncovered_total: list[str] = []
+    for path in args.files:
+        report = run_contract_tests(path)
+        print(path)
+        for r in report.results:
+            mark = "ok  " if r.passed else "FAIL"
+            print(f"  {mark} [{r.case.contract_id}] {r.case.name}")
+            for problem in r.problems:
+                print(f"         {problem}")
+        failed += sum(not r.passed for r in report.results)
+        uncovered = report.uncovered()
+        covered = len(report.contracts) - len(uncovered)
+        print(f"  coverage: {covered}/{len(report.contracts)} contracts have a passing known-good and known-bad case")
+        for cid in uncovered:
+            have = sorted(v.value for v in report.coverage()[cid]) or ["none"]
+            print(f"    missing: {cid} (demonstrated: {', '.join(have)})")
+        uncovered_total += uncovered
+    total = "all cases passed" if not failed else f"{failed} case(s) failed"
+    print(total)
+    if failed:
+        return 1
+    return 1 if args.require_coverage and uncovered_total else 0
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
     problems = verify_bundle(args.bundle)
     for problem in problems:
@@ -143,6 +171,12 @@ def build_parser() -> argparse.ArgumentParser:
     check = sub.add_parser("check", help="validate contract or experiment files")
     check.add_argument("files", type=Path, nargs="+")
     check.set_defaults(func=_cmd_check)
+
+    tests = sub.add_parser("test-contracts", help="run contract tests (known-good / known-bad traces)")
+    tests.add_argument("files", type=Path, nargs="+")
+    tests.add_argument("--require-coverage", action="store_true",
+                       help="fail unless every contract has a passing known-good and known-bad case")
+    tests.set_defaults(func=_cmd_test_contracts)
 
     verify = sub.add_parser("verify", help="verify a bundle against its manifest hashes")
     verify.add_argument("bundle", type=Path)

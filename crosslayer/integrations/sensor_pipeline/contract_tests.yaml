@@ -1,0 +1,208 @@
+# Contract tests for the reference sensor pipeline.
+# Every contract has at least one case it must PASS and one it must FAIL.
+# Run: crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml
+schema_version: 1
+adapter: sensor_pipeline
+cases:
+  # -- pipeline.rx_accounted ------------------------------------------------------
+  - name: processed and explicitly dropped packets are both accounted for
+    contract: pipeline.rx_accounted
+    expect: pass
+    events:
+      - {t_us: 0, type: system.boot, subsystem: sys}
+      - {t_us: 10, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 90, type: packet.processed, subsystem: proc, ids: {packet: 1}}
+      - {t_us: 100, type: packet.received, subsystem: sensor_rx, ids: {packet: 2}}
+      - {t_us: 100, type: packet.dropped, subsystem: sensor_rx, ids: {packet: 2}}
+      - {t_us: 9000, type: system.halt, subsystem: sys}
+
+  - name: a packet that silently disappears is a violation
+    contract: pipeline.rx_accounted
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 0, type: system.boot, subsystem: sys}
+      - {t_us: 10, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 9000, type: system.halt, subsystem: sys}
+
+  - name: a response after the 5 ms deadline is a violation
+    contract: pipeline.rx_accounted
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 0, type: system.boot, subsystem: sys}
+      - {t_us: 10, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 5100, type: packet.processed, subsystem: proc, ids: {packet: 1}}
+      - {t_us: 9000, type: system.halt, subsystem: sys}
+
+  - name: a truncated log without HALT is inconclusive, not failed
+    contract: pipeline.rx_accounted
+    expect: inconclusive
+    events:
+      - {t_us: 0, type: system.boot, subsystem: sys}
+      - {t_us: 10, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 9000, type: packet.received, subsystem: sensor_rx, ids: {packet: 2}}
+
+  - name: without a BOOT record the contract does not apply
+    contract: pipeline.rx_accounted
+    expect: skipped
+    events:
+      - {t_us: 10, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+
+  - name: recorded clean run (40 packets)
+    contract: pipeline.rx_accounted
+    expect: pass
+    trace: fixtures/baseline_40.jsonl
+
+  - name: recorded silent-drop run (40 packets, 1-slot buffer)
+    contract: pipeline.rx_accounted
+    expect: fail
+    expect_violations: 3
+    expect_unresolved: 5   # drops whose deadline falls after the end of the log
+    trace: fixtures/silent_drop_40.jsonl
+
+  # -- pipeline.packet_lifecycle --------------------------------------------------
+  - name: received then processed, received then dropped
+    contract: pipeline.packet_lifecycle
+    expect: pass
+    events:
+      - {t_us: 1, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 2, type: packet.received, subsystem: sensor_rx, ids: {packet: 2}}
+      - {t_us: 3, type: packet.processed, subsystem: proc, ids: {packet: 1}}
+      - {t_us: 4, type: packet.dropped, subsystem: sensor_rx, ids: {packet: 2}}
+
+  - name: a packet completed twice is an illegal transition
+    contract: pipeline.packet_lifecycle
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: packet.received, subsystem: sensor_rx, ids: {packet: 1}}
+      - {t_us: 2, type: packet.processed, subsystem: proc, ids: {packet: 1}}
+      - {t_us: 3, type: packet.processed, subsystem: proc, ids: {packet: 1}}
+
+  - name: a packet processed without being received is illegal
+    contract: pipeline.packet_lifecycle
+    expect: fail
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, ids: {packet: 7}}
+
+  # -- pipeline.payload_integrity -------------------------------------------------
+  - name: matching checksums
+    contract: pipeline.payload_integrity
+    expect: pass
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.crc_rx: 58, pipeline.crc_calc: 58}}
+
+  - name: a single corrupted packet fails integrity
+    contract: pipeline.payload_integrity
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.crc_rx: 58, pipeline.crc_calc: 58}}
+      - {t_us: 2, type: packet.processed, subsystem: proc, attrs: {pipeline.crc_rx: 58, pipeline.crc_calc: 59}}
+
+  - name: a missing checksum field is inconclusive, not a pass
+    contract: pipeline.payload_integrity
+    expect: inconclusive
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.crc_rx: 58}}
+
+  # -- pipeline.latency_p99 -------------------------------------------------------
+  - name: recorded clean run stays within the latency budget
+    contract: pipeline.latency_p99
+    expect: pass
+    trace: fixtures/baseline_40.jsonl
+
+  - name: with 20 samples p99 is the maximum, so one slow packet fails it
+    contract: pipeline.latency_p99
+    expect: fail
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 200}}
+      - {t_us: 2, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 210}}
+      - {t_us: 3, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 220}}
+      - {t_us: 4, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 230}}
+      - {t_us: 5, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 240}}
+      - {t_us: 6, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 250}}
+      - {t_us: 7, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 260}}
+      - {t_us: 8, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 270}}
+      - {t_us: 9, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 280}}
+      - {t_us: 10, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 290}}
+      - {t_us: 11, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 300}}
+      - {t_us: 12, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 310}}
+      - {t_us: 13, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 320}}
+      - {t_us: 14, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 330}}
+      - {t_us: 15, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 340}}
+      - {t_us: 16, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 350}}
+      - {t_us: 17, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 360}}
+      - {t_us: 18, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 370}}
+      - {t_us: 19, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 380}}
+      - {t_us: 20, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 3500}}
+
+  - name: fewer than 20 samples is inconclusive
+    contract: pipeline.latency_p99
+    expect: inconclusive
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.latency_us: 9999}}
+
+  # -- pipeline.sequence_contiguous -----------------------------------------------
+  - name: contiguous sequence numbers
+    contract: pipeline.sequence_contiguous
+    expect: pass
+    events:
+      - {t_us: 1, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 1}}
+      - {t_us: 2, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 2}}
+      - {t_us: 3, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 3}}
+
+  - name: a skipped sequence number is a violation
+    contract: pipeline.sequence_contiguous
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 1}}
+      - {t_us: 2, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 2}}
+      - {t_us: 3, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 4}}
+
+  # -- pipeline.counter_conservation ----------------------------------------------
+  - name: counters balance
+    contract: pipeline.counter_conservation
+    expect: pass
+    events:
+      - {t_us: 1, type: system.halt, subsystem: sys, attrs: {pipeline.rx: 3, pipeline.done: 2, pipeline.dropped: 1}}
+
+  - name: an unaccounted packet breaks conservation
+    contract: pipeline.counter_conservation
+    expect: fail
+    events:
+      - {t_us: 1, type: system.halt, subsystem: sys, attrs: {pipeline.rx: 3, pipeline.done: 2, pipeline.dropped: 0}}
+
+  # -- pipeline.drop_budget (warn-only) -------------------------------------------
+  - name: exactly 5% drops is within budget
+    contract: pipeline.drop_budget
+    expect: pass
+    events:
+      - {t_us: 1, type: system.halt, subsystem: sys, attrs: {pipeline.rx: 100, pipeline.done: 95, pipeline.dropped: 5}}
+
+  - name: 6% drops exceeds the budget
+    contract: pipeline.drop_budget
+    expect: fail
+    events:
+      - {t_us: 1, type: system.halt, subsystem: sys, attrs: {pipeline.rx: 100, pipeline.done: 94, pipeline.dropped: 6}}
+
+  # -- host.clean_exit ------------------------------------------------------------
+  - name: exit code 0
+    contract: host.clean_exit
+    expect: pass
+    events:
+      - {t_us: 1, type: process.exit, subsystem: host, attrs: {process.exit_code: 0}}
+
+  - name: a non-zero exit code fails
+    contract: host.clean_exit
+    expect: fail
+    events:
+      - {t_us: 1, type: process.exit, subsystem: host, attrs: {process.exit_code: 1}}
+
+  - name: analyzing a log with no process record skips the contract
+    contract: host.clean_exit
+    expect: skipped
+    events:
+      - {t_us: 1, type: system.boot, subsystem: sys}

@@ -191,3 +191,42 @@ def test_warn_only_failures_do_not_fail_junit(runs):
     assert failed == {"pipeline.rx_accounted", "pipeline.latency_p99"}
     [warn] = [c for c in suite.iter("testcase") if c.get("name") == "pipeline.drop_budget"]
     assert warn.find("skipped").get("message").startswith("WARNING")
+
+
+# -- contract tests (Phase 2) ------------------------------------------------------
+
+PACKAGE = Path(__file__).resolve().parents[2] / "crosslayer" / "integrations" / "sensor_pipeline"
+
+
+def test_contract_tests_pass_with_full_coverage():
+    from crosslayer.core.contracts.testing import run_contract_tests
+
+    report = run_contract_tests(PACKAGE / "contract_tests.yaml")
+    assert report.passed, [r.problems for r in report.results if not r.passed]
+    assert report.uncovered() == []
+
+
+@pytest.mark.parametrize(
+    "original, weakened, caught_by",
+    [
+        ("within_ms: 5", "within_ms: 6", "a response after the 5 ms deadline is a violation"),
+        ("value: 3000", "value: 4000", "with 20 samples p99 is the maximum, so one slow packet fails it"),
+        ('prev.attributes["pipeline.seq"] + 1', 'prev.attributes["pipeline.seq"] + 2',
+         "contiguous sequence numbers"),
+    ],
+)
+def test_contract_tests_catch_a_weakened_contract(tmp_path, original, weakened, caught_by):
+    """Mutate one contract and check the contract tests notice."""
+    from crosslayer.core.contracts.testing import run_contract_tests
+
+    contracts = (PACKAGE / "contracts.yaml").read_text(encoding="utf-8")
+    assert original in contracts
+    (tmp_path / "mutated.yaml").write_text(contracts.replace(original, weakened), encoding="utf-8")
+    tests = (PACKAGE / "contract_tests.yaml").read_text(encoding="utf-8")
+    tests = tests.replace("adapter: sensor_pipeline", "contracts: [mutated.yaml]")
+    tests = tests.replace("trace: fixtures/", f"trace: {(PACKAGE / 'fixtures').as_posix()}/")
+    (tmp_path / "tests.yaml").write_text(tests, encoding="utf-8")
+
+    report = run_contract_tests(tmp_path / "tests.yaml")
+    failed = {r.case.name for r in report.results if not r.passed}
+    assert caught_by in failed
