@@ -94,6 +94,20 @@ became observable (`timestamp_ns`) with evidence references, and every fault
 declares its ground-truth target. Roadmap Phase 7 will build the dependency graph and
 rank hypotheses on top of these.
 
+### Tooling (Phase 2)
+
+Static and developer tooling around the same core, documented in
+[tooling.md](tooling.md):
+
+| Module | Purpose |
+|---|---|
+| `core/contracts/testing.py` | Contract tests: known-good and known-bad traces per contract, coverage |
+| `core/contracts/lint.py`, `core/orchestrator/lint.py` | Static checks, including against an adapter's `event_catalog()` |
+| `core/schemas.py` | JSON Schemas for every YAML file type (checked-in copies under `schemas/`) |
+| `core/orchestrator/suite.py` | Suites: topological order, expected verdicts, blocking |
+| `core/contracts/versioning.py` | Contract diffs and per-owner changelogs |
+| `scaffold/` | `crosslayer new adapter` project templates (outside the core) |
+
 ## Architectural rules (enforced by tests)
 
 | Rule | Enforced by |

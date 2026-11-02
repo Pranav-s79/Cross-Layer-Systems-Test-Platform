@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Status](https://img.shields.io/badge/status-Phase%201%20of%2015-orange)
+![Status](https://img.shields.io/badge/status-Phase%202%20of%2015-orange)
 
 **Cross-stack verification for systems built by many teams.**
 
@@ -28,6 +28,7 @@ pip install -e ".[dev]"
 crosslayer run experiments/reference/baseline.yaml            # PASS
 crosslayer run experiments/reference/fault_silent_drop.yaml   # FAIL, with evidence
 crosslayer compare runs/<baseline> runs/<faulty>              # regression diff
+crosslayer suite experiments/reference/suite.yaml             # baseline + every fault, in order
 ```
 
 ```text
@@ -74,7 +75,12 @@ invariants, and step-to-step relations such as `PC + 4`.
   PASS / FAIL / INCONCLUSIVE verdicts with no vacuous passes.
 - **Reproducible runs:** seeded experiments, hashed run bundles, a replay
   script, and identical-seed repeatability checks.
-- **CI-ready:** JUnit output, meaningful exit codes, and run-to-run regression diffs.
+- **CI-ready:** JUnit output, meaningful exit codes, run-to-run regression diffs,
+  and suites that run experiments in dependency order against expected verdicts.
+- **Contract tooling:** contract tests (every contract must be shown to fail on a
+  known-bad trace), a linter that catches misspelled events and attributes
+  before anything runs, JSON Schemas for editor autocomplete, contract
+  versioning with per-owner changelogs, and `crosslayer new adapter` scaffolding.
 - **Validated with fault injection:** a reference pipeline with four injected
   faults. Each one is caught by exactly the contracts designed for it, and the
   baseline stays clean.
@@ -89,7 +95,7 @@ platform:
 
 | Stage | Phases | Status |
 |---|---|---|
-| Foundation | Verification core · contract tooling | ✅ Phase 1 done |
+| Foundation | Verification core · contract tooling | ✅ done |
 | Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | 🔜 next |
 | Diagnosis | Fault localization · guided experiments · learning-assisted triage | 📋 planned |
 | Scale | Streaming engine · results store · distributed execution | 📋 planned |
@@ -103,6 +109,7 @@ platform:
 |---|---|
 | [Architecture](docs/architecture.md) | Layers, data flow, enforced boundaries |
 | [Contract language](docs/contract-language.md) | Fields, selectors, rule kinds, expressions, verdicts |
+| [Contract tooling](docs/tooling.md) | Contract tests, lint, schemas, suites, versioning, scaffolding |
 | [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system under test |
 | [Run bundle format](docs/run-bundle.md) | What every run records and how to verify it |
 

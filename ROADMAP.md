@@ -14,7 +14,7 @@ integrate, validate, and debug independently built hardware and software.
 | Stage | Phase | Focus | Status |
 |---|---|---|---|
 | **I. Foundation** | 1 | Verification core | ✅ |
-| | 2 | Contract tooling and developer experience | 📋 |
+| | 2 | Contract tooling and developer experience | ✅ |
 | **II. Real integrations** | 3 | RTL processor verification (RV32I) | 🔜 |
 | | 4 | Wireless log analysis (5G RAN + core) | 🔜 |
 | | 5 | Live 5G virtual-radio integration | 📋 |
@@ -73,18 +73,26 @@ is guarded by a regression test that fails on the old code.
 **Known limits carried forward:** evaluation is in-memory; execution is local;
 in time-window-only mode one response can satisfy several triggers.
 
-### Phase 2 · Contract tooling and developer experience 📋
-
-* JSON Schema export for contracts and experiments (editor validation, autocomplete).
-* **Contract tests:** fixture traces that a contract must accept (known-good)
-  and reject (known-bad), so contracts are verified like code.
-* Contract linting: unreachable states, selectors that can never match,
-  deadlines longer than the run.
-* Experiment suites with dependency ordering (run B only if A passed).
-* Contract versioning with a changelog per owner, and `crosslayer new adapter` scaffolding.
+### Phase 2 · Contract tooling and developer experience ✅
 
 **Exit criterion:** a new contributor writes an adapter plus contracts from
 the scaffold and passes conformance and contract tests without reading core code.
+
+| Requirement | Verified by |
+|---|---|
+| **Contract tests:** each contract has traces it must accept and reject | `tests/core/test_contract_testing.py`; reference adapter: 25 cases, 8/8 contracts covered |
+| Contract tests catch a weakened contract (looser deadline, threshold, sequence step) | `test_sensor_pipeline.py::test_contract_tests_catch_a_weakened_contract` |
+| **Linter:** unreachable states, statistically weak percentiles, deadlines vs timeout, and, with an adapter event catalog, misspelled event types, attributes, and correlation ids | `tests/core/test_lint.py`, `test_lint_catches_a_misspelled_attribute_in_a_reference_contract` |
+| Event catalogs stay truthful to real output | `test_event_catalog_matches_every_emitted_event` |
+| **JSON Schemas** for every file type, never stricter than the loaders | `tests/core/test_schemas.py` (all repository YAML, a real bundle config, valid and invalid corpora) |
+| **Suites:** dependency order, expected verdicts, transitive blocking, cycles named, validation before any run | `tests/core/test_suite.py`; CI runs the reference suite |
+| **Versioning:** unversioned semantic changes rejected; per-owner changelog; `compare` separates contract changes from system changes | `tests/core/test_versioning.py`, `test_compare_flags_contract_changes_between_runs` |
+| **Scaffolding:** a generated adapter passes conformance, full contract-test coverage, lint, and a sample run before any edits | `tests/test_scaffold.py` (also runs the generated project's own tests) |
+
+What the tests can show is that the scaffold starts green, and that its
+generated tests and README guide every step needed to adapt it. Whether a
+contributor really needs no core code is a usability claim; it will be
+checked by building the Phase 3 and 4 adapters from the scaffold.
 
 ---
 
