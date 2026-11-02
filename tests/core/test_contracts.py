@@ -131,3 +131,32 @@ def test_aggregate_verdict(verdicts, expected):
 def test_warn_contracts_do_not_gate():
     results = [_result(Verdict.PASS), _result(Verdict.FAIL, on_fail="warn", cid="w")]
     assert aggregate_verdict(results) is Verdict.PASS
+
+
+# -- regressions found in the Phase 1 review ---------------------------------------
+
+
+def test_unordered_events_are_rejected():
+    from crosslayer.core.contracts import evaluate_contracts
+
+    with pytest.raises(ValueError, match="time-ordered"):
+        evaluate_contracts([contract()], [ev("x.ok", 10), ev("x.ok", 5)])
+    with pytest.raises(ValueError, match="time-ordered"):
+        evaluate_contract(contract(), [ev("x.ok", 10), ev("x.ok", 5)])
+
+
+def test_selector_does_not_treat_true_as_one():
+    c = contract(rule={"kind": "count", "select": {"event_type": "p.exit", "attributes": {"p.code": 1}}, "min": 1})
+    assert evaluate_contract(c, [ev("p.exit", 0, attrs={"p.code": True})]).verdict is Verdict.FAIL
+    assert evaluate_contract(c, [ev("p.exit", 0, attrs={"p.code": 1})]).verdict is Verdict.PASS
+
+
+def test_empty_description_is_empty_not_none():
+    assert contract(description=None).description == ""
+
+
+def test_malformed_yaml_is_a_config_error(tmp_path):
+    path = tmp_path / "broken.yaml"
+    path.write_text("schema_version: 1\ncontracts: [\n  - bad: [\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="cannot read file"):
+        load_contracts_file(path)

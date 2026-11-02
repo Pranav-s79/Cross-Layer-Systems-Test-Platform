@@ -180,3 +180,14 @@ def test_bad_parameters_rejected(tmp_path, parameters, faults):
 def test_crc8_known_vector():
     # CRC-8/SMBUS check value for ASCII "123456789" is 0xF4
     assert sim.crc8(b"123456789") == 0xF4
+
+
+def test_warn_only_failures_do_not_fail_junit(runs):
+    import xml.etree.ElementTree as ET
+
+    result = runs["fault_slow_consumer"]  # drop_budget (on_fail: warn) fails here
+    suite = ET.parse(result.bundle_dir / "junit.xml").getroot()
+    failed = {c.get("name") for c in suite.iter("testcase") if c.find("failure") is not None}
+    assert failed == {"pipeline.rx_accounted", "pipeline.latency_p99"}
+    [warn] = [c for c in suite.iter("testcase") if c.get("name") == "pipeline.drop_budget"]
+    assert warn.find("skipped").get("message").startswith("WARNING")

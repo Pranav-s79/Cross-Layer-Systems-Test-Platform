@@ -14,6 +14,17 @@ from crosslayer.core.telemetry.events import NormalizedEvent
 from crosslayer.core.verdict import Verdict
 
 
+def require_time_ordered(events: Sequence[NormalizedEvent]) -> None:
+    """Rules binary-search and compare neighbours, so unordered input would
+    give wrong answers without any error. Fail loudly instead (O(n))."""
+    for prev, curr in zip(events, events[1:]):
+        if curr.timestamp_ns < prev.timestamp_ns:
+            raise ValueError(
+                f"events must be time-ordered (see order_events): {curr.event_id} "
+                f"at {curr.timestamp_ns} follows {prev.event_id} at {prev.timestamp_ns}"
+            )
+
+
 def evaluate_contract(contract: BoundaryContract, events: Sequence[NormalizedEvent]) -> ContractResult:
     """Evaluate one contract. ``events`` must already be time-ordered.
 
@@ -25,6 +36,11 @@ def evaluate_contract(contract: BoundaryContract, events: Sequence[NormalizedEve
        The rule's own verdict is kept in ``rule_verdict`` for investigation.
     4. Otherwise the rule's verdict stands.
     """
+    require_time_ordered(events)
+    return _evaluate(contract, events)
+
+
+def _evaluate(contract: BoundaryContract, events: Sequence[NormalizedEvent]) -> ContractResult:
     if contract.precondition is not None and not any(contract.precondition.matches(e) for e in events):
         return ContractResult(
             contract=contract,
@@ -70,7 +86,8 @@ def evaluate_contract(contract: BoundaryContract, events: Sequence[NormalizedEve
 def evaluate_contracts(
     contracts: Sequence[BoundaryContract], events: Sequence[NormalizedEvent]
 ) -> list[ContractResult]:
-    return [evaluate_contract(c, events) for c in contracts]
+    require_time_ordered(events)  # once for the whole set, not once per contract
+    return [_evaluate(c, events) for c in contracts]
 
 
 def aggregate_verdict(results: Sequence[ContractResult]) -> Verdict:

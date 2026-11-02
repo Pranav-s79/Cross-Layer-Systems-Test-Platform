@@ -91,7 +91,7 @@ def parse_contract(raw: Any, location: str, origin: str = "") -> BoundaryContrac
     if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
         raise ConfigError("must be a list of strings", location=f"{location}.tags")
 
-    description = raw.get("description", "")
+    description = raw.get("description") or ""
     if not isinstance(description, str):
         raise ConfigError("must be a string", location=f"{location}.description")
 
@@ -134,20 +134,21 @@ def parse_contracts_document(doc: Any, source: str) -> list[BoundaryContract]:
 
 
 def read_document(path: Path) -> Any:
-    """Read YAML or JSON. ``yaml.safe_load`` never constructs arbitrary
-    Python objects, unlike ``yaml.load``."""
-    text = path.read_text(encoding="utf-8")
-    if path.suffix.lower() == ".json":
-        return json.loads(text)
-    return yaml.safe_load(text)
+    """Read YAML or JSON, turning I/O and syntax errors into ``ConfigError``.
+
+    ``yaml.safe_load`` never constructs arbitrary Python objects, unlike
+    ``yaml.load``."""
+    try:
+        text = path.read_text(encoding="utf-8")
+        if path.suffix.lower() == ".json":
+            return json.loads(text)
+        return yaml.safe_load(text)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"cannot read file: {exc}", location=str(path)) from exc
 
 
 def load_contracts_file(path: Path) -> list[BoundaryContract]:
-    try:
-        doc = read_document(path)
-    except (OSError, yaml.YAMLError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"cannot read contracts: {exc}", location=str(path)) from exc
-    return parse_contracts_document(doc, str(path))
+    return parse_contracts_document(read_document(path), str(path))
 
 
 def ensure_unique_ids(contracts: Iterable[BoundaryContract]) -> None:

@@ -230,3 +230,46 @@ def test_bundled_configuration_replays_identically(tmp_path):
     doc = yaml.safe_load((first.bundle_dir / "configuration.yaml").read_text(encoding="utf-8"))
     assert doc["contracts"][0]["id"] == "demo.req_acked"
     assert Path(doc["base_dir"]) == tmp_path
+
+
+# -- regressions found in the Phase 1 review ---------------------------------------
+
+
+def test_added_files_are_detected_by_verify(tmp_path):
+    result = runner(tmp_path, FakeAdapter()).run(experiment(tmp_path))
+    (result.bundle_dir / "raw_artifacts" / "planted.log").write_text("x\n", encoding="utf-8")
+    assert verify_bundle(result.bundle_dir) == ["unexpected: raw_artifacts/planted.log"]
+
+
+def test_non_bundle_directories_give_config_errors(tmp_path):
+    from crosslayer.core.orchestrator import compare_bundles
+
+    with pytest.raises(ConfigError, match="not a run bundle"):
+        verify_bundle(tmp_path)
+    with pytest.raises(ConfigError, match="not a run bundle"):
+        compare_bundles(tmp_path, tmp_path)
+
+
+def test_empty_description_and_negative_seed(tmp_path):
+    assert experiment(tmp_path, description=None).description == ""
+    with pytest.raises(ConfigError, match="seed"):
+        experiment(tmp_path).with_seed(-1)
+
+
+def test_comparison_classification():
+    from crosslayer.core.orchestrator.compare import classify
+
+    assert classify("pass", "fail") == "regression"
+    assert classify("pass", "inconclusive") == "lost_coverage"
+    assert classify("fail", "pass") == "fixed"
+    assert classify("skipped", "pass") == "gained_coverage"
+    assert classify(None, "pass") == "added"
+
+
+def test_git_revision_only_reported_for_repository_root():
+    from crosslayer.core.artifacts import git_info
+
+    root = Path(__file__).resolve().parents[2]
+    if git_info(root) is None:
+        pytest.skip("not running from a git checkout")
+    assert git_info(root / "crosslayer") is None  # a subdirectory is not CrossLayer's repo root

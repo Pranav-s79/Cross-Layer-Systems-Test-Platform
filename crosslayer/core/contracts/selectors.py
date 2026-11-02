@@ -19,6 +19,17 @@ from crosslayer.core.telemetry.events import NormalizedEvent
 _SELECTOR_KEYS = {"event_type", "subsystem", "source_system", "severity", "attributes", "where"}
 
 
+def _same_value(actual: Any, expected: Any) -> bool:
+    """Equality that does not conflate booleans with numbers.
+
+    In Python ``True == 1``, so ``{process.exit_code: 1}`` would otherwise
+    match an event whose exit code was recorded as ``true``.
+    """
+    if isinstance(actual, bool) != isinstance(expected, bool):
+        return False
+    return actual == expected
+
+
 @dataclass(frozen=True)
 class Selector:
     event_types: tuple[str, ...] = ()
@@ -38,7 +49,7 @@ class Selector:
         if self.severities and str(event.severity) not in self.severities:
             return False
         for key, expected in self.attributes:
-            if key not in event.attributes or event.attributes[key] != expected:
+            if key not in event.attributes or not _same_value(event.attributes[key], expected):
                 return False
         if self.where is not None:
             try:

@@ -47,3 +47,12 @@ def test_check_validates_files(tmp_path, capsys):
 def test_adapters_lists_reference_adapter(capsys):
     assert main(["adapters"]) == 0
     assert "sensor_pipeline" in capsys.readouterr().out
+
+
+def test_bad_inputs_exit_cleanly_with_code_4(tmp_path, capsys):
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("schema_version: 1\ncontracts: [\n  - bad: [\n", encoding="utf-8")
+    assert main(["check", str(broken)]) == 4
+    assert main(["compare", str(tmp_path), str(tmp_path)]) == 4
+    assert main(["verify", str(tmp_path)]) == 4
+    assert "not a run bundle" in capsys.readouterr().err

@@ -26,6 +26,12 @@ def git_info(path: Path) -> dict[str, Any] | None:
     A dirty tree means the bundle cannot be reproduced from the revision
     alone, so the flag is recorded explicitly.
     """
+    # Only report a revision if ``path`` is the repository root. An installed
+    # (non-editable) copy in site-packages may sit inside some unrelated
+    # repository, whose HEAD would be misreported as CrossLayer's version.
+    toplevel = _git(["rev-parse", "--show-toplevel"], path)
+    if toplevel is None or Path(toplevel).resolve() != path.resolve():
+        return None
     revision = _git(["rev-parse", "HEAD"], path)
     if revision is None:
         return None

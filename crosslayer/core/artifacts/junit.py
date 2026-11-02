@@ -10,7 +10,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any, Sequence
 
-from crosslayer.core.contracts.model import ContractResult
+from crosslayer.core.contracts.model import ContractResult, FailurePolicy
 from crosslayer.core.verdict import Verdict
 
 
@@ -50,6 +50,12 @@ def render_junit(manifest: dict[str, Any], results: Sequence[ContractResult]) ->
         c = result.contract
         counts["tests"] += 1
         case = ET.SubElement(suite, "testcase", classname=f"crosslayer.{c.owner}", name=c.id)
+        if c.on_fail is FailurePolicy.WARN and result.verdict is Verdict.FAIL:
+            # A warn-only contract must not turn the CI test report red when
+            # the run verdict ignores it. Keep it visible as a skip.
+            counts["skipped"] += 1
+            ET.SubElement(case, "skipped", message=f"WARNING (on_fail=warn): {result.summary}"[:500])
+            continue
         if result.verdict is Verdict.FAIL:
             tag = "failure"
             counts["failures"] += 1

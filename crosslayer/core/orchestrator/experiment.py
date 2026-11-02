@@ -66,6 +66,8 @@ class ExperimentConfig:
     source_path: Path | None = None
 
     def with_seed(self, seed: int) -> "ExperimentConfig":
+        if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+            raise ConfigError(f"seed must be a non-negative integer, got {seed!r}")
         return replace(self, seed=seed)
 
     def load_contracts(self) -> list[BoundaryContract]:
@@ -167,6 +169,9 @@ def parse_experiment(doc: Any, *, base_dir: Path, source: str, source_path: Path
     include = doc.get("include_adapter_contracts", True)
     if not isinstance(include, bool):
         raise ConfigError("must be true or false", location=f"{source}: include_adapter_contracts")
+    description = doc.get("description") or ""  # an empty YAML key is None, not ""
+    if not isinstance(description, str):
+        raise ConfigError("must be a string", location=f"{source}: description")
 
     if "base_dir" in doc:
         if not isinstance(doc["base_dir"], str):
@@ -210,7 +215,7 @@ def parse_experiment(doc: Any, *, base_dir: Path, source: str, source_path: Path
         seed=seed,
         base_dir=base_dir,
         timeout_s=float(timeout),
-        description=str(doc.get("description", "")).strip(),
+        description=description.strip(),
         parameters=dict(parameters),
         faults=faults,
         contract_files=tuple(contract_files),
@@ -225,8 +230,4 @@ def parse_experiment(doc: Any, *, base_dir: Path, source: str, source_path: Path
 
 def load_experiment(path: Path) -> ExperimentConfig:
     path = path.resolve()
-    try:
-        doc = read_document(path)
-    except Exception as exc:  # noqa: BLE001 - surface any parse failure as a config error
-        raise ConfigError(f"cannot read experiment: {exc}", location=str(path)) from exc
-    return parse_experiment(doc, base_dir=path.parent, source=str(path), source_path=path)
+    return parse_experiment(read_document(path), base_dir=path.parent, source=str(path), source_path=path)

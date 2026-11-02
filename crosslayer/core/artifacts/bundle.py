@@ -25,6 +25,8 @@ from typing import Any
 
 import yaml
 
+from crosslayer.core.errors import ConfigError
+
 BUNDLE_FORMAT_VERSION = 1
 MANIFEST = "manifest.json"
 
@@ -85,14 +87,33 @@ def load_json(bundle_dir: Path, name: str) -> Any:
     return json.loads((bundle_dir / name).read_text(encoding="utf-8"))
 
 
+def load_manifest(bundle_dir: Path) -> dict[str, Any]:
+    """Read a bundle's manifest, with a clear error if this is not a bundle."""
+    path = bundle_dir / MANIFEST
+    if not path.is_file():
+        raise ConfigError(f"not a run bundle (no {MANIFEST})", location=str(bundle_dir))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"unreadable manifest: {exc}", location=str(path)) from exc
+
+
 def verify_bundle(bundle_dir: Path) -> list[str]:
-    """Check every file listed in the manifest still has its recorded hash."""
+    """Compare the bundle on disk with its manifest.
+
+    Reports files that are missing, modified (hash differs), or unexpected
+    (present on disk but not in the manifest, e.g. added afterwards).
+    """
+    manifest = load_manifest(bundle_dir)
     problems = []
-    manifest = load_json(bundle_dir, MANIFEST)
+    listed = set()
     for entry in manifest.get("files", []):
+        listed.add(entry["path"])
         path = bundle_dir / entry["path"]
         if not path.is_file():
             problems.append(f"missing: {entry['path']}")
         elif sha256_file(path) != entry["sha256"]:
             problems.append(f"modified: {entry['path']}")
+    on_disk = {e["path"] for e in RunBundle(bundle_dir).file_index()}
+    problems += [f"unexpected: {p}" for p in sorted(on_disk - listed)]
     return problems

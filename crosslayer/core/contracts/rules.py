@@ -16,7 +16,6 @@ Every rule except ``count`` has a minimum-observations knob (``min_triggers``,
 
 from __future__ import annotations
 
-import math
 import operator
 from bisect import bisect_left
 from collections import defaultdict
@@ -84,6 +83,16 @@ def _str(raw: Mapping[str, Any], key: str, location: str, default: str | None = 
     if not isinstance(value, str) or not value:
         raise ConfigError("must be a non-empty string", location=f"{location}.{key}")
     return value
+
+
+def _check_state_name(value: Any, location: str) -> None:
+    if isinstance(value, str) and value:
+        return
+    hint = ""
+    if isinstance(value, bool):
+        # YAML 1.1 reads unquoted ON/OFF/yes/no/true/false as booleans.
+        hint = " (YAML read an unquoted ON/OFF/yes/no as a boolean; quote it, e.g. \"ON\")"
+    raise ConfigError(f"state names must be non-empty strings, got {value!r}{hint}", location=location)
 
 
 def _group_of(event: NormalizedEvent, group_by: str | None) -> str | None:
@@ -238,10 +247,12 @@ class ResponseRule(Rule):
                 f.unresolved(f"trigger has no '{self.correlate_by}' correlation id", [t])
                 continue
             candidates = index.get(key, [])
-            pos = bisect_left(times.get(key, []), t.timestamp_ns)
-            response = next(
-                (c for c in candidates[pos:] if c.event_id != t.event_id), None
-            )
+            # Walk forward by index. Slicing (candidates[pos:]) would copy the
+            # tail for every trigger and make time-window-only mode quadratic.
+            i = bisect_left(times.get(key, []), t.timestamp_ns)
+            while i < len(candidates) and candidates[i].event_id == t.event_id:
+                i += 1
+            response = candidates[i] if i < len(candidates) else None
             label = f"{self.correlate_by}={key}" if self.correlate_by else t.event_id
 
             if response is not None:
@@ -348,11 +359,15 @@ class TransitionsRule(Rule):
             raise ConfigError("must be a mapping of state -> list of next states", location=f"{location}.allowed")
         allowed: dict[str, frozenset[str]] = {}
         for src, targets in allowed_raw.items():
+            _check_state_name(src, f"{location}.allowed")
             if targets is None:
                 targets = []
-            if not isinstance(targets, list) or not all(isinstance(t, str) for t in targets):
+            if not isinstance(targets, list):
                 raise ConfigError("must be a list of state names", location=f"{location}.allowed.{src}")
-            allowed[str(src)] = frozenset(targets)
+            for target in targets:
+                _check_state_name(target, f"{location}.allowed.{src}")
+            allowed[src] = frozenset(targets)
+        known = set(allowed) | {s for targets in allowed.values() for s in targets}
 
         initial = None
         if "initial" in raw:
@@ -361,7 +376,14 @@ class TransitionsRule(Rule):
                 init = [init]
             if not isinstance(init, list) or not init:
                 raise ConfigError("must be a state or list of states", location=f"{location}.initial")
-            initial = frozenset(str(s) for s in init)
+            for state in init:
+                _check_state_name(state, f"{location}.initial")
+            unknown = sorted(set(init) - known)
+            if unknown:
+                raise ConfigError(
+                    f"initial states {unknown} do not appear in 'allowed'", location=f"{location}.initial"
+                )
+            initial = frozenset(init)
 
         allow_repeat = raw.get("allow_repeat", False)
         if not isinstance(allow_repeat, bool):
@@ -455,11 +477,14 @@ _PERCENTILES = {"p50": 50, "p90": 90, "p95": 95, "p99": 99}
 _AGGREGATES = {"max", "min", "mean", "sum", "count", *_PERCENTILES}
 
 
-def nearest_rank_percentile(sorted_values: Sequence[float], pct: float) -> float:
+def nearest_rank_percentile(sorted_values: Sequence[Any], pct: int) -> Any:
     """Nearest-rank percentile: the smallest value with at least pct% of
     samples at or below it. Always returns an observed sample (no interpolation),
-    so the evidence can point at a real event."""
-    rank = max(1, math.ceil(pct / 100 * len(sorted_values)))
+    so the evidence can point at a real event.
+
+    The rank ceil(pct * n / 100) is computed in integer arithmetic so it can
+    never be off by one from float rounding."""
+    rank = max(1, -(-pct * len(sorted_values) // 100))
     return sorted_values[rank - 1]
 
 
@@ -517,9 +542,7 @@ class ThresholdRule(Rule):
             return sum(v for v, _ in values) / len(values), None
         if self.aggregate == "sum":
             return sum(v for v, _ in values), None
-        pct = _PERCENTILES[self.aggregate]
-        rank = max(1, math.ceil(pct / 100 * len(values)))
-        return values[rank - 1]
+        return nearest_rank_percentile(values, _PERCENTILES[self.aggregate])
 
     def evaluate(self, events: Sequence[NormalizedEvent]) -> RuleOutcome:
         selected = _select(self.select, events)

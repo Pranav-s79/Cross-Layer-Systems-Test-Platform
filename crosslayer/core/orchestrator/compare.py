@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from crosslayer.core.artifacts.bundle import MANIFEST, load_json
+from crosslayer.core.artifacts.bundle import load_json, load_manifest
 
 REGRESSION_CHANGES = frozenset({"regression", "lost_coverage"})
 
@@ -22,8 +22,10 @@ def classify(baseline: str | None, candidate: str | None) -> str:
         return "regression"
     if baseline == "pass":
         return "lost_coverage"  # was verified, now inconclusive or skipped
-    if candidate == "pass":
+    if candidate == "pass" and baseline in ("fail", "error"):
         return "fixed"
+    if candidate == "pass":
+        return "gained_coverage"  # was inconclusive or skipped, now verified
     return "changed"
 
 
@@ -70,8 +72,8 @@ def _verdicts(bundle_dir: Path) -> dict[str, str]:
 
 
 def compare_bundles(baseline_dir: Path, candidate_dir: Path) -> Comparison:
-    base = load_json(baseline_dir, MANIFEST)
-    cand = load_json(candidate_dir, MANIFEST)
+    base = load_manifest(baseline_dir)
+    cand = load_manifest(candidate_dir)
     base_v = _verdicts(baseline_dir)
     cand_v = _verdicts(candidate_dir)
     deltas = [

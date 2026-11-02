@@ -295,3 +295,50 @@ def test_successive_grouping():
 def test_rule_parse_errors(raw):
     with pytest.raises(ConfigError):
         parse_rule(raw, "test")
+
+
+# -- regressions found in the Phase 1 review ---------------------------------------
+
+
+def test_response_time_window_mode_scales_linearly():
+    """Slicing the candidate list per trigger made this mode quadratic
+    (80k events took 6.6 s). It must now be near-linear."""
+    import time
+
+    events = []
+    for i in range(50_000):
+        events += [ev("req", i * 10_000), ev("ack", i * 10_000 + 3_000)]
+    r = rule(kind="response", trigger={"event_type": "req"}, response={"event_type": "ack"}, within_ms=5)
+    start = time.perf_counter()
+    out = r.evaluate(events)
+    assert out.verdict is Verdict.PASS and out.stats["satisfied"] == 50_000
+    assert time.perf_counter() - start < 5.0  # the quadratic version took far longer
+
+
+def test_response_trigger_matching_its_own_response_selector_is_skipped():
+    r = rule(kind="response", trigger={"event_type": "msg"}, response={"event_type": "msg"}, correlate_by="k")
+    out = r.evaluate([ev("msg", 0, ids={"k": 1}), ev("msg", 5, ids={"k": 1})])
+    # the first message is answered by the second; the second has nothing after it
+    assert out.stats["satisfied"] == 1 and out.verdict is Verdict.FAIL
+
+
+def test_transitions_yaml_booleans_get_a_clear_error():
+    with pytest.raises(ConfigError, match="quote it"):
+        rule(kind="transitions", select={"event_type": "p"}, state="event_type", allowed={True: [False]})
+
+
+def test_transitions_initial_states_must_exist():
+    with pytest.raises(ConfigError, match="do not appear"):
+        rule(kind="transitions", select={"event_type": "p"}, state="event_type",
+             allowed={"IDLE": ["BUSY"], "BUSY": []}, initial=["IDEL"])
+
+
+def test_percentile_rank_matches_exact_rational_definition():
+    from fractions import Fraction
+    import math
+
+    for pct in (50, 90, 95, 99):
+        for n in range(1, 2_001):
+            values = list(range(1, n + 1))
+            exact_rank = max(1, math.ceil(Fraction(pct * n, 100)))
+            assert nearest_rank_percentile(values, pct) == exact_rank

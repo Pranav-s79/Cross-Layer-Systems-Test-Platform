@@ -3,6 +3,7 @@ from crosslayer.core.artifacts.bundle import (
     MANIFEST,
     RunBundle,
     load_json,
+    load_manifest,
     sha256_file,
     verify_bundle,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "capture_environment",
     "git_info",
     "load_json",
+    "load_manifest",
     "render_junit",
     "render_markdown",
     "sha256_file",
