@@ -22,7 +22,7 @@ with a one-line reason and take the next one.
 
 ## Items
 
-- [ ] **CHANGELOG.md.** Keep a Changelog format. An `Unreleased` section plus
+- [x] **CHANGELOG.md.** Keep a Changelog format. An `Unreleased` section plus
   a `0.1.0` section summarizing Phases 1 and 2 from the git history (nothing
   that is not in the history). From then on, each change adds a line under
   `Unreleased`.
