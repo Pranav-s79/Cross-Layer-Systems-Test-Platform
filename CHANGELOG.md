@@ -6,6 +6,7 @@ All notable changes are recorded here, in the
 ## [Unreleased]
 
 - Add this changelog.
+- Add `crosslayer --version`.
 
 ## [0.1.0]
 

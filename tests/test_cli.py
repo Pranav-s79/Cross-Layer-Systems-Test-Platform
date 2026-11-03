@@ -108,3 +108,13 @@ def test_diff_contracts_command(tmp_path, capsys):
         "  - id: pipeline.rx_accounted\n", "  - id: pipeline.rx_accounted\n    version: 2\n"), encoding="utf-8")
     assert main(["diff-contracts", str(old), str(bumped), "--markdown"]) == 0
     assert "## firmware-rx" in capsys.readouterr().out
+
+
+def test_version_flag(capsys):
+    import pytest
+    from importlib import metadata
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"crosslayer {metadata.version('crosslayer')}"

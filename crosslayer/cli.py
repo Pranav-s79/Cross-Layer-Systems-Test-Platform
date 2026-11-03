@@ -258,8 +258,18 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def _installed_version() -> str:
+    from importlib import metadata
+
+    try:
+        return metadata.version("crosslayer")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="crosslayer", description="Cross-stack verification platform")
+    parser.add_argument("--version", action="version", version=f"crosslayer {_installed_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run", help="run an experiment and write a run bundle")

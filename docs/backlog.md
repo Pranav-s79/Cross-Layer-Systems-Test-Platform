@@ -26,7 +26,7 @@ with a one-line reason and take the next one.
   a `0.1.0` section summarizing Phases 1 and 2 from the git history (nothing
   that is not in the history). From then on, each change adds a line under
   `Unreleased`.
-- [ ] **`crosslayer --version`.** Print the installed version via
+- [x] **`crosslayer --version`.** Print the installed version via
   `importlib.metadata`. Test in `tests/test_cli.py`.
 - [ ] **CI: Python 3.12 and 3.14, pip cache.** Extend the test matrix in
   `.github/workflows/ci.yml` to 3.11–3.14 on both operating systems and enable
