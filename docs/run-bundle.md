@@ -1,36 +1,34 @@
 # Run bundle format (version 1)
 
-Every run writes one directory, `<output>/<run_id>/`, where
-`run_id = <UTC start, YYYYMMDDTHHMMSSZ>-<first 8 hex of config hash>[-n]`.
+Every run writes `<output>/<run_id>/`, where
+`run_id = <UTC start YYYYMMDDTHHMMSSZ>-<first 8 hex of config hash>[-n]`.
 
 | File | Contents |
 |---|---|
-| `manifest.json` | Verdict, mode, timings, config hash, experiment, adapter, execution record, injected faults (with ground-truth targets), event count and fingerprint, contract tallies, warnings, errors, and a `files` index with SHA-256 for every other file. Written last. |
-| `configuration.yaml` | Resolved experiment: **every evaluated contract inlined** (adapter defaults included), absolute paths, `include_adapter_contracts: false`. Replaying it checks exactly the same contracts. |
-| `versions.json` | CrossLayer version and git revision (with dirty flag), Python and OS, adapter description (system version, subsystems, interfaces, external dependencies), capabilities. |
-| `raw_artifacts/` | Untouched output from the system under test. Evidence references point here (`raw_artifacts/sim.log#L315`). |
-| `normalized_events.jsonl` | One canonical-JSON event per line, time-ordered. This is exactly what the contracts saw. |
-| `normalization.json` | Adapter stats and parse diagnostics (raw lines that could not be normalized). |
-| `contracts.json` | Each contract's origin, original definition, and full result: verdict, rule verdict, summary, stats, missing evidence, and findings with evidence. |
-| `violations.json` | Only the FAIL results, same structure. |
-| `report.md` | Human-readable summary: contract table, owners needing attention, violations ordered by first observation, inconclusive contracts. |
-| `junit.xml` | One testcase per contract. FAIL maps to `failure`, ERROR to `error`, INCONCLUSIVE and SKIPPED to `skipped` with the verdict in the message. |
-| `replay.sh` | Re-runs `configuration.yaml`. Its header lists expected verdict, event fingerprint, and the external dependencies that are not bundled. |
-| `work/` | Scratch space for build outputs. Not indexed. |
+| `manifest.json` | Verdict, timings, config hash, adapter, faults (with true targets), event count and fingerprint, contract tallies, errors, and SHA-256 of every other file. Written last. |
+| `configuration.yaml` | The resolved experiment with **every contract inlined**, so a replay checks exactly the same contracts. |
+| `versions.json` | CrossLayer version and git revision, Python, OS, adapter description, capabilities. |
+| `raw_artifacts/` | Untouched output of the system. Evidence points here (`raw_artifacts/sim.log#L315`). |
+| `normalized_events.jsonl` | One event per line, time-ordered: exactly what the contracts saw. |
+| `normalization.json` | Adapter stats and lines that could not be parsed. |
+| `contracts.json` | Each contract's definition and full result, with findings and evidence. |
+| `violations.json` | FAIL results only. |
+| `report.md` | Summary: contract table, owners needing attention, violations in order, inconclusive contracts. |
+| `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. |
+| `replay.sh` | Re-runs `configuration.yaml`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
+| `work/` | Scratch space. Not indexed. |
 
-## Hashes and fingerprints
+## Hashes
 
-* **Config hash**: SHA-256 of the canonical JSON of the effective experiment,
-  with absolute paths removed and input files replaced by their content
-  hashes. Same experiment on two machines gives the same hash. Changing a
-  seed, a parameter, a fault, or any contract changes it.
-* **Event fingerprint**: SHA-256 over the canonical normalized events with
-  `run_id` removed. Two runs of a deterministic system with the same config
-  should have equal fingerprints. `crosslayer compare` reports this.
-* **File index**: `crosslayer verify <bundle>` recomputes every file hash
-  listed in the manifest and reports missing or modified files.
+* **Config hash:** SHA-256 of the effective experiment, without absolute
+  paths and with input files replaced by content hashes. The same experiment
+  on two machines gives the same hash; any change to seed, parameters,
+  faults, or contracts changes it.
+* **Event fingerprint:** SHA-256 of the normalized events without `run_id`.
+  Same config on a deterministic system gives the same fingerprint
+  (`crosslayer compare` checks this).
+* **File index:** `crosslayer verify <bundle>` reports missing, modified, or
+  unexpected files.
 
-## Planned additions
-
-`dependency_graph.json` and `diagnosis.json` (roadmap Phase 7), and an HTML
-report with cross-layer timelines (Phase 13).
+Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7), and an HTML
+report (Phase 13).

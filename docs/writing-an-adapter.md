@@ -1,8 +1,8 @@
 # Writing an adapter
 
 An adapter is the only code that knows how a system is built, run, and
-logged. The reference implementation is
-`crosslayer/integrations/sensor_pipeline/adapter.py`.
+logged. Fastest start: `crosslayer new adapter NAME` (see [tooling.md](tooling.md)).
+Reference: `crosslayer/integrations/sensor_pipeline/adapter.py`.
 
 ## 1. Describe the system
 
@@ -15,7 +15,7 @@ class MyAdapter(SystemAdapter):
             name="my_system",
             adapter_version="0.1.0",
             system="my-system",
-            system_version="git:abc123",          # or a content hash of the SUT
+            system_version="git:abc123",
             subsystems=("fetch", "decode", "regfile"),
             interfaces=(InterfaceSpec("fetch_to_decode", "fetch", "decode"),),
             external_dependencies=("Verilator 5.x",),   # listed in replay.sh
@@ -26,49 +26,40 @@ class MyAdapter(SystemAdapter):
                           Capability.COLLECT, Capability.NORMALIZE})
 ```
 
-`COLLECT` and `NORMALIZE` are required. Do **not** implement methods for
-capabilities you do not declare. The base class raises
-`UnsupportedOperation`, which makes "unsupported" explicit.
+`COLLECT` and `NORMALIZE` are required. Don't implement methods for
+capabilities you don't declare; the base class raises `UnsupportedOperation`.
 
 ## 2. Run and collect
 
-* `build(ctx)` returns `BuildResult(ok, details)`. Put outputs in `ctx.work_dir`.
-* `execute(ctx)` runs the system. Use
-  `crosslayer.core.orchestrator.process.run_process` with `ctx.timeout_s`.
-  It kills the whole process tree on timeout. Write raw output into
-  `ctx.raw_dir`, and pass `ctx.seed` to anything random.
-* `collect(ctx, execution)` returns `Artifact` entries for files under
-  `ctx.raw_dir`. In log-only mode (`inputs:` in the experiment), copy
-  `ctx.inputs` into `ctx.raw_dir` here.
+* `build(ctx)` returns `BuildResult(ok, details)`; outputs go in `ctx.work_dir`.
+* `execute(ctx)` runs the system with
+  `crosslayer.core.orchestrator.process.run_process` and `ctx.timeout_s`
+  (kills the process tree on timeout). Write raw output to `ctx.raw_dir`;
+  pass `ctx.seed` to anything random.
+* `collect(ctx, execution)` returns `Artifact`s under `ctx.raw_dir`. In
+  log-only mode, copy `ctx.inputs` there.
 
 ## 3. Normalize
 
 `normalize(ctx, artifacts)` returns `NormalizationResult(events, diagnostics, stats)`.
 
-* `run_id=ctx.run_id`. Event ids must be unique (`"<file>:<line>"` works well).
-* `timestamp_ns` is an **int**. Parse decimal timestamps exactly
-  (`crosslayer.core.units.decimal_seconds_to_ns`), never through `float`.
-* Attribute keys are namespaced: `rtl.pc`, `ran.rnti`.
-* Put identifiers in `correlation_ids` (`{"ue": "3"}`), not only in attributes,
-  so `response`, `transitions`, and `successive` rules can group by them.
-* `raw_artifact_ref=ctx.raw_ref("file.log", lineno)` lets every finding point
-  back to the original line.
-* Record what the timestamp means in `confidence_metadata`, for example
-  `{"timestamp_source": "simulation_cycle"}` or `"inferred_end_of_log"`.
-* Report lines you could not parse as `ParseDiagnostic`s. Do not drop them silently.
+* Unique event ids (`"<file>:<line>"` works).
+* `timestamp_ns` is an **int**. Parse decimals with `decimal_seconds_to_ns`, never `float`.
+* Namespaced attribute keys: `rtl.pc`, `ran.rnti`.
+* Identifiers go in `correlation_ids` (`{"ue": "3"}`) so rules can group by them.
+* `raw_artifact_ref=ctx.raw_ref("file.log", lineno)` links findings to the line.
+* Say what the timestamp means in `confidence_metadata` (`{"timestamp_source": "simulation_cycle"}`).
+* Report unparsable lines as `ParseDiagnostic`s instead of dropping them.
 
-## 4. Ship contracts and faults (optional)
+## 4. Contracts, faults, event catalog
 
-* `contracts()` returns default contracts, typically from a YAML file next to
-  the adapter (`load_contracts_file`). Their `source`/`destination` must be
-  declared subsystems.
-* `faults()` returns `FaultSpec`s with the **ground-truth target**
-  (`target_subsystem`, optional `target_interface`) and parameter names.
-  These labels are what fault-localization accuracy will be scored against.
-* `validate_parameters` and `validate_faults` reject bad values before
-  anything runs.
-
-## 4b. Declare an event catalog (recommended)
+* `contracts()`: default contracts, usually loaded from a YAML file next to
+  the adapter. Endpoints must be declared subsystems.
+* `faults()`: `FaultSpec`s with their **true target** (`target_subsystem`,
+  optional `target_interface`). Localization will be scored against these.
+* `validate_parameters` / `validate_faults` reject bad values before a run.
+* `event_catalog()` (recommended) lets `crosslayer lint` catch contracts that
+  use event types or keys you never emit:
 
 ```python
 from crosslayer.core.adapters import EventSpec
@@ -80,9 +71,7 @@ def event_catalog(self):
     ]
 ```
 
-With a catalog, `crosslayer lint` reports contracts that reference event
-types, attributes, or correlation ids your adapter never emits. Keep it
-truthful with `check_events_against_catalog` in your tests.
+Keep it truthful with `check_events_against_catalog` in your tests.
 
 ## 5. Register and test
 
@@ -98,8 +87,5 @@ def test_conforms():
     assert check_adapter_conformance(MyAdapter()) == []
 ```
 
-Add contract tests (`crosslayer test-contracts`, see [tooling.md](tooling.md))
-so every contract has a trace it must pass and one it must fail.
-
-Then add a baseline experiment that must PASS and at least one controlled
-fault that must FAIL the contract designed to catch it.
+Then add contract tests (one passing and one failing trace per contract), a
+baseline experiment that must PASS, and at least one fault that must FAIL.

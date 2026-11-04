@@ -8,6 +8,7 @@ All notable changes are recorded here, in the
 - Add this changelog.
 - Add `crosslayer --version`.
 - Test on Python 3.11 to 3.14 in CI and cache pip downloads.
+- Tighten the README, roadmap, and docs; fix outdated notes on suites and `verify`.
 
 ## [0.1.0]
 

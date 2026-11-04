@@ -7,10 +7,10 @@
 **Cross-stack verification for systems built by many teams.**
 
 Components often pass their own tests and still fail together, because the
-bugs live *between* them: missed deadlines, silently dropped data, mismatched
-assumptions. CrossLayer lets you write those cross-boundary expectations as
-**contracts**, run controlled **experiments** (including fault injection),
-and get **verdicts backed by evidence** that link straight to the raw log line.
+bugs live *between* them: missed deadlines, dropped data, mismatched
+assumptions. CrossLayer lets you write those expectations as **contracts**,
+run **experiments** (including fault injection), and get **verdicts backed by
+evidence** that link to the raw log line.
 
 ```mermaid
 flowchart LR
@@ -28,7 +28,7 @@ pip install -e ".[dev]"
 crosslayer run experiments/reference/baseline.yaml            # PASS
 crosslayer run experiments/reference/fault_silent_drop.yaml   # FAIL, with evidence
 crosslayer compare runs/<baseline> runs/<faulty>              # regression diff
-crosslayer suite experiments/reference/suite.yaml             # baseline + every fault, in order
+crosslayer suite experiments/reference/suite.yaml             # baseline + every fault
 ```
 
 ```text
@@ -42,10 +42,9 @@ faults    silent_drop
   FAIL         pipeline.counter_conservation  held for 0/1 events
 ```
 
-Every violation in the generated `report.md` points to its source, for
-example `raw_artifacts/sim.log#L315`.
+Each violation in `report.md` points to its source, such as `raw_artifacts/sim.log#L315`.
 
-## Writing a contract
+## A contract
 
 ```yaml
 - id: pipeline.rx_accounted
@@ -62,36 +61,27 @@ example `raw_artifacts/sim.log#L315`.
     within_ms: 5
 ```
 
-Six rule kinds cover deadlines, state machines, percentile thresholds,
-invariants, and step-to-step relations such as `PC + 4`.
-→ [Contract language](docs/contract-language.md)
+Six rule kinds cover deadlines, state machines, percentiles, invariants, and
+step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-language.md)
 
 ## What works today
 
-- **Pluggable adapters:** any system plugs in through one interface,
-  discovered via entry points. The core never imports a target, and a test
-  enforces that.
+- **Adapters:** any system plugs in through one interface. The core never
+  imports a target (enforced by a test).
 - **Contract engine:** six rule kinds, a sandboxed expression language, and
   PASS / FAIL / INCONCLUSIVE verdicts with no vacuous passes.
-- **Reproducible runs:** seeded experiments, hashed run bundles, a replay
-  script, and identical-seed repeatability checks.
-- **CI-ready:** JUnit output, meaningful exit codes, run-to-run regression diffs,
-  and suites that run experiments in dependency order against expected verdicts.
-- **Contract tooling:** contract tests (every contract must be shown to fail on a
-  known-bad trace), a linter that catches misspelled events and attributes
-  before anything runs, JSON Schemas for editor autocomplete, contract
-  versioning with per-owner changelogs, and `crosslayer new adapter` scaffolding.
-- **Validated with fault injection:** a reference pipeline with four injected
-  faults. Each one is caught by exactly the contracts designed for it, and the
-  baseline stays clean.
+- **Reproducible runs:** seeded experiments, hashed run bundles, replay, and
+  repeatability checks.
+- **CI-ready:** JUnit output, exit codes, regression diffs, and suites with
+  dependency order and expected verdicts.
+- **Contract tooling:** contract tests, a linter, JSON Schemas, versioning,
+  and `crosslayer new adapter` scaffolding.
+- **Fault injection:** four faults in a reference pipeline, each caught by
+  exactly its target contracts, with a clean baseline.
 
-> The reference system is a deterministic **simulation** used to validate the
-> core. It is not real firmware.
+> The reference system is a deterministic **simulation**, not real firmware.
 
 ## Roadmap
-
-CrossLayer grows from this verified core toward a production verification
-platform:
 
 | Stage | Phases | Status |
 |---|---|---|
@@ -101,17 +91,17 @@ platform:
 | Scale | Streaming engine · results store · distributed execution | 📋 planned |
 | Production | Platform service · OpenTelemetry · security and governance | 📋 planned |
 
-→ [Full roadmap with exit criteria](ROADMAP.md)
+→ [Full roadmap](ROADMAP.md)
 
 ## Documentation
 
 | | |
 |---|---|
 | [Architecture](docs/architecture.md) | Layers, data flow, enforced boundaries |
-| [Contract language](docs/contract-language.md) | Fields, selectors, rule kinds, expressions, verdicts |
-| [Contract tooling](docs/tooling.md) | Contract tests, lint, schemas, suites, versioning, scaffolding |
-| [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system under test |
-| [Run bundle format](docs/run-bundle.md) | What every run records and how to verify it |
+| [Contract language](docs/contract-language.md) | Fields, selectors, rules, expressions, verdicts |
+| [Contract tooling](docs/tooling.md) | Tests, lint, schemas, suites, versioning, scaffolding |
+| [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system |
+| [Run bundle format](docs/run-bundle.md) | What every run records |
 
 ## Development
 
