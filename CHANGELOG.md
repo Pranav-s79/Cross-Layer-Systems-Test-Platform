@@ -7,6 +7,7 @@ All notable changes are recorded here, in the
 
 - Add this changelog.
 - Add `crosslayer --version`.
+- Test on Python 3.11 to 3.14 in CI and cache pip downloads.
 
 ## [0.1.0]
 

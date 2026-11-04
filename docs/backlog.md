@@ -28,7 +28,7 @@ with a one-line reason and take the next one.
   `Unreleased`.
 - [x] **`crosslayer --version`.** Print the installed version via
   `importlib.metadata`. Test in `tests/test_cli.py`.
-- [ ] **CI: Python 3.12 and 3.14, pip cache.** Extend the test matrix in
+- [x] **CI: Python 3.12 and 3.14, pip cache.** Extend the test matrix in
   `.github/workflows/ci.yml` to 3.11–3.14 on both operating systems and enable
   `cache: pip` in `actions/setup-python`.
 - [ ] **`crosslayer run --dry-run`.** Call `ExperimentRunner.plan()` only and
