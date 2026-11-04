@@ -113,6 +113,13 @@ crosslayer suite experiments/reference/suite.yaml --out runs
   `junit.xml`, and each run's bundle. Exit 0 only if every experiment met its
   expectation.
 
+## Dry runs
+
+`crosslayer run EXPERIMENT --dry-run` validates the experiment (adapter,
+parameters, faults, contracts) and prints the adapter, mode, faults, and
+contract ids without executing anything or writing a bundle. It exits 0, or 4
+on a configuration error.
+
 ## Contract versioning
 
 Bump `version` when **what the contract checks** changes: `rule`, `source`,

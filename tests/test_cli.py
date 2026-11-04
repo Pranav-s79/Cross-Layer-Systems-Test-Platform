@@ -118,3 +118,18 @@ def test_version_flag(capsys):
         main(["--version"])
     assert exc.value.code == 0
     assert capsys.readouterr().out.strip() == f"crosslayer {metadata.version('crosslayer')}"
+
+
+def test_run_dry_run_writes_no_bundle(tmp_path, capsys):
+    out = tmp_path / "runs"
+    assert main(["run", str(EXPERIMENTS / "fault_silent_drop.yaml"), "--out", str(out), "--dry-run"]) == 0
+    text = capsys.readouterr().out
+    assert "mode       execute" in text and "faults     " in text and "pipeline.rx_accounted" in text
+    assert not out.exists()
+
+
+def test_run_dry_run_config_error(tmp_path, capsys):
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("schema_version: 1\nname: x\nadapter: nope\nseed: 1\n", encoding="utf-8")
+    assert main(["run", str(bad), "--out", str(tmp_path / "o"), "--dry-run"]) == 4
+    assert not (tmp_path / "o").exists()

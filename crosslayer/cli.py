@@ -44,7 +44,20 @@ def _cmd_run(args: argparse.Namespace) -> int:
     experiment = load_experiment(args.experiment)
     if args.seed is not None:
         experiment = experiment.with_seed(args.seed)
-    result = ExperimentRunner(args.out).run(experiment)
+    runner = ExperimentRunner(args.out)
+    if args.dry_run:
+        plan = runner.plan(experiment)
+        print(f"experiment {experiment.name}")
+        print(f"adapter    {experiment.adapter}")
+        print(f"mode       {plan.mode}")
+        faults = ", ".join(f["name"] for f in plan.fault_labels) or "none"
+        print(f"faults     {faults}")
+        print(f"contracts  {len(plan.contracts)}")
+        for contract in plan.contracts:
+            print(f"  {contract.id}")
+        print("dry run: nothing was executed and no bundle was written")
+        return 0
+    result = runner.run(experiment)
     m = result.manifest
 
     print(f"run       {result.run_id}")
@@ -276,6 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("experiment", type=Path)
     run.add_argument("--out", type=Path, default=Path("runs"), help="directory for run bundles (default: runs/)")
     run.add_argument("--seed", type=int, help="override the experiment seed")
+    run.add_argument("--dry-run", action="store_true", help="validate and print the plan without running")
     run.add_argument("--quiet", action="store_true", help="do not list per-contract results")
     run.set_defaults(func=_cmd_run)
 

@@ -31,7 +31,7 @@ with a one-line reason and take the next one.
 - [x] **CI: Python 3.12 and 3.14, pip cache.** Extend the test matrix in
   `.github/workflows/ci.yml` to 3.11–3.14 on both operating systems and enable
   `cache: pip` in `actions/setup-python`.
-- [ ] **`crosslayer run --dry-run`.** Call `ExperimentRunner.plan()` only and
+- [x] **`crosslayer run --dry-run`.** Call `ExperimentRunner.plan()` only and
   print what would run (adapter, mode, contracts, faults). Exit 0, or 4 on a
   config error. Test that no bundle directory is created.
 - [ ] **CONTRIBUTING.md.** Dev setup, running tests and the reference suite,
