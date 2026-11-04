@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add CONTRIBUTING.md.
 - Add this changelog.
 - Add `crosslayer --version`.
 - Add `crosslayer run --dry-run` to validate and print the plan without running.

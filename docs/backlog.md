@@ -34,7 +34,7 @@ with a one-line reason and take the next one.
 - [x] **`crosslayer run --dry-run`.** Call `ExperimentRunner.plan()` only and
   print what would run (adapter, mode, contracts, faults). Exit 0, or 4 on a
   config error. Test that no bundle directory is created.
-- [ ] **CONTRIBUTING.md.** Dev setup, running tests and the reference suite,
+- [x] **CONTRIBUTING.md.** Dev setup, running tests and the reference suite,
   regenerating schemas, adding an adapter (point to the scaffold), commit
   style. One line in the README docs table.
 - [ ] **`transitions`: optional `final` states.** At the end of the trace each
