@@ -42,7 +42,7 @@ with a one-line reason and take the next one.
   last event. Loader, JSON Schema, lint (a `final` state unreachable from
   `initial` is an error), `docs/contract-language.md` (recommend pairing with
   `evidence` so a truncated log is INCONCLUSIVE), PASS and FAIL tests.
-- [ ] **Every subcommand's `--help` renders.** Parametrized test over the
+- [x] **Every subcommand's `--help` renders.** Parametrized test over the
   parser's subcommands; each exits 0 and mentions its own name.
 - [ ] **Cross-platform replay.** `replay.sh` needs a POSIX shell. Add
   `crosslayer replay BUNDLE [--out DIR]`: re-run the bundled

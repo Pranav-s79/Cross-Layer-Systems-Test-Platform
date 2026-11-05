@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Test that every subcommand's `--help` renders.
 - Add optional `final` states to the `transitions` rule, with lint check CL008.
 - Add CONTRIBUTING.md.
 - Add this changelog.

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from crosslayer.cli import main
 
 EXPERIMENTS = Path(__file__).resolve().parents[1] / "experiments" / "reference"
@@ -133,3 +135,20 @@ def test_run_dry_run_config_error(tmp_path, capsys):
     bad.write_text("schema_version: 1\nname: x\nadapter: nope\nseed: 1\n", encoding="utf-8")
     assert main(["run", str(bad), "--out", str(tmp_path / "o"), "--dry-run"]) == 4
     assert not (tmp_path / "o").exists()
+
+
+def _subcommand_names():
+    import argparse
+
+    from crosslayer.cli import build_parser
+
+    [action] = [a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction)]
+    return sorted(action.choices)
+
+
+@pytest.mark.parametrize("name", _subcommand_names())
+def test_subcommand_help_renders(name, capsys):
+    with pytest.raises(SystemExit) as exc:
+        main([name, "--help"])
+    assert exc.value.code == 0
+    assert name in capsys.readouterr().out
