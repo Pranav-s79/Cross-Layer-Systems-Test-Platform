@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add docs on how CrossLayer is tested and how to extend it.
 - Test that every subcommand's `--help` renders.
 - Add optional `final` states to the `transitions` rule, with lint check CL008.
 - Add CONTRIBUTING.md.

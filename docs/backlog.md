@@ -17,7 +17,10 @@ with a one-line reason and take the next one.
 * No new runtime dependencies (`[project] dependencies`). Dev-only tools only
   where an item says so.
 * `crosslayer/core` never imports `crosslayer/integrations`.
-* Update the relevant page in `docs/` when behavior changes. Keep the README short.
+* Update the relevant page in `docs/` when behavior changes. Keep docs concise
+  (short sentences, tables, no repetition) and the README short. Update
+  `docs/testing.md` for a new kind of test and `docs/extending.md` for a new
+  extension point.
 * Numbers in docs come from runs made for that change, with the machine stated.
 
 ## Items

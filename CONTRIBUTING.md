@@ -58,6 +58,9 @@ this.
   "Add run --dry-run to validate and print the plan without running".
 * Add a body when the reason is not obvious from the diff.
 * Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
-* Update the relevant page in `docs/` when behavior changes.
+* Update the relevant page in `docs/` when behavior changes, concisely: short
+  sentences, tables over prose, edit existing sections rather than repeat them.
+  New kinds of tests go in [docs/testing.md](docs/testing.md); new extension
+  points in [docs/extending.md](docs/extending.md).
 * Pick small items from [docs/backlog.md](docs/backlog.md) and tick them in the
   same commit.
