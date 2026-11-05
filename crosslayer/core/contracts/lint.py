@@ -16,6 +16,7 @@ satisfied.
 | CL005 | info    | percentile computed over too few samples to differ from the maximum |
 | CL006 | warning | response with no deadline and no required end-of-run evidence |
 | CL007 | warning | response deadline is not shorter than the run timeout |
+| CL008 | error   | final state cannot be reached from the initial states |
 | CL010 | error   | selector matches no event type the adapter emits |
 | CL011 | error   | key is never present on the events a selector matches |
 | CL012 | warning | key is missing on some of the events a selector matches |
@@ -105,6 +106,11 @@ def _lint_rule(c: BoundaryContract, timeout_s: float | None) -> list[LintFinding
             if unreachable:
                 out.append(LintFinding("CL003", LintLevel.WARNING, c.id,
                                        f"states {unreachable} cannot be reached from {sorted(rule.initial)}"))
+            if rule.final is not None:
+                stranded = sorted(rule.final - _reachable(rule.initial, rule.allowed))
+                if stranded:
+                    out.append(LintFinding("CL008", LintLevel.ERROR, c.id,
+                                           f"final states {stranded} cannot be reached from {sorted(rule.initial)}"))
     elif isinstance(rule, ThresholdRule) and rule.aggregate.startswith("p"):
         pct = int(rule.aggregate[1:])
         needed = 100 // (100 - pct)  # below this many samples, nearest-rank pN is the maximum

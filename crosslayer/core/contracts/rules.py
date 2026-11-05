@@ -352,12 +352,14 @@ class TransitionsRule(Rule):
         initial: frozenset[str] | None,
         allow_repeat: bool,
         min_events: int,
+        final: frozenset[str] | None = None,
     ) -> None:
         self.select = select
         self.state_attribute = state_attribute
         self.group_by = group_by
         self.allowed = allowed
         self.initial = initial
+        self.final = final
         self.allow_repeat = allow_repeat
         self.min_events = min_events
         self.known_states = set(allowed) | {s for targets in allowed.values() for s in targets}
@@ -367,7 +369,7 @@ class TransitionsRule(Rule):
         _check_keys(
             raw,
             {"select", "state", "allowed"},
-            {"group_by", "initial", "allow_repeat", "min_events"},
+            {"group_by", "initial", "final", "allow_repeat", "min_events"},
             location,
         )
         state = raw["state"]
@@ -393,21 +395,25 @@ class TransitionsRule(Rule):
             allowed[src] = frozenset(targets)
         known = set(allowed) | {s for targets in allowed.values() for s in targets}
 
-        initial = None
-        if "initial" in raw:
-            init = raw["initial"]
-            if isinstance(init, str):
-                init = [init]
-            if not isinstance(init, list) or not init:
-                raise ConfigError("must be a state or list of states", location=f"{location}.initial")
-            for state in init:
-                _check_state_name(state, f"{location}.initial")
-            unknown = sorted(set(init) - known)
+        def state_set(name: str) -> frozenset[str] | None:
+            if name not in raw:
+                return None
+            value = raw[name]
+            if isinstance(value, str):
+                value = [value]
+            if not isinstance(value, list) or not value:
+                raise ConfigError("must be a state or list of states", location=f"{location}.{name}")
+            for item in value:
+                _check_state_name(item, f"{location}.{name}")
+            unknown = sorted(set(value) - known)
             if unknown:
                 raise ConfigError(
-                    f"initial states {unknown} do not appear in 'allowed'", location=f"{location}.initial"
+                    f"{name} states {unknown} do not appear in 'allowed'", location=f"{location}.{name}"
                 )
-            initial = frozenset(init)
+            return frozenset(value)
+
+        initial = state_set("initial")
+        final = state_set("final")
 
         allow_repeat = raw.get("allow_repeat", False)
         if not isinstance(allow_repeat, bool):
@@ -419,6 +425,7 @@ class TransitionsRule(Rule):
             group_by=_str(raw, "group_by", location),
             allowed=allowed,
             initial=initial,
+            final=final,
             allow_repeat=allow_repeat,
             min_events=_int(raw, "min_events", location, 1) or 0,
         )
@@ -469,6 +476,16 @@ class TransitionsRule(Rule):
                         to_state=state,
                     )
             last[group] = (e, state)
+
+        if self.final is not None:
+            for group, (last_event, last_state) in last.items():
+                if last_state not in self.final:
+                    label = f"{self.group_by}={group}" if self.group_by else "stream"
+                    f.violation(
+                        f"{label}: ends in '{last_state}', expected one of {sorted(self.final)}",
+                        [last_event],
+                        state=last_state,
+                    )
 
         stats = {
             "events": len(selected),

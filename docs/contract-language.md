@@ -73,13 +73,19 @@ select: {event_type: "packet.*"}
 state: event_type                 # or {attribute: ran.rrc_state}
 group_by: packet                  # id of the entity
 initial: [packet.received]        # optional allowed first states
+final: [packet.processed, packet.dropped]   # optional allowed last states
 allowed:
   packet.received: [packet.processed, packet.dropped]
   packet.processed: []
   packet.dropped: []
 allow_repeat: false               # allow X -> X
 ```
-States missing from `allowed` are reported as unknown.
+States missing from `allowed` are reported as unknown. With `final`, each
+entity's last state in the trace must be one of the listed states; otherwise
+a violation is reported at that entity's last event. Pair it with `evidence`
+(an end-of-run marker) so a truncated log is INCONCLUSIVE rather than a
+spurious violation. Lint reports an error (CL008) when a `final` state cannot
+be reached from `initial`.
 
 ### `threshold`
 An aggregate of a numeric attribute against a limit.

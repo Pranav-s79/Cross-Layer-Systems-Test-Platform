@@ -37,7 +37,7 @@ with a one-line reason and take the next one.
 - [x] **CONTRIBUTING.md.** Dev setup, running tests and the reference suite,
   regenerating schemas, adding an adapter (point to the scaffold), commit
   style. One line in the README docs table.
-- [ ] **`transitions`: optional `final` states.** At the end of the trace each
+- [x] **`transitions`: optional `final` states.** At the end of the trace each
   group's last state must be in `final`; otherwise a violation at the group's
   last event. Loader, JSON Schema, lint (a `final` state unreachable from
   `initial` is an error), `docs/contract-language.md` (recommend pairing with

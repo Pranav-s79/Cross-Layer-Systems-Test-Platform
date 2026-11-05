@@ -56,6 +56,7 @@ crosslayer lint contracts.yaml --adapter sensor_pipeline   # contract file + ada
 | CL005 | info | too few samples: below 100, nearest-rank p99 *is* the max |
 | CL006 | warning | response rule with no deadline and no end-of-run evidence |
 | CL007 | warning | deadline not shorter than the run timeout |
+| CL008 | error | a `final` state is unreachable from `initial` |
 | CL010 | error | selector matches no event type the adapter emits |
 | CL011 | error | a needed attribute or id never appears on matched events |
 | CL012 | warning | that key is missing on *some* matched event types |

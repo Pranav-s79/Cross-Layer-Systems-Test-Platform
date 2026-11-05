@@ -451,6 +451,22 @@
                     }
                   ]
                 },
+                "final": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "minItems": 1
+                    }
+                  ]
+                },
                 "allowed": {
                   "type": "object",
                   "minProperties": 1,

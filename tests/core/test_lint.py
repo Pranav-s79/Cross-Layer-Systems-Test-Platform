@@ -44,6 +44,15 @@ def test_unreachable_state_and_missing_initial():
     assert finding.code == "CL003" and "log.line" in finding.message
 
 
+def test_unreachable_final_state_is_an_error():
+    rule = {"kind": "transitions", "select": {"event_type": "*"}, "state": "event_type",
+            "initial": ["req"], "allowed": {"req": ["ack"], "ack": [], "log.line": []}}
+    assert codes(lint_contracts([contract({**rule, "final": ["ack"]})])) == ["CL003"]
+    findings = lint_contracts([contract({**rule, "final": ["log.line"]})])
+    [f8] = [f for f in findings if f.code == "CL008"]
+    assert f8.level is LintLevel.ERROR
+
+
 def test_percentile_sample_floor():
     rule = {"kind": "threshold", "select": {"event_type": "ack"}, "attribute": "net.latency_us",
             "aggregate": "p95", "op": "<=", "value": 10, "min_samples": 19}

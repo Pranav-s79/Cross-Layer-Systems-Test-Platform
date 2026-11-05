@@ -156,6 +156,25 @@ def test_transitions_illegal_repeat_and_bad_initial():
     assert any("starts in 'pkt.done'" in m for m in messages)
 
 
+def test_transitions_final_state_pass_and_fail():
+    r = rule(**_LIFECYCLE, final=["pkt.done"])
+    ok = [ev("pkt.rx", 0, ids={"pkt": 1}), ev("pkt.done", 1, ids={"pkt": 1})]
+    assert r.evaluate(ok).verdict is Verdict.PASS
+    stuck = ok + [ev("pkt.rx", 2, ids={"pkt": 2}), ev("pkt.rx", 3, ids={"pkt": 3}),
+                  ev("pkt.drop", 4, ids={"pkt": 3})]
+    out = r.evaluate(stuck)
+    assert out.verdict is Verdict.FAIL
+    messages = sorted(f.message for f in out.findings)
+    assert len(messages) == 2 and all("ends in" in m for m in messages)
+    assert any("pkt=2: ends in 'pkt.rx'" in m for m in messages)
+    assert any("pkt=3: ends in 'pkt.drop'" in m for m in messages)
+
+
+def test_transitions_final_must_be_known_state():
+    with pytest.raises(ConfigError):
+        rule(**_LIFECYCLE, final=["pkt.nowhere"])
+
+
 def test_transitions_attribute_state_and_unknown_state():
     r = rule(kind="transitions", select={"event_type": "ue.state"}, state={"attribute": "ran.state"},
              group_by="ue", allowed={"IDLE": ["CONNECTED"], "CONNECTED": ["IDLE"]}, allow_repeat=True)

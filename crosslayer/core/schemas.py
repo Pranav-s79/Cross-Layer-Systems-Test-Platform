@@ -68,6 +68,7 @@ _RULES = [
                              "properties": {"attribute": _STR}}]},
         "group_by": _STR,
         "initial": _STR_OR_LIST,
+        "final": _STR_OR_LIST,
         "allowed": {"type": "object", "minProperties": 1,
                     "additionalProperties": {"oneOf": [{"type": "null"}, {"type": "array", "items": _STR}]}},
         "allow_repeat": {"type": "boolean"},
