@@ -47,7 +47,7 @@ with a one-line reason and take the next one.
   `evidence` so a truncated log is INCONCLUSIVE), PASS and FAIL tests.
 - [x] **Every subcommand's `--help` renders.** Parametrized test over the
   parser's subcommands; each exits 0 and mentions its own name.
-- [ ] **Cross-platform replay.** `replay.sh` needs a POSIX shell. Add
+- [x] **Cross-platform replay.** `replay.sh` needs a POSIX shell. Add
   `crosslayer replay BUNDLE [--out DIR]`: re-run the bundled
   `configuration.yaml`, then report whether the config hash and the functional
   fingerprint match the original. Mention it in `report.md` and

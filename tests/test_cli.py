@@ -31,6 +31,34 @@ def test_compare_and_verify(tmp_path, capsys):
     assert "1 regression(s)" in capsys.readouterr().out
 
 
+def test_replay_matches_original(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    original = _bundle(tmp_path / "a")
+    capsys.readouterr()
+    assert main(["replay", str(original), "--out", str(tmp_path / "r")]) == 0
+    out = capsys.readouterr().out
+    assert "config hash        match" in out and "event fingerprint  match" in out
+    assert main(["verify", str(_bundle(tmp_path / "r"))]) == 0
+
+
+def test_replay_reports_changed_fingerprint(tmp_path, capsys):
+    import json
+
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    original = _bundle(tmp_path / "a")
+    manifest = original / "manifest.json"
+    doc = json.loads(manifest.read_text(encoding="utf-8"))
+    doc["events"]["fingerprint"] = "0" * 64
+    manifest.write_text(json.dumps(doc), encoding="utf-8")
+    capsys.readouterr()
+    assert main(["replay", str(original), "--out", str(tmp_path / "r")]) == 1
+    assert "event fingerprint  DIFFERENT" in capsys.readouterr().out
+
+
+def test_replay_rejects_non_bundle(tmp_path, capsys):
+    assert main(["replay", str(tmp_path)]) == 4
+
+
 def test_config_error_exit_code(tmp_path, capsys):
     bad = tmp_path / "bad.yaml"
     bad.write_text("schema_version: 1\nname: x\nadapter: nope\nseed: 1\n", encoding="utf-8")

@@ -15,7 +15,7 @@ Every run writes `<output>/<run_id>/`, where
 | `violations.json` | FAIL results only. |
 | `report.md` | Summary: contract table, owners needing attention, violations in order, inconclusive contracts. |
 | `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. |
-| `replay.sh` | Re-runs `configuration.yaml`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
+| `replay.sh` | POSIX shell version of `crosslayer replay`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
 | `work/` | Scratch space. Not indexed. |
 
 ## Hashes
@@ -27,6 +27,9 @@ Every run writes `<output>/<run_id>/`, where
 * **Event fingerprint:** SHA-256 of the normalized events without `run_id`.
   Same config on a deterministic system gives the same fingerprint
   (`crosslayer compare` checks this).
+* **Replay:** `crosslayer replay <bundle> [--out DIR]` re-runs
+  `configuration.yaml` on any OS, then compares config hash and event
+  fingerprint with the original. Exit 0 if both match, 1 otherwise.
 * **File index:** `crosslayer verify <bundle>` reports missing, modified, or
   unexpected files.
 

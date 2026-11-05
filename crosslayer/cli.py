@@ -2,6 +2,7 @@
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
     crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
+    crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json]
     crosslayer check FILE...          validate contract or experiment files
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Sequence
 
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
-from crosslayer.core.artifacts.bundle import verify_bundle
+from crosslayer.core.artifacts.bundle import load_manifest, verify_bundle
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
@@ -75,6 +76,24 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print()
     print(f"bundle    {result.bundle_dir}")
     return EXIT_CODES[result.verdict]
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    original = load_manifest(args.bundle)
+    config = args.bundle / "configuration.yaml"
+    if not config.is_file():
+        raise ConfigError("bundle has no configuration.yaml", location=str(args.bundle))
+    out = args.out if args.out is not None else args.bundle.resolve().parent / "replays"
+    result = ExperimentRunner(out).run(load_experiment(config))
+    m = result.manifest
+    same_config = m["config_hash"] == original["config_hash"]
+    same_events = m["events"]["fingerprint"] == original["events"]["fingerprint"]
+    print(f"original  {original['run_id']}  verdict={original['verdict']}")
+    print(f"replay    {result.run_id}  verdict={result.verdict}")
+    print(f"config hash        {'match' if same_config else 'DIFFERENT'}")
+    print(f"event fingerprint  {'match' if same_events else 'DIFFERENT'}")
+    print(f"bundle    {result.bundle_dir}")
+    return 0 if same_config and same_events else 1
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:
@@ -297,6 +316,11 @@ def build_parser() -> argparse.ArgumentParser:
     suite_p.add_argument("suite", type=Path)
     suite_p.add_argument("--out", type=Path, default=Path("runs"), help="output directory (default: runs/)")
     suite_p.set_defaults(func=_cmd_suite)
+
+    replay = sub.add_parser("replay", help="re-run a bundle's configuration and compare hashes")
+    replay.add_argument("bundle", type=Path)
+    replay.add_argument("--out", type=Path, help="directory for the new bundle (default: replays/ beside the bundle)")
+    replay.set_defaults(func=_cmd_replay)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
     compare.add_argument("baseline", type=Path)

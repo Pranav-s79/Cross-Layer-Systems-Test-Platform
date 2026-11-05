@@ -116,6 +116,6 @@ def render_markdown(manifest: dict[str, Any], results: Sequence[ContractResult])
         out.append("")
 
     out.append("## Reproduce\n")
-    out.append("```sh\nsh replay.sh\n```\n")
+    out.append("```sh\ncrosslayer replay .   # any OS; or: sh replay.sh\n```\n")
     out.append("External dependencies are listed at the top of `replay.sh` and in `versions.json`.\n")
     return "\n".join(out)
