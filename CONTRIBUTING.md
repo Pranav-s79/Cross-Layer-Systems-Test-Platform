@@ -7,8 +7,8 @@ python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-Python 3.11 or newer. The runtime has no third-party dependencies; do not add
-any. Dev-only tools go in the `dev` extra.
+Python 3.11 or newer. The runtime depends only on PyYAML; do not add more
+runtime dependencies. Dev-only tools go in the `dev` extra.
 
 ## Run the checks
 
