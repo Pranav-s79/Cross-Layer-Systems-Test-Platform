@@ -15,12 +15,14 @@ there is always evidence to inspect.
 
 from __future__ import annotations
 
+import time
 import traceback
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
+from contextlib import contextmanager
 
 from crosslayer.core.adapters.base import (
     REQUIRED_CAPABILITIES,
@@ -52,6 +54,27 @@ def _utc_now() -> datetime:
 
 def _iso(ts: datetime) -> str:
     return ts.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+STAGES = ("plan", "build", "execute", "collect", "normalize", "evaluate", "write")
+
+
+class _Timer:
+    """Monotonic seconds per runner stage; stages that never ran stay at 0."""
+
+    def __init__(self) -> None:
+        self.seconds = {name: 0.0 for name in STAGES}
+
+    @contextmanager
+    def stage(self, name: str) -> Iterator[None]:
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.seconds[name] += time.perf_counter() - start
+
+    def to_dict(self) -> dict[str, float]:
+        return {name: round(value, 6) for name, value in self.seconds.items()}
 
 
 @dataclass
@@ -172,7 +195,9 @@ class ExperimentRunner:
             raise AdapterError(f"duplicate event ids, e.g. {dupes[:3]}")
 
     def run(self, experiment: ExperimentConfig) -> RunResult:
-        plan = self.plan(experiment)
+        timer = _Timer()
+        with timer.stage("plan"):
+            plan = self.plan(experiment)
         adapter = plan.adapter
         description = adapter.describe()
         config_hash = experiment.config_hash(plan.adapter_contracts)
@@ -214,22 +239,26 @@ class ExperimentRunner:
         stage = "build"
         try:
             if plan.mode == "execute" and Capability.BUILD in plan.capabilities:
-                build = adapter.build(ctx)
+                with timer.stage("build"):
+                    build = adapter.build(ctx)
                 build_details = build.details
                 if not build.ok:
                     raise AdapterError(f"build failed: {build.details}")
             stage = "execute"
             if plan.mode == "execute":
-                execution = adapter.execute(ctx)
+                with timer.stage("execute"):
+                    execution = adapter.execute(ctx)
                 if execution.status is not ExecutionStatus.COMPLETED:
                     errors.append({"stage": "execute", "message": f"execution {execution.status}"})
             stage = "collect"
-            artifacts = adapter.collect(ctx, execution)
-            self._check_artifacts(bundle, artifacts)
+            with timer.stage("collect"):
+                artifacts = adapter.collect(ctx, execution)
+                self._check_artifacts(bundle, artifacts)
             stage = "normalize"
-            normalization = adapter.normalize(ctx, artifacts)
-            events = order_events(normalization.events)
-            self._check_events(run_id, events)
+            with timer.stage("normalize"):
+                normalization = adapter.normalize(ctx, artifacts)
+                events = order_events(normalization.events)
+                self._check_events(run_id, events)
             diagnostics = [d.to_dict() for d in normalization.diagnostics]
             normalization_stats = normalization.stats
             have_events = True
@@ -243,27 +272,30 @@ class ExperimentRunner:
             )
             events = []
 
-        write_events_jsonl(bundle.path("normalized_events.jsonl"), events)
-        bundle.write_json("normalization.json", {"stats": normalization_stats, "diagnostics": diagnostics})
+        with timer.stage("write"):
+            write_events_jsonl(bundle.path("normalized_events.jsonl"), events)
+            bundle.write_json("normalization.json", {"stats": normalization_stats, "diagnostics": diagnostics})
 
         # Without a normalized event stream every contract would be judged on
         # nothing, which produces misleading failures. Skip evaluation instead.
-        results = evaluate_contracts(plan.contracts, events) if have_events else []
+        with timer.stage("evaluate"):
+            results = evaluate_contracts(plan.contracts, events) if have_events else []
         verdict = Verdict.ERROR if errors else aggregate_verdict(results)
 
-        bundle.write_json(
-            "contracts.json",
-            {
-                "contracts": [
-                    {"origin": r.contract.origin, "definition": dict(r.contract.definition), "result": r.to_dict()}
-                    for r in results
-                ]
-            },
-        )
-        bundle.write_json(
-            "violations.json",
-            {"violations": [r.to_dict() for r in results if r.verdict is Verdict.FAIL]},
-        )
+        with timer.stage("write"):
+            bundle.write_json(
+                "contracts.json",
+                {
+                    "contracts": [
+                        {"origin": r.contract.origin, "definition": dict(r.contract.definition), "result": r.to_dict()}
+                        for r in results
+                    ]
+                },
+            )
+            bundle.write_json(
+                "violations.json",
+                {"violations": [r.to_dict() for r in results if r.verdict is Verdict.FAIL]},
+            )
 
         finished = self._clock()
         counts = Counter(str(r.verdict) for r in results)
@@ -302,7 +334,9 @@ class ExperimentRunner:
             "errors": errors,
         }
 
-        bundle.write_text("report.md", render_markdown(manifest, results))
+        timings = timer.to_dict()
+        bundle.write_json("timings.json", {"unit": "seconds", "stages": timings})
+        bundle.write_text("report.md", render_markdown(manifest, results, timings))
         bundle.write_text("junit.xml", render_junit(manifest, results))
         bundle.write_text("replay.sh", self._replay_script(manifest, description.external_dependencies))
         manifest["files"] = bundle.file_index()

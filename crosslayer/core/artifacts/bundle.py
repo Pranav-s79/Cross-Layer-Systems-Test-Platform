@@ -11,6 +11,7 @@
     ├── normalization.json       parse diagnostics (raw lines that did not normalize)
     ├── contracts.json           every contract and its result
     ├── violations.json          failing contracts with evidence only
+    ├── timings.json             seconds per runner stage
     ├── report.md                human-readable summary
     ├── junit.xml                CI-compatible results
     └── replay.sh                re-run this exact experiment

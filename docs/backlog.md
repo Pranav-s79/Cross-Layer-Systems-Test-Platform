@@ -57,7 +57,7 @@ with a one-line reason and take the next one.
   formatting or import-order changes.
 - [x] **`crosslayer adapters --check`.** Run `check_adapter_conformance` on each
   registered adapter, print problems, exit 1 if any.
-- [ ] **Per-stage timings.** Record monotonic durations of each runner stage
+- [x] **Per-stage timings.** Record monotonic durations of each runner stage
   (plan, build, execute, collect, normalize, evaluate, write) in
   `timings.json`, listed in the manifest and shown in `report.md`. Excluded
   from the functional fingerprint. Test that all stages are present and

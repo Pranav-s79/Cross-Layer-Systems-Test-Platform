@@ -13,7 +13,8 @@ Every run writes `<output>/<run_id>/`, where
 | `normalization.json` | Adapter stats and lines that could not be parsed. |
 | `contracts.json` | Each contract's definition and full result, with findings and evidence. |
 | `violations.json` | FAIL results only. |
-| `report.md` | Summary: contract table, owners needing attention, violations in order, inconclusive contracts. |
+| `timings.json` | Seconds per runner stage: plan, build, execute, collect, normalize, evaluate, write (`write` covers events, normalization, contracts, violations). Stages that did not run are 0. Not part of the fingerprint. |
+| `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts. |
 | `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. |
 | `replay.sh` | POSIX shell version of `crosslayer replay`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
 | `work/` | Scratch space. Not indexed. |

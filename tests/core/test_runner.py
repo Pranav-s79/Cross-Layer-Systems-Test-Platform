@@ -129,6 +129,18 @@ def test_passing_run_produces_complete_verified_bundle(tmp_path):
     assert suite.get("tests") == "1" and suite.get("failures") == "0"
 
 
+def test_timings_cover_every_stage_and_stay_out_of_the_fingerprint(tmp_path):
+    result = runner(tmp_path, FakeAdapter()).run(experiment(tmp_path))
+    timings = load_json(result.bundle_dir, "timings.json")
+    assert set(timings["stages"]) == {"plan", "build", "execute", "collect", "normalize", "evaluate", "write"}
+    assert all(v >= 0 for v in timings["stages"].values())
+    manifest = load_json(result.bundle_dir, "manifest.json")
+    assert "timings.json" in {f["path"] for f in manifest["files"]}
+    assert "## Timings" in (result.bundle_dir / "report.md").read_text(encoding="utf-8")
+    other = runner(tmp_path, FakeAdapter()).run(experiment(tmp_path))
+    assert other.manifest["events"]["fingerprint"] == manifest["events"]["fingerprint"]
+
+
 def test_tampering_is_detected(tmp_path):
     result = runner(tmp_path, FakeAdapter()).run(experiment(tmp_path))
     (result.bundle_dir / "raw_artifacts" / "app.log").write_text("edited\n", encoding="utf-8")

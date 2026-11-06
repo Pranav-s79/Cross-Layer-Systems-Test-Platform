@@ -22,7 +22,11 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
 
-def render_markdown(manifest: dict[str, Any], results: Sequence[ContractResult]) -> str:
+def render_markdown(
+    manifest: dict[str, Any],
+    results: Sequence[ContractResult],
+    timings: dict[str, float] | None = None,
+) -> str:
     exp = manifest["experiment"]
     adapter = manifest["adapter"]
     execution = manifest.get("execution") or {}
@@ -113,6 +117,14 @@ def render_markdown(manifest: dict[str, Any], results: Sequence[ContractResult])
         out.append("## Inconclusive\n")
         for r in inconclusive:
             out.append(f"- `{r.contract.id}`: {r.summary}")
+        out.append("")
+
+    if timings:
+        out.append("## Timings\n")
+        out.append("| Stage | Seconds |")
+        out.append("|---|---|")
+        for stage, seconds in timings.items():
+            out.append(f"| {stage} | {seconds:.3f} |")
         out.append("")
 
     out.append("## Reproduce\n")
