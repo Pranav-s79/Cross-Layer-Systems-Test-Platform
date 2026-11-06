@@ -12,9 +12,10 @@ runtime dependencies. Dev-only tools go in the `dev` extra.
 
 ## Run the checks
 
-CI runs these four commands. Run them before you push:
+CI runs these four commands plus `ruff check .` (pyflakes rules only). Run them before you push:
 
 ```sh
+ruff check .
 python -m pytest -q
 crosslayer lint experiments/reference/suite.yaml --strict
 crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage

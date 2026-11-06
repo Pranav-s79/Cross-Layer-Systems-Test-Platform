@@ -6,13 +6,14 @@ its own code, its contracts, a real end-to-end system, CI, and every bug fix.
 ## Run everything
 
 ```sh
+ruff check .                         # pyflakes rules only (F, E9)
 python -m pytest                     # all automated tests
 crosslayer lint experiments/reference/suite.yaml --strict
 crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage
 crosslayer suite experiments/reference/suite.yaml --out runs
 ```
 
-CI runs all four on every push: pytest on Linux and Windows across Python
+CI runs all five on every push: ruff in its own job, pytest on Linux and Windows across Python
 3.11–3.14, then the last three in a "reference experiments" job.
 
 ## 1. Unit tests (`tests/core/`)

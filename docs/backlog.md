@@ -52,7 +52,7 @@ with a one-line reason and take the next one.
   `configuration.yaml`, then report whether the config hash and the functional
   fingerprint match the original. Mention it in `report.md` and
   `docs/run-bundle.md`. Test on a sensor-pipeline bundle.
-- [ ] **Ruff (pyflakes rules only).** Add `ruff` to the dev extras, select
+- [x] **Ruff (pyflakes rules only).** Add `ruff` to the dev extras, select
   `F` and `E9` in `pyproject.toml`, fix what it reports, add a CI step. No
   formatting or import-order changes.
 - [ ] **`crosslayer adapters --check`.** Run `check_adapter_conformance` on each

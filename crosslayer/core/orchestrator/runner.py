@@ -333,7 +333,7 @@ class ExperimentRunner:
             "set -eu",
             'HERE="$(cd "$(dirname "$0")" && pwd)"',
             'PYTHON="${PYTHON:-python}"',
-            f'exec "$PYTHON" -m crosslayer run "$HERE/configuration.yaml" --out "${{1:-$HERE/../replays}}"',
+            'exec "$PYTHON" -m crosslayer run "$HERE/configuration.yaml" --out "${1:-$HERE/../replays}"',
             "",
         ]
         return "\n".join(lines)
