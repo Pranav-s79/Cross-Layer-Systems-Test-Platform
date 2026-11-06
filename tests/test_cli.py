@@ -79,6 +79,27 @@ def test_adapters_lists_reference_adapter(capsys):
     assert "sensor_pipeline" in capsys.readouterr().out
 
 
+def test_adapters_check_passes_for_reference_adapter(capsys):
+    assert main(["adapters", "--check"]) == 0
+    assert "conformance: ok" in capsys.readouterr().out
+
+
+def test_adapters_check_fails_on_problems(monkeypatch, capsys):
+    monkeypatch.setattr("crosslayer.cli.check_adapter_conformance", lambda adapter: ["bad thing"])
+    assert main(["adapters", "--check"]) == 1
+    assert "problem: bad thing" in capsys.readouterr().out
+    assert main(["adapters"]) == 0
+
+
+def test_adapters_check_fails_on_load_error(monkeypatch):
+    def boom(name):
+        raise RuntimeError("cannot load")
+
+    monkeypatch.setattr("crosslayer.cli.load_adapter", boom)
+    assert main(["adapters", "--check"]) == 1
+    assert main(["adapters"]) == 0
+
+
 def test_bad_inputs_exit_cleanly_with_code_4(tmp_path, capsys):
     broken = tmp_path / "broken.yaml"
     broken.write_text("schema_version: 1\ncontracts: [\n  - bad: [\n", encoding="utf-8")

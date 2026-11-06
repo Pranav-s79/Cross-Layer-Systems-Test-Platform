@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add `crosslayer adapters --check` to run conformance checks on registered adapters.
 - Add ruff (pyflakes rules only) to the dev extras and CI.
 - Add `crosslayer replay` to re-run a bundle on any OS and compare config hash and fingerprint.
 - Add docs on how CrossLayer is tested and how to extend it.

@@ -4,7 +4,7 @@
     crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
-    crosslayer adapters [--json]
+    crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
     crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
     crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import load_manifest, verify_bundle
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
@@ -107,23 +108,27 @@ def _cmd_compare(args: argparse.Namespace) -> int:
 
 def _cmd_adapters(args: argparse.Namespace) -> int:
     rows = []
+    failed = False
     for name, target in sorted(available_adapters().items()):
         try:
             adapter = load_adapter(name)
-            rows.append(
-                {
-                    "name": name,
-                    "target": target,
-                    "capabilities": sorted(adapter.capabilities()),
-                    "faults": [f.name for f in adapter.faults()],
-                    "description": adapter.describe().description,
-                }
-            )
+            row = {
+                "name": name,
+                "target": target,
+                "capabilities": sorted(adapter.capabilities()),
+                "faults": [f.name for f in adapter.faults()],
+                "description": adapter.describe().description,
+            }
+            if args.check:
+                row["problems"] = check_adapter_conformance(adapter)
+                failed = failed or bool(row["problems"])
+            rows.append(row)
         except Exception as exc:  # noqa: BLE001 - one broken plugin must not hide the others
             rows.append({"name": name, "target": target, "error": str(exc)})
+            failed = failed or args.check
     if args.json:
         print(json.dumps(rows, indent=2))
-        return 0
+        return 1 if failed else 0
     if not rows:
         print("no adapters registered (is the package installed?)")
     for row in rows:
@@ -136,7 +141,12 @@ def _cmd_adapters(args: argparse.Namespace) -> int:
             print(f"  faults: {', '.join(row['faults'])}")
         if row["description"]:
             print(f"  {row['description']}")
-    return 0
+        if args.check:
+            for problem in row.get("problems", []):
+                print(f"  problem: {problem}")
+            if not row.get("problems"):
+                print("  conformance: ok")
+    return 1 if failed else 0
 
 
 def _file_kind(doc: object) -> str:
@@ -330,6 +340,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapters = sub.add_parser("adapters", help="list registered adapters")
     adapters.add_argument("--json", action="store_true")
+    adapters.add_argument("--check", action="store_true", help="run conformance checks; exit 1 on any problem")
     adapters.set_defaults(func=_cmd_adapters)
 
     check = sub.add_parser("check", help="validate contract or experiment files")

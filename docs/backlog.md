@@ -55,7 +55,7 @@ with a one-line reason and take the next one.
 - [x] **Ruff (pyflakes rules only).** Add `ruff` to the dev extras, select
   `F` and `E9` in `pyproject.toml`, fix what it reports, add a CI step. No
   formatting or import-order changes.
-- [ ] **`crosslayer adapters --check`.** Run `check_adapter_conformance` on each
+- [x] **`crosslayer adapters --check`.** Run `check_adapter_conformance` on each
   registered adapter, print problems, exit 1 if any.
 - [ ] **Per-stage timings.** Record monotonic durations of each runner stage
   (plan, build, execute, collect, normalize, evaluate, write) in

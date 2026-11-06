@@ -87,5 +87,8 @@ def test_conforms():
     assert check_adapter_conformance(MyAdapter()) == []
 ```
 
+`crosslayer adapters --check` runs the same check on every registered adapter
+and exits 1 if any has a problem or fails to load.
+
 Then add contract tests (one passing and one failing trace per contract), a
 baseline experiment that must PASS, and at least one fault that must FAIL.
