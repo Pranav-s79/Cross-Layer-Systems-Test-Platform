@@ -6,8 +6,8 @@
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
-    crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces)
-    crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict
+    crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces); --json
+    crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict, --json
     crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
     crosslayer diff-contracts OLD NEW per-owner changelog; fails on unversioned semantic changes
     crosslayer new adapter NAME       scaffold a working adapter project (--dir DIR)
@@ -185,27 +185,47 @@ def _cmd_check(args: argparse.Namespace) -> int:
 def _cmd_test_contracts(args: argparse.Namespace) -> int:
     failed = 0
     uncovered_total: list[str] = []
+    files_out: list[dict] = []
     for path in args.files:
         report = run_contract_tests(path)
-        print(path)
-        for r in report.results:
-            mark = "ok  " if r.passed else "FAIL"
-            print(f"  {mark} [{r.case.contract_id}] {r.case.name}")
-            for problem in r.problems:
-                print(f"         {problem}")
-        failed += sum(not r.passed for r in report.results)
         uncovered = report.uncovered()
-        covered = len(report.contracts) - len(uncovered)
-        print(f"  coverage: {covered}/{len(report.contracts)} contracts have a passing known-good and known-bad case")
-        for cid in uncovered:
-            have = sorted(v.value for v in report.coverage()[cid]) or ["none"]
-            print(f"    missing: {cid} (demonstrated: {', '.join(have)})")
+        if args.json:
+            files_out.append({
+                "file": str(path),
+                "cases": [{
+                    "contract_id": r.case.contract_id,
+                    "name": r.case.name,
+                    "expect": r.case.expect.value,
+                    "actual": r.actual.value,
+                    "passed": r.passed,
+                    "problems": r.problems,
+                } for r in report.results],
+                "coverage": {
+                    "covered": len(report.contracts) - len(uncovered),
+                    "total": len(report.contracts),
+                    "uncovered": uncovered,
+                },
+            })
+        else:
+            print(path)
+            for r in report.results:
+                mark = "ok  " if r.passed else "FAIL"
+                print(f"  {mark} [{r.case.contract_id}] {r.case.name}")
+                for problem in r.problems:
+                    print(f"         {problem}")
+            covered = len(report.contracts) - len(uncovered)
+            print(f"  coverage: {covered}/{len(report.contracts)} contracts have a passing known-good and known-bad case")
+            for cid in uncovered:
+                have = sorted(v.value for v in report.coverage()[cid]) or ["none"]
+                print(f"    missing: {cid} (demonstrated: {', '.join(have)})")
+        failed += sum(not r.passed for r in report.results)
         uncovered_total += uncovered
-    total = "all cases passed" if not failed else f"{failed} case(s) failed"
-    print(total)
-    if failed:
-        return 1
-    return 1 if args.require_coverage and uncovered_total else 0
+    status = 1 if failed or (args.require_coverage and uncovered_total) else 0
+    if args.json:
+        print(json.dumps({"passed": status == 0, "failed_cases": failed, "files": files_out}, indent=2))
+    else:
+        print("all cases passed" if not failed else f"{failed} case(s) failed")
+    return status
 
 
 def _cmd_lint(args: argparse.Namespace) -> int:
@@ -218,19 +238,28 @@ def _cmd_lint(args: argparse.Namespace) -> int:
         elif kind == "experiment":
             targets.append((str(path), lint_experiment(load_experiment(path))))
         elif kind == "contract-tests":
-            print(f"{path}: contract tests are checked with `crosslayer test-contracts`")
+            if not args.json:
+                print(f"{path}: contract tests are checked with `crosslayer test-contracts`")
         else:
             targets.append((str(path), lint_contract_file(path, args.adapter)))
 
     worst = 0
     for label, findings in targets:
-        print(f"{label}: {len(findings)} finding(s)")
-        for finding in findings:
-            print(f"  {finding}")
+        if not args.json:
+            print(f"{label}: {len(findings)} finding(s)")
+            for finding in findings:
+                print(f"  {finding}")
         if any(f.level is LintLevel.ERROR for f in findings):
             worst = 1
         elif args.strict and any(f.level is LintLevel.WARNING for f in findings):
             worst = 1
+    if args.json:
+        doc = {"passed": worst == 0, "targets": [{
+            "target": label,
+            "findings": [{"code": f.code, "level": f.level.value, "contract_id": f.contract_id,
+                          "message": f.message} for f in findings],
+        } for label, findings in targets]}
+        print(json.dumps(doc, indent=2))
     return worst
 
 
@@ -351,12 +380,14 @@ def build_parser() -> argparse.ArgumentParser:
     tests.add_argument("files", type=Path, nargs="+")
     tests.add_argument("--require-coverage", action="store_true",
                        help="fail unless every contract has a passing known-good and known-bad case")
+    tests.add_argument("--json", action="store_true", help="print one JSON document instead of text")
     tests.set_defaults(func=_cmd_test_contracts)
 
     lint = sub.add_parser("lint", help="statically check contract or experiment files")
     lint.add_argument("files", type=Path, nargs="+")
     lint.add_argument("--adapter", help="check contract files against this adapter's catalog and subsystems")
     lint.add_argument("--strict", action="store_true", help="treat warnings as failures")
+    lint.add_argument("--json", action="store_true", help="print one JSON document instead of text")
     lint.set_defaults(func=_cmd_lint)
 
     diff = sub.add_parser("diff-contracts", help="changelog between two contract files, per owner")

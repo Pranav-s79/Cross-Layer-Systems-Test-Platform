@@ -66,7 +66,7 @@ with a one-line reason and take the next one.
   most one trigger (first-in, first-out per correlation key). Default keeps
   current behavior. Update the "known limits" line in ROADMAP Phase 1, the
   schema, docs, and add tests (two triggers, one response).
-- [ ] **`--json` for `lint` and `test-contracts`.** Same style as
+- [x] **`--json` for `lint` and `test-contracts`.** Same style as
   `compare --json`. Tests parse the output.
 - [ ] **JUnit properties.** Add severity, boundary (`source -> destination`),
   and contract version as `<properties>` on each test case. Test by parsing

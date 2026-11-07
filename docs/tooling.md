@@ -36,6 +36,9 @@ cases:
 crosslayer test-contracts path/to/contract_tests.yaml --require-coverage
 ```
 
+Add `--json` for one JSON document (`passed`, `failed_cases`, per-file `cases`
+and `coverage`) instead of text. Exit codes are unchanged.
+
 A contract is **covered** when it has a passing `pass` case and a passing
 `fail` case. The reference adapter has 25 cases covering all 8 contracts, and
 a test confirms they catch deliberately weakened contracts.
@@ -46,6 +49,9 @@ a test confirms they catch deliberately weakened contracts.
 crosslayer lint experiments/reference/*.yaml --strict      # experiments
 crosslayer lint contracts.yaml --adapter sensor_pipeline   # contract file + adapter
 ```
+
+`--json` prints `passed` and per-target `findings` (`code`, `level`,
+`contract_id`, `message`) instead of text.
 
 | Code | Level | Finding |
 |---|---|---|

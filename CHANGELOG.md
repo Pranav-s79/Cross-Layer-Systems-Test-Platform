@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add `--json` to `crosslayer lint` and `crosslayer test-contracts`.
 - Add `exclusive: true` to the `response` rule so each response satisfies at most one trigger.
 - Record per-stage timings in `timings.json` and show them in `report.md`.
 - Add `crosslayer adapters --check` to run conformance checks on registered adapters.

@@ -201,3 +201,24 @@ def test_subcommand_help_renders(name, capsys):
         main([name, "--help"])
     assert exc.value.code == 0
     assert name in capsys.readouterr().out
+
+
+def test_lint_json_output(capsys):
+    import json
+
+    code = main(["lint", "experiments/reference/suite.yaml", "--strict", "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert code == 0 and doc["passed"] is True
+    assert doc["targets"] and all(isinstance(t["findings"], list) for t in doc["targets"])
+
+
+def test_test_contracts_json_output(capsys):
+    import json
+
+    path = "crosslayer/integrations/sensor_pipeline/contract_tests.yaml"
+    code = main(["test-contracts", path, "--require-coverage", "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert code == 0 and doc["passed"] is True and doc["failed_cases"] == 0
+    f = doc["files"][0]
+    assert f["coverage"]["covered"] == f["coverage"]["total"] and not f["coverage"]["uncovered"]
+    assert {"contract_id", "name", "expect", "actual", "passed", "problems"} <= f["cases"][0].keys()
