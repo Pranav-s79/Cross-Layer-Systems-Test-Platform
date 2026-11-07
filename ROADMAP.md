@@ -62,8 +62,9 @@ produces a contract-based verdict.
 A follow-up review fixed 13 issues, each with a regression test. The largest
 was a quadratic path in the response rule (80k events: 6.6 s → 0.21 s).
 
-**Known limits:** evaluation is in-memory; execution is local; without
-`correlate_by`, one response can satisfy several triggers.
+**Known limits:** evaluation is in-memory; execution is local; a
+`response` rule satisfies several triggers with one response unless it sets
+`exclusive: true`.
 
 ### Phase 2 · Contract tooling ✅
 

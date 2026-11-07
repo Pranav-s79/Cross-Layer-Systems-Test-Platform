@@ -62,7 +62,7 @@ with a one-line reason and take the next one.
   `timings.json`, listed in the manifest and shown in `report.md`. Excluded
   from the functional fingerprint. Test that all stages are present and
   non-negative.
-- [ ] **`response`: optional `exclusive: true`.** Each response satisfies at
+- [x] **`response`: optional `exclusive: true`.** Each response satisfies at
   most one trigger (first-in, first-out per correlation key). Default keeps
   current behavior. Update the "known limits" line in ROADMAP Phase 1, the
   schema, docs, and add tests (two triggers, one response).

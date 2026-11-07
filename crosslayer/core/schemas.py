@@ -60,6 +60,7 @@ _RULES = [
         "correlate_by": {**_STR, "description": "Correlation-id key shared by trigger and response"},
         "within_ms": {"type": "number", "exclusiveMinimum": 0, "description": "Deadline in milliseconds"},
         "min_triggers": _NON_NEG_INT,
+        "exclusive": {"type": "boolean", "description": "Each response satisfies at most one trigger"},
     }),
     _rule("transitions", ["select", "state", "allowed"], {
         "select": {"$ref": "#/$defs/selector"},

@@ -56,7 +56,10 @@ response: [{event_type: packet.processed}, {event_type: packet.dropped}]
 correlate_by: packet     # id both events must share
 within_ms: 5             # optional
 min_triggers: 1          # default 1; 0 allows a vacuous pass
+exclusive: false         # true: each response satisfies at most one trigger
 ```
+* With `exclusive: true`, triggers claim responses first in, first out per
+  correlation key; two triggers and one response leave the second violated.
 * Without `correlate_by`, any later response counts (recorded as
   `correlation: time_window_only`).
 * A late response is a violation at the deadline.

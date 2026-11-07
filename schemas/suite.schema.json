@@ -318,6 +318,10 @@
                 "min_triggers": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "exclusive": {
+                  "type": "boolean",
+                  "description": "Each response satisfies at most one trigger"
                 }
               }
             },

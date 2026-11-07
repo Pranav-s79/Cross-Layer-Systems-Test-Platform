@@ -179,6 +179,9 @@ class ResponseRule(Rule):
     (strong evidence). Without it, any response after the trigger counts and
     the result is flagged as time-window-only correlation (weaker evidence).
 
+    With ``exclusive``, each response satisfies at most one trigger (first in,
+    first out per correlation key).
+
     With ``within_ms``, a trigger whose deadline falls after the end of the
     observed trace is *unresolved*, not failed: the system may still have
     answered after the logs stopped.
@@ -203,7 +206,9 @@ class ResponseRule(Rule):
         correlate_by: str | None,
         within_ns: int | None,
         min_triggers: int,
+        exclusive: bool = False,
     ) -> None:
+        self.exclusive = exclusive
         self.trigger = trigger
         self.responses = responses
         self.correlate_by = correlate_by
@@ -212,7 +217,10 @@ class ResponseRule(Rule):
 
     @classmethod
     def parse(cls, raw: Mapping[str, Any], location: str) -> "ResponseRule":
-        _check_keys(raw, {"trigger", "response"}, {"correlate_by", "within_ms", "min_triggers"}, location)
+        _check_keys(raw, {"trigger", "response"}, {"correlate_by", "within_ms", "min_triggers", "exclusive"}, location)
+        exclusive = raw.get("exclusive", False)
+        if not isinstance(exclusive, bool):
+            raise ConfigError("must be true or false", location=f"{location}.exclusive")
         response_raw = raw["response"]
         if isinstance(response_raw, Mapping):
             response_raw = [response_raw]
@@ -232,6 +240,7 @@ class ResponseRule(Rule):
             correlate_by=_str(raw, "correlate_by", location),
             within_ns=within_ns,
             min_triggers=_int(raw, "min_triggers", location, 1) or 0,
+            exclusive=exclusive,
         )
 
     def _is_response(self, event: NormalizedEvent) -> bool:
@@ -254,6 +263,8 @@ class ResponseRule(Rule):
         latencies: list[int] = []
         deadline = f" within {format_ns(self.within_ns)}" if self.within_ns is not None else ""
 
+        next_free: dict[str, int] = defaultdict(int)  # exclusive mode: first unconsumed response
+
         for t in triggers:
             key = _group_of(t, self.correlate_by)
             if key is None:
@@ -263,8 +274,12 @@ class ResponseRule(Rule):
             # Walk forward by index. Slicing (candidates[pos:]) would copy the
             # tail for every trigger and make time-window-only mode quadratic.
             i = bisect_left(times.get(key, []), t.timestamp_ns)
+            if self.exclusive:
+                i = max(i, next_free[key])
             while i < len(candidates) and candidates[i].event_id == t.event_id:
                 i += 1
+            if self.exclusive and i < len(candidates):
+                next_free[key] = i + 1
             response = candidates[i] if i < len(candidates) else None
             label = f"{self.correlate_by}={key}" if self.correlate_by else t.event_id
 

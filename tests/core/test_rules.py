@@ -85,6 +85,41 @@ def test_response_late_is_violation_observable_at_deadline():
     assert len(finding.evidence) == 2
 
 
+def test_response_default_lets_one_response_satisfy_two_triggers():
+    events = [ev("req", 0, ids={"ue": 1}), ev("req", 1 * MS, ids={"ue": 1}), ev("ack", 2 * MS, ids={"ue": 1})]
+    assert _response(within_ms=5).evaluate(events).verdict is Verdict.PASS
+
+
+def test_response_exclusive_two_triggers_one_response_fails():
+    events = [
+        ev("req", 0, ids={"ue": 1}),
+        ev("req", 1 * MS, ids={"ue": 1}),
+        ev("ack", 2 * MS, ids={"ue": 1}),
+        ev("tick", 20 * MS),
+    ]
+    out = _response(within_ms=5, exclusive=True).evaluate(events)
+    assert out.verdict is Verdict.FAIL
+    assert out.stats["satisfied"] == 1
+    assert out.findings[0].timestamp_ns == 1 * MS + 5 * MS  # the second trigger's deadline
+
+
+def test_response_exclusive_pairs_in_fifo_order():
+    events = [
+        ev("req", 0, ids={"ue": 1}),
+        ev("req", 1 * MS, ids={"ue": 1}),
+        ev("ack", 2 * MS, ids={"ue": 1}),
+        ev("nack", 3 * MS, ids={"ue": 1}),
+    ]
+    out = _response(within_ms=5, exclusive=True).evaluate(events)
+    assert out.verdict is Verdict.PASS
+    assert out.stats["latency_ns_max"] == 2 * MS
+
+
+def test_response_exclusive_must_be_boolean():
+    with pytest.raises(ConfigError):
+        _response(exclusive="yes")
+
+
 def test_response_pending_at_end_of_trace_is_unresolved():
     events = [ev("req", 0, ids={"ue": 1}), ev("tick", 2 * MS)]
     out = _response(within_ms=5).evaluate(events)
