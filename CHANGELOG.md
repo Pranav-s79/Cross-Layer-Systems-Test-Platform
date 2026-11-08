@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add seeded randomized tests for the expression validator.
 - Add severity, boundary and contract version as properties on each JUnit test case.
 - Add `--json` to `crosslayer lint` and `crosslayer test-contracts`.
 - Add `exclusive: true` to the `response` rule so each response satisfies at most one trigger.

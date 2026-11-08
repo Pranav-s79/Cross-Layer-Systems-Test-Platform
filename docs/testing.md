@@ -21,7 +21,7 @@ CI runs all five on every push: ruff in its own job, pytest on Linux and Windows
 | Area | File | What it proves |
 |---|---|---|
 | Events and time | `test_events.py`, `test_units.py` | Invalid events can't be built; timestamps convert exactly |
-| Expressions | `test_expressions.py` | Unsafe code is rejected at load; missing data is "unresolved", not a crash |
+| Expressions | `test_expressions.py` | Unsafe code is rejected at load; missing data is "unresolved", not a crash; seeded random expressions raise only the documented errors |
 | Rules | `test_rules.py` | Each rule kind gives PASS and FAIL on hand-built traces, including edge cases |
 | Contracts | `test_contracts.py` | Loader errors name the field; preconditions, evidence gating, verdict rules |
 | Adapters | `test_adapters.py` | Declared capabilities match the code; plugin discovery works |

@@ -71,7 +71,7 @@ with a one-line reason and take the next one.
 - [x] **JUnit properties.** Add severity, boundary (`source -> destination`),
   and contract version as `<properties>` on each test case. Test by parsing
   the XML.
-- [ ] **Randomized tests for the expression validator.** Seeded `random`
+- [x] **Randomized tests for the expression validator.** Seeded `random`
   (no new dependency) builds small expressions, including disallowed syntax.
   Each must be rejected with `ExpressionError` at load time or evaluate
   without raising anything other than the documented errors.
