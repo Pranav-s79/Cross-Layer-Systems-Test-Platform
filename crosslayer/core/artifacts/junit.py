@@ -50,6 +50,13 @@ def render_junit(manifest: dict[str, Any], results: Sequence[ContractResult]) ->
         c = result.contract
         counts["tests"] += 1
         case = ET.SubElement(suite, "testcase", classname=f"crosslayer.{c.owner}", name=c.id)
+        case_props = ET.SubElement(case, "properties")
+        for key, value in (
+            ("severity", str(c.severity)),
+            ("boundary", f"{c.source} -> {c.destination}"),
+            ("version", str(c.version)),
+        ):
+            ET.SubElement(case_props, "property", name=key, value=value)
         if c.on_fail is FailurePolicy.WARN and result.verdict is Verdict.FAIL:
             # A warn-only contract must not turn the CI test report red when
             # the run verdict ignores it. Keep it visible as a skip.

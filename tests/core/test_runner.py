@@ -127,6 +127,9 @@ def test_passing_run_produces_complete_verified_bundle(tmp_path):
     assert len(read_events_jsonl(root / "normalized_events.jsonl")) == 2
     suite = ET.parse(root / "junit.xml").getroot()
     assert suite.get("tests") == "1" and suite.get("failures") == "0"
+    [case] = suite.findall("testcase")
+    props = {p.get("name"): p.get("value") for p in case.findall("properties/property")}
+    assert props == {"severity": "major", "boundary": "client -> server", "version": "1"}
 
 
 def test_timings_cover_every_stage_and_stay_out_of_the_fingerprint(tmp_path):

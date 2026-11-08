@@ -68,7 +68,7 @@ with a one-line reason and take the next one.
   schema, docs, and add tests (two triggers, one response).
 - [x] **`--json` for `lint` and `test-contracts`.** Same style as
   `compare --json`. Tests parse the output.
-- [ ] **JUnit properties.** Add severity, boundary (`source -> destination`),
+- [x] **JUnit properties.** Add severity, boundary (`source -> destination`),
   and contract version as `<properties>` on each test case. Test by parsing
   the XML.
 - [ ] **Randomized tests for the expression validator.** Seeded `random`
