@@ -75,7 +75,7 @@ with a one-line reason and take the next one.
   (no new dependency) builds small expressions, including disallowed syntax.
   Each must be rejected with `ExpressionError` at load time or evaluate
   without raising anything other than the documented errors.
-- [ ] **Reference fault `reorder`, part 1.** The consumer occasionally
+- [x] **Reference fault `reorder`, part 1.** The consumer occasionally
   processes two queued packets out of order. Add the fault to `sim.py` and the
   adapter's `FaultSpec`s. With the fault off, output must stay byte-identical
   (the recorded fixtures still match); update the `sim.py` hash in

@@ -302,3 +302,21 @@ def test_compare_flags_contract_changes_between_runs(runs, tmp_path):
     assert (delta.change, delta.contract_changed) == ("regression", True)
     assert (delta.baseline_version, delta.candidate_version) == (1, 2)
     assert not any(d.contract_changed for d in comparison.deltas if d is not delta)
+
+
+def _done_sequence(*extra: str) -> list[int]:
+    import io
+    import re
+
+    out = io.StringIO()
+    args = sim.parse_args(["--seed", "7", "--packets", "60", *extra])
+    sim.simulate(args, out)
+    return [int(m) for m in re.findall(r"proc: DONE seq=(\d+)", out.getvalue())]
+
+
+def test_reorder_fault_changes_completion_order_only_when_enabled():
+    plain = _done_sequence()
+    assert plain == sorted(plain)
+    reordered = _done_sequence("--fault", "reorder", "--reorder-every", "2")
+    assert reordered != sorted(reordered)
+    assert sorted(reordered) == sorted(plain)

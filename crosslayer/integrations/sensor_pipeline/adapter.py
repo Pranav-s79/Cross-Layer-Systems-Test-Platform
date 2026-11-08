@@ -103,6 +103,7 @@ _FAULT_PARAMS: dict[str, dict[str, tuple[str, int]]] = {
     "slow_consumer": {"factor": ("--slow-factor", 3)},
     "corrupt_checksum": {"every": ("--corrupt-every", 25)},
     "duplicate_completion": {"every": ("--duplicate-every", 40)},
+    "reorder": {"every": ("--reorder-every", 10)},
 }
 
 
@@ -161,6 +162,13 @@ class SensorPipelineAdapter(SystemAdapter):
                 "Every Nth completion is reported twice.",
                 target_subsystem="proc",
                 parameters={"every": "duplicate every Nth completion (default 40)"},
+            ),
+            FaultSpec(
+                "reorder",
+                "Every Nth dequeue with two or more packets waiting takes the second packet first.",
+                target_subsystem="ring_buffer",
+                target_interface="buffer_to_proc",
+                parameters={"every": "reorder every Nth dequeue (default 10)"},
             ),
         ]
 

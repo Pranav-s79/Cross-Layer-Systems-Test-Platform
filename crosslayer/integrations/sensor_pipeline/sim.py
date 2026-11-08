@@ -28,6 +28,7 @@ silent_drop           overflow path discards packets without logging
 slow_consumer         service time multiplied by --slow-factor
 corrupt_checksum      one bit flipped in every Nth packet that waits in the buffer
 duplicate_completion  every Nth completion is reported twice
+reorder               every Nth dequeue with 2+ packets waiting takes the second one first
 
 Log format (one record per line, times in seconds with microsecond resolution)::
 
@@ -48,7 +49,7 @@ from typing import TextIO
 
 FIRMWARE = "refpipe-1.0"
 PAYLOAD_BYTES = 8
-FAULTS = ("silent_drop", "slow_consumer", "corrupt_checksum", "duplicate_completion")
+FAULTS = ("silent_drop", "slow_consumer", "corrupt_checksum", "duplicate_completion", "reorder")
 
 
 def crc8(data: bytes) -> int:
@@ -99,7 +100,7 @@ def simulate(args: argparse.Namespace, out: TextIO) -> None:
     scale = args.slow_factor if "slow_consumer" in faults else 1
     buffer: deque[Packet] = deque()
     busy = False
-    rx = done = dropped_logged = buffered = completions = 0
+    rx = done = dropped_logged = buffered = completions = dequeues = 0
     now = 0
 
     def start_service(t_us: int, pkt: Packet) -> None:
@@ -138,7 +139,14 @@ def simulate(args: argparse.Namespace, out: TextIO) -> None:
                 log(now, "proc", "DONE", **fields)  # completion reported twice
             busy = False
             if buffer:
-                start_service(now, buffer.popleft())
+                dequeues += 1
+                if "reorder" in faults and len(buffer) >= 2 and dequeues % args.reorder_every == 0:
+                    buffer.rotate(-1)  # consumer takes the second packet first
+                    nxt = buffer.popleft()
+                    buffer.rotate(1)
+                else:
+                    nxt = buffer.popleft()
+                start_service(now, nxt)
 
     log(now + 100, "sys", "HALT", rx=rx, done=done, drop=dropped_logged)
 
@@ -155,6 +163,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--slow-factor", type=int, default=3)
     p.add_argument("--corrupt-every", type=int, default=25)
     p.add_argument("--duplicate-every", type=int, default=40)
+    p.add_argument("--reorder-every", type=int, default=10)
     return p.parse_args(argv)
 
 

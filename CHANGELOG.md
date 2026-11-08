@@ -5,6 +5,8 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a `reorder` fault to the reference sensor pipeline simulator.
+
 - Add seeded randomized tests for the expression validator.
 - Add severity, boundary and contract version as properties on each JUnit test case.
 - Add `--json` to `crosslayer lint` and `crosslayer test-contracts`.
