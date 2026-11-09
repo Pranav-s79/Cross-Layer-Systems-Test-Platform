@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../../schemas/contracts.schema.json
+# Default boundary contracts for the PicoRV32 RV32I core.
+# Each cpu.retire event is one instruction retired by the RTL (from its RVFI
+# port), annotated with what the reference ISA model retired at the same
+# position (rv.ref_*). Two kinds of check:
+#   structural: properties any correct RV32I core has (no model needed)
+#   lockstep:   the RTL matches the reference model, field by field
+schema_version: 1
+contracts:
+  - id: rv32i.sequential_pc
+    title: An instruction that is not a jump or branch is followed by the one at PC + 4
+    owner: rtl-frontend
+    source: fetch
+    destination: decoder
+    severity: critical
+    rule:
+      kind: successive
+      select: {event_type: cpu.retire}
+      when: >-
+        prev.attributes["rv.kind"] not in ("branch", "jal", "jalr")
+        and prev.attributes["rv.trap"] == 0
+      expect: curr.attributes["rv.pc"] == (prev.attributes["rv.pc"] + 4) & 0xFFFFFFFF
+
+  - id: rv32i.jump_target
+    title: A JAL lands on PC + offset; a branch lands on PC + offset or falls through to PC + 4
+    owner: rtl-frontend
+    source: decoder
+    destination: fetch
+    severity: critical
+    rule:
+      kind: invariant
+      select:
+        event_type: cpu.retire
+        where: e.attributes["rv.kind"] in ("branch", "jal")
+      expect: >-
+        e.attributes["rv.next_pc"] == e.attributes["rv.target"]
+        if e.attributes["rv.kind"] == "jal"
+        else e.attributes["rv.next_pc"] in (e.attributes["rv.target"], (e.attributes["rv.pc"] + 4) & 0xFFFFFFFF)
+
+  - id: rv32i.lockstep_control_flow
+    title: Each retired instruction has the reference model's PC, encoding, trap status, and next PC
+    owner: rtl-core
+    source: alu
+    destination: fetch
+    severity: critical
+    description: >
+      The first violation is the first instruction where the RTL and the
+      reference model disagree on control flow; everything after it is a
+      consequence.
+    rule:
+      kind: invariant
+      select: {event_type: cpu.retire}
+      expect: >-
+        e.attributes["rv.pc"] == e.attributes["rv.ref_pc"]
+        and e.attributes["rv.insn"] == e.attributes["rv.ref_insn"]
+        and e.attributes["rv.trap"] == e.attributes["rv.ref_trap"]
+        and (e.attributes["rv.trap"] == 1 or e.attributes["rv.next_pc"] == e.attributes["rv.ref_next_pc"])
+
+  - id: rv32i.lockstep_operands
+    title: Register reads match the reference model
+    owner: rtl-core
+    source: regfile
+    destination: alu
+    severity: critical
+    rule:
+      kind: invariant
+      select: {event_type: cpu.retire}
+      expect: >-
+        e.attributes["rv.rs1_val"] == e.attributes["rv.ref_rs1_val"]
+        and e.attributes["rv.rs2_val"] == e.attributes["rv.ref_rs2_val"]
+
+  - id: rv32i.lockstep_writeback
+    title: Register writes match the reference model
+    owner: rtl-core
+    source: alu
+    destination: regfile
+    severity: critical
+    rule:
+      kind: invariant
+      select: {event_type: cpu.retire}
+      expect: >-
+        e.attributes["rv.rd"] == e.attributes["rv.ref_rd"]
+        and e.attributes["rv.rd_val"] == e.attributes["rv.ref_rd_val"]
+
+  - id: rv32i.lockstep_memory
+    title: Data-bus accesses (address, byte lanes, write data) match the reference model
+    owner: rtl-lsu
+    source: lsu
+    destination: memory
+    severity: critical
+    rule:
+      kind: invariant
+      select: {event_type: cpu.retire}
+      expect: >-
+        e.attributes["rv.mem_addr"] == e.attributes["rv.ref_mem_addr"]
+        and e.attributes["rv.mem_wmask"] == e.attributes["rv.ref_mem_wmask"]
+        and e.attributes["rv.mem_wdata"] == e.attributes["rv.ref_mem_wdata"]
+
+  - id: rv32i.program_output
+    title: Each value written to the output port matches the reference model, in order
+    owner: rtl-lsu
+    source: lsu
+    destination: mmio
+    severity: major
+    rule:
+      kind: invariant
+      select: {event_type: cpu.output}
+      expect: e.attributes["rv.data"] == e.attributes["rv.ref_data"]
+
+  - id: rv32i.clean_halt
+    title: The program stops at EBREAK after as many instructions as the reference model
+    owner: rtl-core
+    source: core
+    destination: tb
+    severity: major
+    description: >
+      Fails on a cycle-limit timeout, an unexpected trap (for example an
+      illegal instruction after a wrong jump), or a different instruction
+      count. The end-of-run marker is required evidence, so a truncated
+      trace is INCONCLUSIVE.
+    evidence:
+      - {event_type: [cpu.halt, cpu.timeout]}
+    rule:
+      kind: count
+      select:
+        event_type: cpu.halt
+        attributes: {rv.halt_reason: ebreak}
+        where: e.attributes["rv.retired"] == e.attributes["rv.ref_retired"]
+      min: 1
+      max: 1
+
+  - id: rv32i.no_bus_errors
+    title: The core never accesses unmapped memory
+    owner: rtl-lsu
+    source: core
+    destination: memory
+    severity: major
+    evidence:
+      - {event_type: [cpu.halt, cpu.timeout]}
+    rule:
+      kind: count
+      select: {event_type: cpu.bus_error}
+      max: 0
+
+  - id: rv32i.cpi_budget
+    title: 95th-percentile cycles per instruction is at most 8
+    owner: rtl-performance
+    source: memory
+    destination: core
+    severity: major
+    description: >
+      Timing, not correctness. PicoRV32 is multi-cycle, about 4 cycles for an
+      ALU instruction with single-cycle memory. Slow memory raises it while
+      every result stays correct.
+    rule:
+      kind: threshold
+      select: {event_type: cpu.retire}
+      attribute: rv.cpi
+      aggregate: p95
+      op: "<="
+      value: 8
+      min_samples: 50

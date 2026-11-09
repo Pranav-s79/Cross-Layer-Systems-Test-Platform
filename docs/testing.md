@@ -13,10 +13,13 @@ python -m pytest --cov=crosslayer/core --cov-report=term-missing   # same, with 
 crosslayer lint experiments/reference/suite.yaml --strict
 crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage
 crosslayer suite experiments/reference/suite.yaml --out runs
+# With Icarus Verilog (iverilog and vvp) installed:
+crosslayer test-contracts crosslayer/integrations/rv32i/contract_tests.yaml --require-coverage
+crosslayer suite experiments/rv32i/suite.yaml --out runs
 ```
 
 CI runs all of them on every push: ruff and mypy in the lint job, a coverage report for `crosslayer/core` (no threshold), pytest on Linux and Windows across Python
-3.11–3.14, then the last three in a "reference experiments" job.
+3.11–3.14, the last three in a "reference experiments" job, and a dedicated Ubuntu RV32I job with Icarus Verilog.
 
 ## 1. Unit tests (`tests/core/`)
 
@@ -45,7 +48,8 @@ checks that these cases catch it.
 ## 3. End-to-end on a reference system (`tests/integrations/`)
 
 The reference system is a simulated sensor → ring buffer → consumer pipeline
-with four injectable faults, each labeled with its true location.
+with five injectable faults, each labeled with its true location. Phase 3 adds
+PicoRV32 RTL under Icarus Verilog, checked against an independent RV32I model.
 
 | Test | What it proves |
 |---|---|
@@ -58,6 +62,12 @@ with four injectable faults, each labeled with its true location.
 
 The suite in CI repeats this from the command line: the baseline must pass and
 each fault experiment must fail.
+
+`test_rv32i.py` separately tests the assembler, seeded program generator,
+reference model, trace parser, and all 10 contracts without requiring a
+simulator. When Icarus is present, it also proves that the unmodified RTL
+passes and each functional mutant first differs at the instruction predicted
+by the independently modeled fault.
 
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
@@ -83,6 +93,7 @@ committed (for example, `test_added_files_are_detected_by_verify`).
 | A file format | `tests/core/test_schemas.py`, then `crosslayer schema --write schemas` |
 | A CLI command | `tests/test_cli.py` |
 | The reference system or its contracts | `tests/integrations/test_sensor_pipeline.py` and `contract_tests.yaml` |
+| The RV32I adapter or contracts | `tests/integrations/test_rv32i.py` and `integrations/rv32i/contract_tests.yaml` |
 
 Performance is measured separately with `python benchmarks/bench_core.py`
 (throughput) and `python benchmarks/bench_scaling.py` (time ratio at n and 4n

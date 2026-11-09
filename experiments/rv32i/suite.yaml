@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../schemas/suite.schema.json
+schema_version: 1
+name: rv32i
+description: >
+  Unmodified PicoRV32 must match the reference model on the self-test
+  program; every RTL mutant must then be detected. Mutant experiments depend
+  on the baseline: if the clean core fails, a detected mutant proves nothing.
+experiments:
+  - id: baseline
+    path: baseline.yaml
+  - id: bne_inverted
+    path: fault_bne_inverted.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: sub_as_add
+    path: fault_sub_as_add.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: slt_unsigned
+    path: fault_slt_unsigned.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: jal_imm_bit11
+    path: fault_jal_imm_bit11.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: regfile_wrong_rd
+    path: fault_regfile_wrong_rd.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: store_byte_lane
+    path: fault_store_byte_lane.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: mem_wait_states
+    path: fault_mem_wait_states.yaml
+    expect: fail
+    depends_on: [baseline]

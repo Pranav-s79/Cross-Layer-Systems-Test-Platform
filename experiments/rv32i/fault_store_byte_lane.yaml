@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-store-byte-lane
+description: >
+  SB always writes byte lane 0. Ground truth: lsu (interface data_bus).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - store_byte_lane

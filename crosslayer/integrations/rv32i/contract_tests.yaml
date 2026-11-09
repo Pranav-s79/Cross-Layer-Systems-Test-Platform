@@ -1,0 +1,224 @@
+# yaml-language-server: $schema=../../../schemas/contract-tests.schema.json
+# Known-good and known-bad cases for every RV32I boundary contract.
+schema_version: 1
+adapter: rv32i
+cases:
+  - name: sequential instructions advance by four bytes
+    contract: rv32i.sequential_pc
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 0}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 4}}
+  - name: sequential instruction skips an address
+    contract: rv32i.sequential_pc
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 0}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 8}}
+
+  - name: jump lands at its decoded target
+    contract: rv32i.jump_target
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: jal, rv.pc: 0, rv.target: 16, rv.next_pc: 16}}
+  - name: jump misses its decoded target
+    contract: rv32i.jump_target
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: jal, rv.pc: 0, rv.target: 16, rv.next_pc: 4}}
+
+  - name: control flow matches the reference model
+    contract: rv32i.lockstep_control_flow
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 4, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0, rv.next_pc: 8, rv.ref_next_pc: 8}}
+  - name: program counters diverge from the reference model
+    contract: rv32i.lockstep_control_flow
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 12, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0, rv.next_pc: 16, rv.ref_next_pc: 8}}
+
+  - name: register operands match the reference model
+    contract: rv32i.lockstep_operands
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
+  - name: register operand differs from the reference model
+    contract: rv32i.lockstep_operands
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
+
+  - name: register writeback matches the reference model
+    contract: rv32i.lockstep_writeback
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rd: 5, rv.ref_rd: 5, rv.rd_val: 42, rv.ref_rd_val: 42}}
+  - name: register writeback differs from the reference model
+    contract: rv32i.lockstep_writeback
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rd: 5, rv.ref_rd: 5, rv.rd_val: 41, rv.ref_rd_val: 42}}
+
+  - name: memory write matches the reference model
+    contract: rv32i.lockstep_memory
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.ref_mem_addr: 4096, rv.mem_wmask: 15, rv.ref_mem_wmask: 15, rv.mem_wdata: 42, rv.ref_mem_wdata: 42}}
+  - name: memory byte lanes differ from the reference model
+    contract: rv32i.lockstep_memory
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.ref_mem_addr: 4096, rv.mem_wmask: 1, rv.ref_mem_wmask: 2, rv.mem_wdata: 42, rv.ref_mem_wdata: 10752}}
+
+  - name: output value matches the reference model
+    contract: rv32i.program_output
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.output, subsystem: mmio, attrs: {rv.data: 42, rv.ref_data: 42}}
+  - name: output value differs from the reference model
+    contract: rv32i.program_output
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.output, subsystem: mmio, attrs: {rv.data: 41, rv.ref_data: 42}}
+
+  - name: program reaches ebreak after the expected retire count
+    contract: rv32i.clean_halt
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.halt, subsystem: tb, attrs: {rv.halt_reason: ebreak, rv.retired: 5, rv.ref_retired: 5}}
+  - name: program halts with the wrong retire count
+    contract: rv32i.clean_halt
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.halt, subsystem: tb, attrs: {rv.halt_reason: ebreak, rv.retired: 4, rv.ref_retired: 5}}
+
+  - name: completed run has no bus errors
+    contract: rv32i.no_bus_errors
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.halt, subsystem: tb}
+  - name: completed run records an unmapped access
+    contract: rv32i.no_bus_errors
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.bus_error, subsystem: memory}
+      - {t_us: 2, type: cpu.halt, subsystem: tb}
+
+  - name: p95 cycles per instruction stays within budget
+    contract: rv32i.cpi_budget
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+  - name: three slow instructions push p95 over budget
+    contract: rv32i.cpi_budget
+    expect: fail
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
+      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
+      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
