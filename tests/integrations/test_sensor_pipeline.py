@@ -23,6 +23,7 @@ ALL_CONTRACTS = {
     "pipeline.payload_integrity",
     "pipeline.latency_p99",
     "pipeline.sequence_contiguous",
+    "pipeline.processing_order",
     "pipeline.counter_conservation",
     "pipeline.drop_budget",
     "host.clean_exit",
@@ -62,6 +63,7 @@ def test_baseline_passes_every_contract(runs):
         ("fault_slow_consumer", {"pipeline.rx_accounted", "pipeline.latency_p99", "pipeline.drop_budget"}, "proc"),
         ("fault_corrupt_checksum", {"pipeline.payload_integrity"}, "ring_buffer"),
         ("fault_duplicate_completion", {"pipeline.packet_lifecycle"}, "proc"),
+        ("fault_reorder", {"pipeline.processing_order"}, "ring_buffer"),
     ],
 )
 def test_each_fault_trips_its_contracts(runs, experiment, expected_failures, target):

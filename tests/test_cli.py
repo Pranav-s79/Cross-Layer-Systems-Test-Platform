@@ -125,7 +125,7 @@ def test_lint_exit_codes(tmp_path, capsys):
 def test_test_contracts_command(capsys):
     path = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contract_tests.yaml"
     assert main(["test-contracts", str(path), "--require-coverage"]) == 0
-    assert "coverage: 8/8" in capsys.readouterr().out
+    assert "coverage: 9/9" in capsys.readouterr().out
 
 
 def test_schema_command(tmp_path, capsys):
@@ -143,7 +143,7 @@ def test_suite_command_and_file_kinds(tmp_path, capsys):
     assert main(["suite", str(suite), "--out", str(tmp_path)]) == 0
     assert "result    PASSED" in capsys.readouterr().out
     assert main(["check", str(suite), str(EXPERIMENTS / "baseline.yaml")]) == 0
-    assert "suite, 5 experiments" in capsys.readouterr().out
+    assert "suite, 6 experiments" in capsys.readouterr().out
     assert main(["lint", str(suite), "--strict"]) == 0
 
 

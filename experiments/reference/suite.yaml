@@ -24,3 +24,7 @@ experiments:
     path: fault_duplicate_completion.yaml
     expect: fail
     depends_on: [baseline]
+  - id: reorder
+    path: fault_reorder.yaml
+    expect: fail
+    depends_on: [baseline]

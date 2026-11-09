@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: sensor-pipeline-reorder
+description: >
+  Every 10th dequeue takes the second waiting packet first. Ground truth: proc.
+adapter: sensor_pipeline
+seed: 1234
+timeout_s: 60
+parameters:
+  packets: 400
+  buffer_capacity: 8
+faults:
+  - name: reorder
+    params: {every: 10}

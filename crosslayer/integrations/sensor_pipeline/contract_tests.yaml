@@ -163,6 +163,24 @@ cases:
       - {t_us: 2, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 2}}
       - {t_us: 3, type: packet.received, subsystem: sensor_rx, attrs: {pipeline.seq: 4}}
 
+  # -- pipeline.processing_order --------------------------------------------------
+  - name: packets processed in arrival order
+    contract: pipeline.processing_order
+    expect: pass
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 1}}
+      - {t_us: 2, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 3}}
+      - {t_us: 3, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 4}}
+
+  - name: a packet processed before an earlier one is a violation
+    contract: pipeline.processing_order
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 1}}
+      - {t_us: 2, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 3}}
+      - {t_us: 3, type: packet.processed, subsystem: proc, attrs: {pipeline.seq: 2}}
+
   # -- pipeline.counter_conservation ----------------------------------------------
   - name: counters balance
     contract: pipeline.counter_conservation

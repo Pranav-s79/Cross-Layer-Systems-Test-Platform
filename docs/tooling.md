@@ -40,7 +40,7 @@ Add `--json` for one JSON document (`passed`, `failed_cases`, per-file `cases`
 and `coverage`) instead of text. Exit codes are unchanged.
 
 A contract is **covered** when it has a passing `pass` case and a passing
-`fail` case. The reference adapter has 25 cases covering all 8 contracts, and
+`fail` case. The reference adapter has 27 cases covering all 9 contracts, and
 a test confirms they catch deliberately weakened contracts.
 
 ## Linting

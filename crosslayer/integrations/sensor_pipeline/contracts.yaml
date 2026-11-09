@@ -80,6 +80,17 @@ contracts:
       select: {event_type: packet.received}
       expect: curr.attributes["pipeline.seq"] == prev.attributes["pipeline.seq"] + 1
 
+  - id: pipeline.processing_order
+    title: Packets are processed in the order they were received (equal sequence numbers are left to packet_lifecycle)
+    owner: firmware-proc
+    source: ring_buffer
+    destination: proc
+    severity: major
+    rule:
+      kind: successive
+      select: {event_type: packet.processed}
+      expect: curr.attributes["pipeline.seq"] >= prev.attributes["pipeline.seq"]
+
   - id: pipeline.counter_conservation
     title: Firmware counters account for every received packet (rx == done + drop)
     owner: firmware-rx

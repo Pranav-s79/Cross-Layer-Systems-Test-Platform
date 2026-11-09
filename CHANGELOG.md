@@ -6,6 +6,7 @@ All notable changes are recorded here, in the
 ## [Unreleased]
 
 - Add a `reorder` fault to the reference sensor pipeline simulator.
+- Add the `pipeline.processing_order` contract, the `fault_reorder` experiment and its suite entry.
 
 - Add seeded randomized tests for the expression validator.
 - Add severity, boundary and contract version as properties on each JUnit test case.

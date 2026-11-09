@@ -80,7 +80,7 @@ with a one-line reason and take the next one.
   adapter's `FaultSpec`s. With the fault off, output must stay byte-identical
   (the recorded fixtures still match); update the `sim.py` hash in
   `fixtures/README.md`.
-- [ ] **Reference fault `reorder`, part 2.** Find which contracts catch it. If
+- [x] **Reference fault `reorder`, part 2.** Find which contracts catch it. If
   none do, add one (for example processed sequence order) with contract tests.
   Add `experiments/reference/fault_reorder.yaml`, a suite entry, and extend
   `test_each_fault_trips_its_contracts`.

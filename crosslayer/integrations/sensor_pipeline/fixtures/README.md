@@ -6,7 +6,7 @@ adapter's normalization changes.
 
 | File | Experiment | Result when recorded |
 |---|---|---|
-| `baseline_40.jsonl` | seed 7, `packets: 40`, `buffer_capacity: 8`, no faults | all 8 contracts PASS |
+| `baseline_40.jsonl` | seed 7, `packets: 40`, `buffer_capacity: 8`, no faults | all contracts PASS (8 at the time; `processing_order` was added later) |
 | `silent_drop_40.jsonl` | seed 7, `packets: 40`, `buffer_capacity: 1`, fault `silent_drop` | `rx_accounted` FAIL (3 violations, 5 unresolved), `counter_conservation` FAIL |
 
 Recorded 2026-11-02 with simulator `sim.py sha256:620e14668b90`, adapter
