@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-regfile-wrong-rd
+description: >
+  PicoRV32's own TESTBUG_001: results are written to register rd^1. Ground truth: regfile (interface writeback).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - regfile_wrong_rd

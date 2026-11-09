@@ -20,7 +20,7 @@ What is implemented today. Planned work is in the [roadmap](../ROADMAP.md).
                          ▼
                     aggregate_verdict()               PASS / FAIL / INCONCLUSIVE / ERROR
                          ▼
-          contracts.json, violations.json, report.md, junit.xml, replay.sh
+       contracts.json, violations.json, report.md/report.html, junit.xml, replay.sh
                          ▼
                     manifest.json                     SHA-256 of every file, written last
 ```
@@ -29,12 +29,12 @@ What is implemented today. Planned work is in the [roadmap](../ROADMAP.md).
 
 | Layer | Status | Code |
 |---|---|---|
-| 1. Systems under test | Reference simulation only | `integrations/sensor_pipeline/sim.py` |
+| 1. Systems under test | Reference simulation and PicoRV32 RTL | `integrations/sensor_pipeline/`, `integrations/rv32i/` |
 | 2. Adapters | Implemented | `core/adapters/` |
 | 3. Orchestrator | Implemented (local) | `core/orchestrator/` |
 | 4. Contract engine | Implemented | `core/contracts/` |
 | 5. Diagnosis | Planned (Phase 7) | — |
-| 6. Output | JSON, Markdown, JUnit, comparison | `core/artifacts/`, `orchestrator/compare.py` |
+| 6. Output | JSON, Markdown, interactive HTML, JUnit, comparison | `core/artifacts/`, `orchestrator/compare.py` |
 
 **Adapters.** `SystemAdapter` (`core/adapters/base.py`) defines `describe`,
 `capabilities`, `build`, `execute`, `collect`, `normalize`, `contracts`, and

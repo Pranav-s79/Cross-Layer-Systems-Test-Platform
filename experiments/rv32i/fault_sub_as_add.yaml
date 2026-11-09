@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-sub-as-add
+description: >
+  SUB adds instead of subtracting. Ground truth: alu (interface writeback).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - sub_as_add
