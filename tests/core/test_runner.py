@@ -117,19 +117,33 @@ def test_passing_run_produces_complete_verified_bundle(tmp_path):
     assert result.verdict is Verdict.PASS
     root = result.bundle_dir
     for name in ("manifest.json", "configuration.yaml", "versions.json", "normalized_events.jsonl",
-                 "normalization.json", "contracts.json", "violations.json", "report.md", "junit.xml",
-                 "replay.sh", "raw_artifacts/app.log"):
+                 "normalization.json", "contracts.json", "violations.json", "report.md", "report.html",
+                 "junit.xml", "replay.sh", "raw_artifacts/app.log"):
         assert (root / name).is_file(), name
     assert verify_bundle(root) == []
     manifest = load_json(root, "manifest.json")
     assert manifest["events"]["count"] == 2
-    assert {f["path"] for f in manifest["files"]} >= {"raw_artifacts/app.log", "report.md"}
+    assert {f["path"] for f in manifest["files"]} >= {"raw_artifacts/app.log", "report.md", "report.html"}
     assert len(read_events_jsonl(root / "normalized_events.jsonl")) == 2
     suite = ET.parse(root / "junit.xml").getroot()
     assert suite.get("tests") == "1" and suite.get("failures") == "0"
     [case] = suite.findall("testcase")
     props = {p.get("name"): p.get("value") for p in case.findall("properties/property")}
     assert props == {"severity": "major", "boundary": "client -> server", "version": "1"}
+
+
+def test_html_report_is_interactive_and_escapes_run_content(tmp_path):
+    name = '<script>alert("unsafe")</script>'
+    result = runner(tmp_path, FakeAdapter()).run(experiment(tmp_path, name=name))
+    report = (result.bundle_dir / "report.html").read_text(encoding="utf-8")
+
+    assert name not in report
+    assert "&lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;" in report
+    assert report.count("data-step-panel=") == 5
+    assert 'aria-label="Report steps"' in report
+    assert "data-previous" in report and "data-next" in report
+    assert "data-contract-search" in report and "data-contract-filter" in report
+    assert "Content-Security-Policy" in report
 
 
 def test_timings_cover_every_stage_and_stay_out_of_the_fingerprint(tmp_path):
