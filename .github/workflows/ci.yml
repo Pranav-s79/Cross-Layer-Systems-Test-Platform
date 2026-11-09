@@ -63,3 +63,34 @@ jobs:
         with:
           name: run-bundles
           path: runs/
+
+  rv32i-experiments:
+    name: RV32I RTL experiments
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes iverilog
+      - name: Install CrossLayer
+        run: python -m pip install -e ".[dev]"
+      - name: RV32I adapter and simulator integration tests
+        run: python -m pytest -q tests/integrations/test_rv32i.py
+      - name: Lint RV32I contracts and experiments
+        run: crosslayer lint experiments/rv32i/suite.yaml --strict
+      - name: RV32I contract tests
+        run: crosslayer test-contracts crosslayer/integrations/rv32i/contract_tests.yaml --require-coverage
+      - name: RV32I suite (baseline passes, every injected fault is detected)
+        run: crosslayer suite experiments/rv32i/suite.yaml --out runs
+      - name: Upload RV32I run bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rv32i-run-bundles
+          path: runs/

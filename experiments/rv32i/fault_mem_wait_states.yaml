@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-mem-wait-states
+description: >
+  Memory answers 3 cycles late. Results stay correct; only timing changes. Ground truth: memory (interface instruction_bus).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - name: mem_wait_states
+    params: {cycles: 3}

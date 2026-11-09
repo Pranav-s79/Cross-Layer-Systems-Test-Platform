@@ -24,6 +24,15 @@ crosslayer suite experiments/reference/suite.yaml --out runs
 
 The suite writes run bundles under `runs/`, which is gitignored.
 
+Changes to the RV32I integration also require Icarus Verilog (`iverilog` and
+`vvp`) and these checks:
+
+```sh
+crosslayer lint experiments/rv32i/suite.yaml --strict
+crosslayer test-contracts crosslayer/integrations/rv32i/contract_tests.yaml --require-coverage
+crosslayer suite experiments/rv32i/suite.yaml --out runs
+```
+
 ## Regenerate schemas
 
 The JSON Schemas in `schemas/` are generated. After changing a contract,

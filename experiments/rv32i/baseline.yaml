@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-baseline
+description: >
+  Unmodified PicoRV32 runs the self-test program. Every retired instruction
+  must match the reference RV32I model, and every contract must pass.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000

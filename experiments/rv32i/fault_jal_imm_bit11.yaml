@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-jal-imm-bit11
+description: >
+  The JAL target ignores bit 11 of the immediate, so backward jumps land 2 KB short. Ground truth: decoder (interface jump_target).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - jal_imm_bit11
