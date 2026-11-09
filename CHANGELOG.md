@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add mypy (strict untyped-def checks) for `core/telemetry` and `core/units.py`, with a CI step.
 - Add a `reorder` fault to the reference sensor pipeline simulator.
 - Add the `pipeline.processing_order` contract, the `fault_reorder` experiment and its suite entry.
 

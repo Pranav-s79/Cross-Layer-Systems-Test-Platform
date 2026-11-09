@@ -84,7 +84,7 @@ with a one-line reason and take the next one.
   none do, add one (for example processed sequence order) with contract tests.
   Add `experiments/reference/fault_reorder.yaml`, a suite entry, and extend
   `test_each_fault_trips_its_contracts`.
-- [ ] **Type-check `core/telemetry` and `core/units.py` with mypy.** Add mypy
+- [x] **Type-check `core/telemetry` and `core/units.py` with mypy.** Add mypy
   to the dev extras, config in `pyproject.toml`, fix findings, CI step for
   these paths only.
 - [ ] **Tutorial: your first contract.** `docs/tutorial.md`: add a contract to

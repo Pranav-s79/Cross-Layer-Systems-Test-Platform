@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "jsonschema>=4.18", "ruff>=0.6"]
+dev = ["pytest>=8", "jsonschema>=4.18", "ruff>=0.6", "mypy>=1.10"]
 
 [project.scripts]
 crosslayer = "crosslayer.cli:main"
@@ -38,3 +38,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["F", "E9"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["crosslayer/core/telemetry", "crosslayer/core/units.py"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+ignore_missing_imports = true
