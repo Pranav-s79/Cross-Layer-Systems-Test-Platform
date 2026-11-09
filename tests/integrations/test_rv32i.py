@@ -207,8 +207,9 @@ def test_program_image_is_little_endian():
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
-def test_iverilog_baseline_passes_every_contract(tmp_path: Path):
-    result = ExperimentRunner(tmp_path / "runs").run(load_experiment(EXPERIMENTS / "baseline.yaml"))
+def test_iverilog_baseline_passes_with_relative_output_directory(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = ExperimentRunner(Path("runs")).run(load_experiment(EXPERIMENTS / "baseline.yaml"))
 
     assert result.verdict is Verdict.PASS
     assert {contract.verdict for contract in result.results} == {Verdict.PASS}

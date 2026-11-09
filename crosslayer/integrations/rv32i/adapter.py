@@ -291,14 +291,26 @@ class Rv32iAdapter(SystemAdapter):
             (ctx.raw_dir / DIFF_NAME).write_text(f"# mutants: {', '.join(applied)}\n{text}", encoding="utf-8",
                                                  newline="\n")
 
-        command = [iverilog, "-g2005", *(f"-D{d}" for d in defines), "-o", str(ctx.work_dir / "sim.vvp"),
-                   str(TESTBENCH), str(core)]
-        log = ctx.work_dir / "iverilog.log"
-        result = run_process(command, cwd=ctx.work_dir, timeout_s=ctx.timeout_s, stdout_path=log, stderr_path=log)
+        command = [iverilog, "-g2005", *(f"-D{d}" for d in defines), "-o", "sim.vvp",
+                   str(TESTBENCH), core.name]
+        stdout_log = ctx.work_dir / "iverilog.stdout.log"
+        stderr_log = ctx.work_dir / "iverilog.stderr.log"
+        result = run_process(
+            command,
+            cwd=ctx.work_dir,
+            timeout_s=ctx.timeout_s,
+            stdout_path=stdout_log,
+            stderr_path=stderr_log,
+        )
         details: dict[str, Any] = {"command": command, "mutants": applied, "program_words": len(program.words)}
         if result.error is not None or result.timed_out or result.exit_code != 0:
             details["error"] = result.error or ("timeout" if result.timed_out else f"exit code {result.exit_code}")
-            details["log"] = log.read_text(encoding="utf-8", errors="replace")[-2000:] if log.is_file() else ""
+            logs = [
+                f"{path.name}:\n{path.read_text(encoding='utf-8', errors='replace')[-2000:]}"
+                for path in (stdout_log, stderr_log)
+                if path.is_file() and path.stat().st_size
+            ]
+            details["log"] = "\n".join(logs)
             return BuildResult(ok=False, details=details)
         return BuildResult(ok=True, details=details)
 
