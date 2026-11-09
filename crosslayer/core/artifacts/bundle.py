@@ -13,6 +13,7 @@
     ├── violations.json          failing contracts with evidence only
     ├── timings.json             seconds per runner stage
     ├── report.md                human-readable summary
+    ├── report.html              interactive, step-by-step summary
     ├── junit.xml                CI-compatible results
     └── replay.sh                re-run this exact experiment
 """
