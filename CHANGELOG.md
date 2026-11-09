@@ -5,6 +5,9 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add the Phase 3 RV32I adapter for unmodified PicoRV32 under Icarus Verilog,
+  with an assembler, reference ISA model, RVFI normalization, 10 contracts,
+  seven injected faults, seeded random programs, and a simulator suite.
 - Add a self-contained `report.html` to every run bundle with five-step
   navigation, contract search and filters, expandable evidence, and replay guidance.
 - Add a `reorder` fault to the reference sensor pipeline simulator.

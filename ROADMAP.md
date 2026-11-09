@@ -11,7 +11,7 @@ built hardware and software.
 |---|---|---|---|
 | **I. Foundation** | 1 | Verification core | ✅ |
 | | 2 | Contract tooling | ✅ |
-| **II. Real integrations** | 3 | RTL processor verification (RV32I) | 🔜 |
+| **II. Real integrations** | 3 | RTL processor verification (RV32I) | ✅ |
 | | 4 | Wireless log analysis (5G RAN + core) | 🔜 |
 | | 5 | Live 5G virtual radio | 📋 |
 | | 6 | Firmware and hardware-in-the-loop | 📋 |
@@ -83,20 +83,29 @@ scaffold and passes conformance and contract tests without reading core code.
 | Scaffold passes conformance, coverage, lint, and a sample run before edits | `tests/test_scaffold.py` |
 
 Tests show the scaffold starts green. "Without reading core code" is a
-usability claim, checked by building the Phase 3 and 4 adapters from it.
+usability claim. The Phase 3 adapter followed the sensor-pipeline adapter
+instead of the scaffold, so the claim is still unchecked; Phase 4 starts from
+the scaffold to check it.
 
 ---
 
 ## Stage II — Real integrations
 
-### Phase 3 · RTL processor verification (RV32I) 🔜
-* Adapter for Verilator / Icarus: build, run with a cycle limit, normalize per-cycle traces.
-* Contracts on signals the design exposes: `PC + 4` sequencing, branch targets, register write-back.
-* Lockstep comparison with an ISA model, reporting the first divergent instruction.
-* Faults as **mutant RTL** (for example a wrong branch offset), with waveform references as evidence.
+### Phase 3 · RTL processor verification (RV32I) ✅
+* Adapter for Icarus Verilog running the unmodified PicoRV32 core: build
+  (assemble, apply mutant, compile), run with a cycle limit, normalize the
+  RVFI retirement trace.
+* Structural contracts that need no model: `PC + 4` sequencing, jump and branch targets.
+* Lockstep comparison with a reference ISA model, field by field, reporting
+  the first divergent instruction and its source line.
+* Faults as **mutant RTL** (six one-line bugs, one of them PicoRV32's own
+  `TESTBUG_001`) plus a timing-only memory fault; optional waveform (VCD) in
+  the bundle.
 
-**Exit:** the original design passes; each mutant fails at its earliest
-violating cycle; the core is unchanged.
+**Exit (met):** the original design passes all 10 contracts; each mutant
+fails at exactly the instruction where an independent model of the same bug
+first diverges; `crosslayer/core` is unchanged. See
+[docs/rtl-verification.md](docs/rtl-verification.md).
 
 ### Phase 4 · Wireless log analysis (5G RAN + core) 🔜
 * Parsers for OCUDU RAN and Open5GS core logs, with fixture source and version recorded.

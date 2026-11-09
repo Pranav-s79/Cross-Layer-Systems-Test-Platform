@@ -20,12 +20,14 @@ crosslayer = "crosslayer.cli:main"
 # imports an integration package directly.
 [project.entry-points."crosslayer.adapters"]
 sensor_pipeline = "crosslayer.integrations.sensor_pipeline:SensorPipelineAdapter"
+rv32i = "crosslayer.integrations.rv32i:Rv32iAdapter"
 
 [tool.setuptools.packages.find]
 include = ["crosslayer*"]
 
 [tool.setuptools.package-data]
 "crosslayer.integrations.sensor_pipeline" = ["*.yaml", "fixtures/*.jsonl"]
+"crosslayer.integrations.rv32i" = ["*.yaml", "rtl/*.v", "rtl/*.md", "programs/*.s"]
 "crosslayer.scaffold" = ["templates/*.tmpl"]
 
 [tool.pytest.ini_options]

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Status](https://img.shields.io/badge/status-Phase%202%20of%2015-orange)
+![Status](https://img.shields.io/badge/status-Phase%203%20of%2015-green)
 
 **Cross-stack verification for systems built by many teams.**
 
@@ -42,7 +42,8 @@ faults    silent_drop
   FAIL         pipeline.counter_conservation  held for 0/1 events
 ```
 
-Each violation in `report.md` points to its source, such as `raw_artifacts/sim.log#L315`.
+Each violation in `report.md` and the interactive `report.html` points to its
+raw evidence, such as `raw_artifacts/sim.log#L315`.
 
 ## A contract
 
@@ -76,17 +77,21 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   dependency order and expected verdicts.
 - **Contract tooling:** contract tests, a linter, JSON Schemas, versioning,
   and `crosslayer new adapter` scaffolding.
-- **Fault injection:** four faults in a reference pipeline, each caught by
-  exactly its target contracts, with a clean baseline.
+- **RTL verification:** unmodified PicoRV32 under Icarus Verilog, RVFI trace
+  normalization, structural and lockstep contracts, seven injected faults,
+  optional VCD waveforms, and seeded random programs.
+- **Fault injection:** five faults in the reference pipeline and seven in the
+  RV32I integration, with clean baselines and explicit target labels.
 
-> The reference system is a deterministic **simulation**, not real firmware.
+> The sensor pipeline is a deterministic simulation. The RV32I integration
+> runs a real processor RTL core in a simulator; it is not hardware-in-the-loop.
 
 ## Roadmap
 
 | Stage | Phases | Status |
 |---|---|---|
 | Foundation | Verification core · contract tooling | ✅ done |
-| Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | 🔜 next |
+| Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | RV32I done; 5G next |
 | Diagnosis | Fault localization · guided experiments · learning-assisted triage | 📋 planned |
 | Scale | Streaming engine · results store · distributed execution | 📋 planned |
 | Production | Platform service · OpenTelemetry · security and governance | 📋 planned |
@@ -101,6 +106,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 | [Contract language](docs/contract-language.md) | Fields, selectors, rules, expressions, verdicts |
 | [Contract tooling](docs/tooling.md) | Tests, lint, schemas, suites, versioning, scaffolding |
 | [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system |
+| [RTL verification](docs/rtl-verification.md) | Run PicoRV32, inject mutants, and inspect lockstep evidence |
 | [Run bundle format](docs/run-bundle.md) | What every run records |
 | [Testing](docs/testing.md) | How CrossLayer is tested, and where to add tests |
 | [Extending](docs/extending.md) | Extension points and where the project is going |

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-bne-inverted
+description: >
+  BNE branches when its operands are equal. Ground truth: alu (interface branch_decision).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+faults:
+  - bne_inverted
