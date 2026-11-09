@@ -25,6 +25,8 @@ All notable changes are recorded here, in the
 - Add `crosslayer show` to summarize an existing run bundle without re-running it.
 - Add a tutorial for writing, testing and running a first contract.
 - Add mypy (strict untyped-def checks) for `core/telemetry` and `core/units.py`, with a CI step.
+- Add a self-contained `report.html` to every run bundle with five-step
+  navigation, contract search and filters, expandable evidence, and replay guidance.
 - Add a `reorder` fault to the reference sensor pipeline simulator.
 - Add the `pipeline.processing_order` contract, the `fault_reorder` experiment and its suite entry.
 

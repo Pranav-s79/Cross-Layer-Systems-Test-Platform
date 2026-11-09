@@ -38,6 +38,7 @@ from crosslayer.core.artifacts.bundle import BUNDLE_FORMAT_VERSION, MANIFEST, Ru
 from crosslayer.core.artifacts.environment import capture_environment
 from crosslayer.core.artifacts.junit import render_junit
 from crosslayer.core.artifacts.report import render_markdown
+from crosslayer.core.artifacts.report_html import render_html
 from crosslayer.core.contracts.evaluator import aggregate_verdict, evaluate_contracts, warnings
 from crosslayer.core.contracts.loader import ensure_unique_ids
 from crosslayer.core.contracts.model import BoundaryContract, ContractResult
@@ -337,6 +338,7 @@ class ExperimentRunner:
         timings = timer.to_dict()
         bundle.write_json("timings.json", {"unit": "seconds", "stages": timings})
         bundle.write_text("report.md", render_markdown(manifest, results, timings))
+        bundle.write_text("report.html", render_html(manifest, results, timings))
         bundle.write_text("junit.xml", render_junit(manifest, results))
         bundle.write_text("replay.sh", self._replay_script(manifest, description.external_dependencies))
         manifest["files"] = bundle.file_index()

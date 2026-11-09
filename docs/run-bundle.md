@@ -15,6 +15,7 @@ Every run writes `<output>/<run_id>/`, where
 | `violations.json` | FAIL results only. |
 | `timings.json` | Seconds per runner stage: plan, build, execute, collect, normalize, evaluate, write (`write` covers events, normalization, contracts, violations). Stages that did not run are 0. Not part of the fingerprint. |
 | `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts. |
+| `report.html` | Self-contained interactive report: five-step run walkthrough, pipeline timings, searchable contract results, expandable evidence, and replay instructions. It loads no network resources. |
 | `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. Each case has `severity`, `boundary` (`source -> destination`) and `version` properties. |
 | `replay.sh` | POSIX shell version of `crosslayer replay`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
 | `work/` | Scratch space. Not indexed. |
@@ -38,5 +39,4 @@ Every run writes `<output>/<run_id>/`, where
   `--json` prints `intact` and `problems`. Exit 0 if intact, 1 if any problem, 4 if the
   bundle or its manifest cannot be read.
 
-Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7), and an HTML
-report (Phase 13).
+Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7).
