@@ -3,6 +3,7 @@
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
     crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
+    crosslayer show BUNDLE [--limit N]   summarize an existing bundle without re-running it
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
@@ -26,7 +27,7 @@ from typing import Sequence
 
 from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
-from crosslayer.core.artifacts.bundle import load_manifest, verify_bundle
+from crosslayer.core.artifacts.bundle import load_json, load_manifest, verify_bundle
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
@@ -95,6 +96,32 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     print(f"event fingerprint  {'match' if same_events else 'DIFFERENT'}")
     print(f"bundle    {result.bundle_dir}")
     return 0 if same_config and same_events else 1
+
+
+def _cmd_show(args: argparse.Namespace) -> int:
+    manifest = load_manifest(args.bundle)
+    doc = load_json(args.bundle, "contracts.json")
+    print(f"run       {manifest['run_id']}")
+    print(f"verdict   {manifest['verdict'].upper()}")
+    print(f"events    {manifest['events']['count']} (fingerprint {manifest['events']['fingerprint'][:16]})")
+    if manifest["faults"]:
+        print("faults    " + ", ".join(f["name"] for f in manifest["faults"]))
+    for err in manifest["errors"]:
+        print(f"error     [{err['stage']}] {err['message']}")
+    results = [item["result"] for item in doc["contracts"]]
+    print()
+    width = max((len(r["contract_id"]) for r in results), default=8)
+    for r in results:
+        print(f"  {r['verdict'].upper():<12} {r['contract_id']:<{width}}  {r.get('summary', '')}")
+    violations = [
+        (r["contract_id"], f) for r in results for f in r.get("findings", []) if f.get("kind") == "violation"
+    ]
+    if violations:
+        print()
+        print(f"first violations ({min(args.limit, len(violations))} of {len(violations)}):")
+        for cid, f in sorted(violations, key=lambda v: v[1].get("timestamp_ns") or 0)[: args.limit]:
+            print(f"  {cid}  t={f.get('timestamp_ns')} ns  {f['message']}")
+    return 0
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:
@@ -360,6 +387,11 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("bundle", type=Path)
     replay.add_argument("--out", type=Path, help="directory for the new bundle (default: replays/ beside the bundle)")
     replay.set_defaults(func=_cmd_replay)
+
+    show = sub.add_parser("show", help="summarize an existing run bundle without re-running it")
+    show.add_argument("bundle", type=Path)
+    show.add_argument("--limit", type=int, default=5, help="violations to list (default: 5)")
+    show.set_defaults(func=_cmd_show)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
     compare.add_argument("baseline", type=Path)

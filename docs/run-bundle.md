@@ -31,6 +31,7 @@ Every run writes `<output>/<run_id>/`, where
 * **Replay:** `crosslayer replay <bundle> [--out DIR]` re-runs
   `configuration.yaml` on any OS, then compares config hash and event
   fingerprint with the original. Exit 0 if both match, 1 otherwise.
+* **Summary:** `crosslayer show <bundle> [--limit N]` prints the verdict, per-contract table, and first violations from `manifest.json` and `contracts.json`. It runs nothing.
 * **File index:** `crosslayer verify <bundle>` reports missing, modified, or
   unexpected files.
 

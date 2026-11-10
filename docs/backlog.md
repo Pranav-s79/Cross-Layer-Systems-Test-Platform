@@ -90,7 +90,7 @@ with a one-line reason and take the next one.
 - [x] **Tutorial: your first contract.** `docs/tutorial.md`: add a contract to
   the reference pipeline, write its contract tests, lint, run, and read the
   report. Run every command in it before committing.
-- [ ] **`crosslayer show BUNDLE`.** Summarize an existing bundle from
+- [x] **`crosslayer show BUNDLE`.** Summarize an existing bundle from
   `contracts.json` and `manifest.json` (verdict, per-contract table, first
   violations) without re-running anything.
 - [ ] **Extend mypy to `core/contracts`.** Fix findings; keep behavior

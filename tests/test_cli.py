@@ -222,3 +222,19 @@ def test_test_contracts_json_output(capsys):
     f = doc["files"][0]
     assert f["coverage"]["covered"] == f["coverage"]["total"] and not f["coverage"]["uncovered"]
     assert {"contract_id", "name", "expect", "actual", "passed", "problems"} <= f["cases"][0].keys()
+
+
+def test_show_summarizes_bundle_without_running(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "fault_silent_drop.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+    before = sorted(p.name for p in bundle.iterdir())
+    capsys.readouterr()
+    assert main(["show", str(bundle), "--limit", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "verdict   FAIL" in out and "pipeline.rx_accounted" in out
+    assert "first violations (2 of" in out and "no response within" in out
+    assert sorted(p.name for p in bundle.iterdir()) == before
+
+
+def test_show_rejects_non_bundle(tmp_path):
+    assert main(["show", str(tmp_path)]) == 4
