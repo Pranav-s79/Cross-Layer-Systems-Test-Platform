@@ -87,7 +87,7 @@ with a one-line reason and take the next one.
 - [x] **Type-check `core/telemetry` and `core/units.py` with mypy.** Add mypy
   to the dev extras, config in `pyproject.toml`, fix findings, CI step for
   these paths only.
-- [ ] **Tutorial: your first contract.** `docs/tutorial.md`: add a contract to
+- [x] **Tutorial: your first contract.** `docs/tutorial.md`: add a contract to
   the reference pipeline, write its contract tests, lint, run, and read the
   report. Run every command in it before committing.
 - [ ] **`crosslayer show BUNDLE`.** Summarize an existing bundle from

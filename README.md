@@ -98,6 +98,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 | | |
 |---|---|
 | [Architecture](docs/architecture.md) | Layers, data flow, enforced boundaries |
+| [Tutorial](docs/tutorial.md) | Add, test, and run your first contract |
 | [Contract language](docs/contract-language.md) | Fields, selectors, rules, expressions, verdicts |
 | [Contract tooling](docs/tooling.md) | Tests, lint, schemas, suites, versioning, scaffolding |
 | [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system |
