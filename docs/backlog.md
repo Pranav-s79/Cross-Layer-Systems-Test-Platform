@@ -93,7 +93,7 @@ with a one-line reason and take the next one.
 - [x] **`crosslayer show BUNDLE`.** Summarize an existing bundle from
   `contracts.json` and `manifest.json` (verdict, per-contract table, first
   violations) without re-running anything.
-- [ ] **Extend mypy to `core/contracts`.** Fix findings; keep behavior
+- [x] **Extend mypy to `core/contracts`.** Fix findings; keep behavior
   unchanged.
 - [ ] **Scaling benchmark.** `benchmarks/bench_scaling.py`: evaluate each rule
   kind at n and 4n events and print the time ratio, to catch a return of

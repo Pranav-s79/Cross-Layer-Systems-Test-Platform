@@ -12,7 +12,7 @@ runtime dependencies. Dev-only tools go in the `dev` extra.
 
 ## Run the checks
 
-CI runs these four commands plus `ruff check .` (pyflakes rules only) and `mypy` (scoped to `core/telemetry` and `core/units.py`). Run them before you push:
+CI runs these four commands plus `ruff check .` (pyflakes rules only) and `mypy` (scoped to `core/telemetry`, `core/units.py` and `core/contracts`). Run them before you push:
 
 ```sh
 ruff check .

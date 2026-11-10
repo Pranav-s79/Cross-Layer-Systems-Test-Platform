@@ -69,7 +69,8 @@ def diff_contracts(old: Iterable[BoundaryContract], new: Iterable[BoundaryContra
     for cid in sorted(before.keys() | after.keys()):
         o, n = before.get(cid), after.get(cid)
         if o is None:
-            changes.append(ContractChange(cid, n.owner, "added", new_version=n.version))
+            if n is not None:
+                changes.append(ContractChange(cid, n.owner, "added", new_version=n.version))
             continue
         if n is None:
             changes.append(ContractChange(cid, o.owner, "removed", old_version=o.version))
