@@ -291,7 +291,7 @@ def _write_outputs(outcome: SuiteResult) -> None:
         case = ET.SubElement(suite, "testcase", classname="crosslayer.suite", name=r.entry.id)
         if r.status == "unmet":
             failures += 1
-            ET.SubElement(case, "failure", message=f"expected {r.entry.expect.upper()}, got {r.verdict.upper()}")
+            ET.SubElement(case, "failure", message=f"expected {r.entry.expect.upper()}, got {r.verdict.upper() if r.verdict else 'none'}")
         elif r.status == "blocked":
             skipped += 1
             ET.SubElement(case, "skipped", message=f"blocked by {', '.join(r.blocked_by)}")

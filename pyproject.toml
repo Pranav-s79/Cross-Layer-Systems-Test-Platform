@@ -41,7 +41,7 @@ select = ["F", "E9"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["crosslayer/core/telemetry", "crosslayer/core/units.py", "crosslayer/core/contracts"]
+files = ["crosslayer/core/telemetry", "crosslayer/core/units.py", "crosslayer/core/contracts", "crosslayer/core/artifacts", "crosslayer/core/adapters", "crosslayer/core/orchestrator"]
 disallow_untyped_defs = true
 warn_unused_ignores = true
 ignore_missing_imports = true

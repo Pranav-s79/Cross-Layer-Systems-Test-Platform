@@ -7,7 +7,7 @@ its own code, its contracts, a real end-to-end system, CI, and every bug fix.
 
 ```sh
 ruff check .                         # pyflakes rules only (F, E9)
-mypy                                 # core/telemetry, core/units.py and core/contracts
+mypy                                 # core/telemetry, units.py, contracts, artifacts, adapters, orchestrator
 python -m pytest                     # all automated tests
 crosslayer lint experiments/reference/suite.yaml --strict
 crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage

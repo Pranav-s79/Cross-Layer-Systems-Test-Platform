@@ -100,7 +100,7 @@ with a one-line reason and take the next one.
   quadratic paths. A benchmark, not a test (timings are noisy on CI).
 - [x] **Using CrossLayer in another repository's CI.** A GitHub Actions example
   in `docs/tooling.md` that runs a suite and publishes `junit.xml`.
-- [ ] **Extend mypy to `core/artifacts`, `core/adapters` and `core/orchestrator`.**
+- [x] **Extend mypy to `core/artifacts`, `core/adapters` and `core/orchestrator`.**
   Running mypy on them reports 4 errors (for example `junit.py:81` assigns an
   `int` to a `str` variable, `suite.py:294` calls `.upper()` on an optional
   verdict). Fix them and add the paths to `[tool.mypy] files`.

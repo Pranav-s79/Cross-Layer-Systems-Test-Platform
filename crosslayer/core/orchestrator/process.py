@@ -16,7 +16,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 
 @dataclass
@@ -59,7 +59,7 @@ def run_process(
     if env_overrides:
         env.update(env_overrides)
 
-    group_kwargs: dict[str, object] = (
+    group_kwargs: dict[str, Any] = (
         {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}  # type: ignore[attr-defined]
         if os.name == "nt"
         else {"start_new_session": True}
@@ -77,7 +77,7 @@ def run_process(
                 stdout=out,
                 stderr=err,
                 env=env,
-                **group_kwargs,  # type: ignore[arg-type]
+                **group_kwargs,
             )
         except OSError as exc:
             return ProcessResult(list(command), None, False, time.monotonic() - start, error=str(exc))

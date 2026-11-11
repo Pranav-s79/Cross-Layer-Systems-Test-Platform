@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Extend mypy checks to `core/artifacts`, `core/adapters` and `core/orchestrator`.
 - Document a GitHub Actions job for running a suite in another repository's CI.
 - Add `benchmarks/bench_scaling.py` to check that each rule kind scales linearly.
 - Extend mypy checks to `core/contracts`.
