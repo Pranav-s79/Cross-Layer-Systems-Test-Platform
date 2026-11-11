@@ -100,6 +100,22 @@ with a one-line reason and take the next one.
   quadratic paths. A benchmark, not a test (timings are noisy on CI).
 - [x] **Using CrossLayer in another repository's CI.** A GitHub Actions example
   in `docs/tooling.md` that runs a suite and publishes `junit.xml`.
+- [ ] **Extend mypy to `core/artifacts`, `core/adapters` and `core/orchestrator`.**
+  Running mypy on them reports 4 errors (for example `junit.py:81` assigns an
+  `int` to a `str` variable, `suite.py:294` calls `.upper()` on an optional
+  verdict). Fix them and add the paths to `[tool.mypy] files`.
+- [ ] **`--json` for `show` and `verify`.** Every other reporting command has a
+  machine-readable mode; these two print text only. Same style as `compare --json`.
+  Tests parse the output.
+- [ ] **Test `crosslayer/cli.py` exit codes in one table.** Parametrized test
+  that each subcommand returns the documented code for a missing file and a
+  malformed config, so exit-code drift is caught in one place.
+- [ ] **Suite fail-fast option.** `crosslayer suite --fail-fast` stops after the
+  first experiment whose verdict differs from its expectation and marks the
+  rest as skipped in the suite summary. Test and document in `docs/tooling.md`.
+- [ ] **`crosslayer verify` on a tampered bundle.** Add tests that changing,
+  deleting, or adding a file in a bundle makes `verify` exit non-zero and name
+  the file; document the exit codes in `docs/run-bundle.md`.
 
 When the list runs out, review the code for bugs, missing tests, unclear
 error messages, or documentation gaps, and add five new items here with a
