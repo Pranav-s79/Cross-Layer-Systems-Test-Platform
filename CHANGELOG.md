@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Document a GitHub Actions job for running a suite in another repository's CI.
 - Add `benchmarks/bench_scaling.py` to check that each rule kind scales linearly.
 - Extend mypy checks to `core/contracts`.
 - Add `crosslayer show` to summarize an existing run bundle without re-running it.

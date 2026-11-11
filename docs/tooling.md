@@ -120,6 +120,34 @@ crosslayer suite experiments/reference/suite.yaml --out runs
   `junit.xml`, and each run's bundle. Exit 0 only if every experiment met its
   expectation.
 
+## Using the suite in another repository's CI
+
+A GitHub Actions job that runs a suite and publishes the JUnit report and
+bundles. Paths such as `experiments/suite.yaml` are yours; the job fails when
+any experiment misses its expectation.
+
+```yaml
+jobs:
+  crosslayer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install git+https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform
+      - run: crosslayer lint experiments/suite.yaml --strict
+      - run: crosslayer suite experiments/suite.yaml --out runs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crosslayer-runs
+          path: runs/
+```
+
+`runs/suite-<name>-<time>/junit.xml` holds the per-contract results. Point a
+test-report action at `runs/*/junit.xml` to show them in the pull request.
+
 ## Dry runs
 
 `crosslayer run EXPERIMENT --dry-run` validates the experiment (adapter,

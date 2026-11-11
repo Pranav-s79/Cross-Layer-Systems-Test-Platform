@@ -98,7 +98,7 @@ with a one-line reason and take the next one.
 - [x] **Scaling benchmark.** `benchmarks/bench_scaling.py`: evaluate each rule
   kind at n and 4n events and print the time ratio, to catch a return of
   quadratic paths. A benchmark, not a test (timings are noisy on CI).
-- [ ] **Using CrossLayer in another repository's CI.** A GitHub Actions example
+- [x] **Using CrossLayer in another repository's CI.** A GitHub Actions example
   in `docs/tooling.md` that runs a suite and publishes `junit.xml`.
 
 When the list runs out, review the code for bugs, missing tests, unclear
