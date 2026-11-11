@@ -95,7 +95,7 @@ with a one-line reason and take the next one.
   violations) without re-running anything.
 - [x] **Extend mypy to `core/contracts`.** Fix findings; keep behavior
   unchanged.
-- [ ] **Scaling benchmark.** `benchmarks/bench_scaling.py`: evaluate each rule
+- [x] **Scaling benchmark.** `benchmarks/bench_scaling.py`: evaluate each rule
   kind at n and 4n events and print the time ratio, to catch a return of
   quadratic paths. A benchmark, not a test (timings are noisy on CI).
 - [ ] **Using CrossLayer in another repository's CI.** A GitHub Actions example

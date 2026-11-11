@@ -79,7 +79,9 @@ committed (for example, `test_added_files_are_detected_by_verify`).
 | A CLI command | `tests/test_cli.py` |
 | The reference system or its contracts | `tests/integrations/test_sensor_pipeline.py` and `contract_tests.yaml` |
 
-Performance is measured separately with `python benchmarks/bench_core.py`,
+Performance is measured separately with `python benchmarks/bench_core.py`
+(throughput) and `python benchmarks/bench_scaling.py` (time ratio at n and 4n
+events per rule kind; about 4 is linear, above 8 is flagged and exits 1),
 because timings vary by machine. One test,
 `test_response_time_window_mode_scales_linearly`, uses a generous time limit
 to stop the old quadratic slowdown from returning.
