@@ -78,7 +78,7 @@ def render_junit(manifest: dict[str, Any], results: Sequence[ContractResult]) ->
         if tag != "skipped":
             node.text = _finding_text(result)
 
-    for key, value in counts.items():
-        suite.set(key, str(value))
+    for key, count in counts.items():
+        suite.set(key, str(count))
     ET.indent(suite)
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(suite, encoding="unicode") + "\n"
