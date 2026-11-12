@@ -3,7 +3,7 @@
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
     crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
-    crosslayer show BUNDLE [--limit N]   summarize an existing bundle without re-running it
+    crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
@@ -12,7 +12,7 @@
     crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
     crosslayer diff-contracts OLD NEW per-owner changelog; fails on unversioned semantic changes
     crosslayer new adapter NAME       scaffold a working adapter project (--dir DIR)
-    crosslayer verify BUNDLE          check bundle files against manifest hashes
+    crosslayer verify BUNDLE [--json]  check bundle files against manifest hashes
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
 """
@@ -101,6 +101,8 @@ def _cmd_replay(args: argparse.Namespace) -> int:
 def _cmd_show(args: argparse.Namespace) -> int:
     manifest = load_manifest(args.bundle)
     doc = load_json(args.bundle, "contracts.json")
+    if args.json:
+        return _show_json(manifest, doc, args.limit)
     print(f"run       {manifest['run_id']}")
     print(f"verdict   {manifest['verdict'].upper()}")
     print(f"events    {manifest['events']['count']} (fingerprint {manifest['events']['fingerprint'][:16]})")
@@ -121,6 +123,32 @@ def _cmd_show(args: argparse.Namespace) -> int:
         print(f"first violations ({min(args.limit, len(violations))} of {len(violations)}):")
         for cid, f in sorted(violations, key=lambda v: v[1].get("timestamp_ns") or 0)[: args.limit]:
             print(f"  {cid}  t={f.get('timestamp_ns')} ns  {f['message']}")
+    return 0
+
+
+def _show_json(manifest: dict, doc: dict, limit: int) -> int:
+    results = [item["result"] for item in doc["contracts"]]
+    violations = [
+        {"contract_id": r["contract_id"], "timestamp_ns": f.get("timestamp_ns"), "message": f["message"]}
+        for r in results
+        for f in r.get("findings", [])
+        if f.get("kind") == "violation"
+    ]
+    violations.sort(key=lambda v: v["timestamp_ns"] or 0)
+    payload = {
+        "run_id": manifest["run_id"],
+        "verdict": manifest["verdict"],
+        "events": manifest["events"],
+        "faults": [f["name"] for f in manifest["faults"]],
+        "errors": manifest["errors"],
+        "contracts": [
+            {"contract_id": r["contract_id"], "verdict": r["verdict"], "summary": r.get("summary", "")}
+            for r in results
+        ],
+        "violation_count": len(violations),
+        "violations": violations[:limit],
+    }
+    print(json.dumps(payload, indent=2))
     return 0
 
 
@@ -350,6 +378,9 @@ def _cmd_schema(args: argparse.Namespace) -> int:
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     problems = verify_bundle(args.bundle)
+    if args.json:
+        print(json.dumps({"intact": not problems, "problems": problems}, indent=2))
+        return 1 if problems else 0
     for problem in problems:
         print(problem)
     print("bundle intact" if not problems else f"{len(problems)} problem(s)")
@@ -391,6 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     show = sub.add_parser("show", help="summarize an existing run bundle without re-running it")
     show.add_argument("bundle", type=Path)
     show.add_argument("--limit", type=int, default=5, help="violations to list (default: 5)")
+    show.add_argument("--json", action="store_true", help="print one JSON document")
     show.set_defaults(func=_cmd_show)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
@@ -441,6 +473,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify = sub.add_parser("verify", help="verify a bundle against its manifest hashes")
     verify.add_argument("bundle", type=Path)
+    verify.add_argument("--json", action="store_true", help="print one JSON document")
     verify.set_defaults(func=_cmd_verify)
     return parser
 

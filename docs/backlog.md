@@ -104,7 +104,7 @@ with a one-line reason and take the next one.
   Running mypy on them reports 4 errors (for example `junit.py:81` assigns an
   `int` to a `str` variable, `suite.py:294` calls `.upper()` on an optional
   verdict). Fix them and add the paths to `[tool.mypy] files`.
-- [ ] **`--json` for `show` and `verify`.** Every other reporting command has a
+- [x] **`--json` for `show` and `verify`.** Every other reporting command has a
   machine-readable mode; these two print text only. Same style as `compare --json`.
   Tests parse the output.
 - [ ] **Test `crosslayer/cli.py` exit codes in one table.** Parametrized test

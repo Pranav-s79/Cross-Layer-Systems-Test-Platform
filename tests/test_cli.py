@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -238,3 +239,26 @@ def test_show_summarizes_bundle_without_running(tmp_path, capsys):
 
 def test_show_rejects_non_bundle(tmp_path):
     assert main(["show", str(tmp_path)]) == 4
+
+
+def test_show_json(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "fault_silent_drop.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+    capsys.readouterr()
+    assert main(["show", str(bundle), "--limit", "2", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["verdict"] == "fail" and doc["violation_count"] >= 2
+    assert len(doc["violations"]) == 2
+    assert any(c["contract_id"] == "pipeline.rx_accounted" for c in doc["contracts"])
+
+
+def test_verify_json(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "fault_silent_drop.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+    capsys.readouterr()
+    assert main(["verify", str(bundle), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"intact": True, "problems": []}
+    (bundle / "violations.json").write_text("{}")
+    assert main(["verify", str(bundle), "--json"]) == 1
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["intact"] is False and any("violations.json" in p for p in doc["problems"])

@@ -31,9 +31,9 @@ Every run writes `<output>/<run_id>/`, where
 * **Replay:** `crosslayer replay <bundle> [--out DIR]` re-runs
   `configuration.yaml` on any OS, then compares config hash and event
   fingerprint with the original. Exit 0 if both match, 1 otherwise.
-* **Summary:** `crosslayer show <bundle> [--limit N]` prints the verdict, per-contract table, and first violations from `manifest.json` and `contracts.json`. It runs nothing.
-* **File index:** `crosslayer verify <bundle>` reports missing, modified, or
-  unexpected files.
+* **Summary:** `crosslayer show <bundle> [--limit N] [--json]` prints the verdict, per-contract table, and first violations from `manifest.json` and `contracts.json`. It runs nothing.
+* **File index:** `crosslayer verify <bundle> [--json]` reports missing, modified, or
+  unexpected files. `--json` prints `intact` and `problems`.
 
 Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7), and an HTML
 report (Phase 13).
