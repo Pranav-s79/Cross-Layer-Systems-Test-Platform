@@ -60,6 +60,7 @@ each fault experiment must fail.
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
 Every command's exit codes and output, plus `--help` for every subcommand.
+One table checks that each subcommand exits 4 on a missing or malformed input.
 The scaffold test generates a new adapter project and runs *its* test suite
 in a subprocess, so the template can't silently break.
 

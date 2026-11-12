@@ -262,3 +262,30 @@ def test_verify_json(tmp_path, capsys):
     assert main(["verify", str(bundle), "--json"]) == 1
     doc = json.loads(capsys.readouterr().out)
     assert doc["intact"] is False and any("violations.json" in p for p in doc["problems"])
+
+
+# One table of the documented config-error exit code (4) for unreadable input.
+_FILE_COMMANDS = ["run", "suite", "check", "test-contracts", "lint", "diff-contracts"]
+_BUNDLE_COMMANDS = ["replay", "show", "verify", "compare"]
+_TWO_PATHS = {"diff-contracts", "compare"}
+
+
+@pytest.mark.parametrize("command", _FILE_COMMANDS)
+@pytest.mark.parametrize("kind", ["missing", "malformed"])
+def test_file_commands_exit_4_on_bad_input(command, kind, tmp_path):
+    bad = tmp_path / "bad.yaml"
+    if kind == "malformed":
+        bad.write_text("not: [valid\n")
+    paths = [str(bad)] * (2 if command in _TWO_PATHS else 1)
+    assert main([command, *paths]) == 4
+
+
+@pytest.mark.parametrize("command", _BUNDLE_COMMANDS)
+@pytest.mark.parametrize("kind", ["missing", "malformed"])
+def test_bundle_commands_exit_4_on_bad_bundle(command, kind, tmp_path):
+    bad = tmp_path / "bundle"
+    if kind == "malformed":
+        bad.mkdir()
+        (bad / "manifest.json").write_text("{not json")
+    paths = [str(bad)] * (2 if command in _TWO_PATHS else 1)
+    assert main([command, *paths]) == 4

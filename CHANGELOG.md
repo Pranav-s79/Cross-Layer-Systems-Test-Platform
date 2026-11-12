@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Test that every subcommand exits 4 on a missing or malformed input file or bundle.
 - Add `--json` to `crosslayer show` and `crosslayer verify`.
 - Extend mypy checks to `core/artifacts`, `core/adapters` and `core/orchestrator`.
 - Document a GitHub Actions job for running a suite in another repository's CI.

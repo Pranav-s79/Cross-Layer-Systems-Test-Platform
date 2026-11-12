@@ -107,7 +107,7 @@ with a one-line reason and take the next one.
 - [x] **`--json` for `show` and `verify`.** Every other reporting command has a
   machine-readable mode; these two print text only. Same style as `compare --json`.
   Tests parse the output.
-- [ ] **Test `crosslayer/cli.py` exit codes in one table.** Parametrized test
+- [x] **Test `crosslayer/cli.py` exit codes in one table.** Parametrized test
   that each subcommand returns the documented code for a missing file and a
   malformed config, so exit-code drift is caught in one place.
 - [ ] **Suite fail-fast option.** `crosslayer suite --fail-fast` stops after the
