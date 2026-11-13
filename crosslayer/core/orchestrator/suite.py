@@ -62,7 +62,7 @@ class Suite:
 class SuiteEntryResult:
     entry: SuiteEntry
     status: str
-    """``met``, ``unmet``, or ``blocked``."""
+    """``met``, ``unmet``, ``blocked``, or ``skipped`` (after a ``fail_fast`` stop)."""
     verdict: Verdict | None = None
     run_id: str | None = None
     bundle_dir: Path | None = None
@@ -235,7 +235,13 @@ class SuiteRunner:
         candidate.mkdir(parents=True)
         return candidate
 
-    def run(self, suite: Suite, *, on_result: Callable[[SuiteEntryResult], None] | None = None) -> SuiteResult:
+    def run(
+        self,
+        suite: Suite,
+        *,
+        on_result: Callable[[SuiteEntryResult], None] | None = None,
+        fail_fast: bool = False,
+    ) -> SuiteResult:
         # Validate every experiment (adapter, faults, contracts) before running
         # any of them, so a mistake in the last entry cannot leave a half-run suite.
         for entry in suite.entries:
@@ -248,15 +254,20 @@ class SuiteRunner:
         runner = self._runner_factory(suite_dir / "runs")
         status: dict[str, str] = {}
         results: list[SuiteEntryResult] = []
+        stopped = False
         for entry in execution_order(suite.entries):
             blockers = [d for d in entry.depends_on if status.get(d) != "met"]
-            if blockers:
+            if stopped:
+                result = SuiteEntryResult(entry, "skipped")
+            elif blockers:
                 result = SuiteEntryResult(entry, "blocked", blocked_by=blockers)
             else:
                 run = runner.run(entry.experiment)
                 met = run.verdict is entry.expect
                 result = SuiteEntryResult(entry, "met" if met else "unmet", run.verdict, run.run_id, run.bundle_dir)
             status[entry.id] = result.status
+            if fail_fast and result.status == "unmet":
+                stopped = True
             results.append(result)
             if on_result:
                 on_result(result)
@@ -272,7 +283,7 @@ def _write_outputs(outcome: SuiteResult) -> None:
         "suite": outcome.suite.name,
         "source": str(outcome.suite.source_path) if outcome.suite.source_path else None,
         "passed": outcome.passed,
-        "counts": {s: sum(r.status == s for r in outcome.results) for s in ("met", "unmet", "blocked")},
+        "counts": {s: sum(r.status == s for r in outcome.results) for s in ("met", "unmet", "blocked", "skipped")},
         "experiments": [r.to_dict() for r in outcome.results],
     }
     (d / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -280,7 +291,9 @@ def _write_outputs(outcome: SuiteResult) -> None:
     lines = [f"# Suite `{outcome.suite.name}`: {'PASSED' if outcome.passed else 'FAILED'}\n",
              "| Experiment | Expected | Verdict | Status | Bundle |", "|---|---|---|---|---|"]
     for r in outcome.results:
-        bundle = f"`runs/{r.bundle_dir.name}`" if r.bundle_dir else f"blocked by {', '.join(r.blocked_by)}"
+        bundle = (f"`runs/{r.bundle_dir.name}`" if r.bundle_dir
+                  else "skipped (fail-fast)" if r.status == "skipped"
+                  else f"blocked by {', '.join(r.blocked_by)}")
         verdict = r.verdict.upper() if r.verdict else "—"
         lines.append(f"| `{r.entry.id}` | {r.entry.expect.upper()} | {verdict} | {r.status} | {bundle} |")
     (d / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
@@ -292,9 +305,10 @@ def _write_outputs(outcome: SuiteResult) -> None:
         if r.status == "unmet":
             failures += 1
             ET.SubElement(case, "failure", message=f"expected {r.entry.expect.upper()}, got {r.verdict.upper() if r.verdict else 'none'}")
-        elif r.status == "blocked":
+        elif r.status in ("blocked", "skipped"):
             skipped += 1
-            ET.SubElement(case, "skipped", message=f"blocked by {', '.join(r.blocked_by)}")
+            message = "skipped after fail-fast stop" if r.status == "skipped" else f"blocked by {', '.join(r.blocked_by)}"
+            ET.SubElement(case, "skipped", message=message)
     suite.set("failures", str(failures))
     suite.set("skipped", str(skipped))
     suite.set("errors", "0")

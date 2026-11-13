@@ -105,10 +105,38 @@ def test_failed_baseline_blocks_dependents(tmp_path):
     # a blocked experiment never ran: only two bundles exist
     assert len(list((outcome.suite_dir / "runs").iterdir())) == 2
     summary = json.loads((outcome.suite_dir / "summary.json").read_text(encoding="utf-8"))
-    assert summary["counts"] == {"met": 1, "unmet": 1, "blocked": 1}
+    assert summary["counts"] == {"met": 1, "unmet": 1, "blocked": 1, "skipped": 0}
     junit = ET.parse(outcome.suite_dir / "junit.xml").getroot()
     assert (junit.get("failures"), junit.get("skipped")) == ("1", "1")
     assert "blocked by baseline" in (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
+
+
+def test_fail_fast_skips_the_rest(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "a", "path": _experiment(tmp_path, "a")},
+        {"id": "b", "path": _experiment(tmp_path, "bad", ["lose_ack"])},
+        {"id": "c", "path": _experiment(tmp_path, "c")},
+        {"id": "d", "path": _experiment(tmp_path, "d"), "depends_on": ["b"]},
+    ]))
+    outcome = _runner(tmp_path).run(suite, fail_fast=True)
+    assert not outcome.passed
+    assert [(r.entry.id, r.status) for r in outcome.results] == [
+        ("a", "met"), ("b", "unmet"), ("c", "skipped"), ("d", "skipped")]
+    assert len(list((outcome.suite_dir / "runs").iterdir())) == 2  # skipped ones never ran
+    summary = json.loads((outcome.suite_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"] == {"met": 1, "unmet": 1, "blocked": 0, "skipped": 2}
+    junit = ET.parse(outcome.suite_dir / "junit.xml").getroot()
+    assert (junit.get("failures"), junit.get("skipped")) == ("1", "2")
+    assert "skipped (fail-fast)" in (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
+
+
+def test_without_fail_fast_everything_runs(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "b", "path": _experiment(tmp_path, "bad", ["lose_ack"])},
+        {"id": "c", "path": _experiment(tmp_path, "c")},
+    ]))
+    outcome = _runner(tmp_path).run(suite)
+    assert [r.status for r in outcome.results] == ["unmet", "met"]
 
 
 def test_transitive_blocking(tmp_path):

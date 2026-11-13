@@ -1,7 +1,7 @@
 """Command-line entry point.
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
-    crosslayer suite SUITE [--out DIR]   experiments in dependency order, with expected verdicts
+    crosslayer suite SUITE [--out DIR] [--fail-fast] experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
@@ -325,9 +325,11 @@ def _cmd_suite(args: argparse.Namespace) -> int:
     def show(r) -> None:
         verdict = r.verdict.upper() if r.verdict else "-"
         detail = f"blocked by {', '.join(r.blocked_by)}" if r.blocked_by else (r.run_id or "")
+        if r.status == "skipped":
+            detail = "fail-fast"
         print(f"  {r.status.upper():<8} {r.entry.id:<24} expect {r.entry.expect.upper():<12} got {verdict:<12} {detail}")
 
-    outcome = SuiteRunner(args.out).run(suite, on_result=show)
+    outcome = SuiteRunner(args.out).run(suite, on_result=show, fail_fast=args.fail_fast)
     print(f"result    {'PASSED' if outcome.passed else 'FAILED'}")
     print(f"output    {outcome.suite_dir}")
     return 0 if outcome.passed else 1
@@ -412,6 +414,8 @@ def build_parser() -> argparse.ArgumentParser:
     suite_p = sub.add_parser("suite", help="run a suite of experiments in dependency order")
     suite_p.add_argument("suite", type=Path)
     suite_p.add_argument("--out", type=Path, default=Path("runs"), help="output directory (default: runs/)")
+    suite_p.add_argument("--fail-fast", action="store_true",
+                         help="stop after the first experiment that misses its expectation; skip the rest")
     suite_p.set_defaults(func=_cmd_suite)
 
     replay = sub.add_parser("replay", help="re-run a bundle's configuration and compare hashes")

@@ -110,7 +110,7 @@ with a one-line reason and take the next one.
 - [x] **Test `crosslayer/cli.py` exit codes in one table.** Parametrized test
   that each subcommand returns the documented code for a missing file and a
   malformed config, so exit-code drift is caught in one place.
-- [ ] **Suite fail-fast option.** `crosslayer suite --fail-fast` stops after the
+- [x] **Suite fail-fast option.** `crosslayer suite --fail-fast` stops after the
   first experiment whose verdict differs from its expectation and marks the
   rest as skipped in the suite summary. Test and document in `docs/tooling.md`.
 - [ ] **`crosslayer verify` on a tampered bundle.** Add tests that changing,

@@ -116,6 +116,8 @@ crosslayer suite experiments/reference/suite.yaml --out runs
 * Order is a topological sort; ties go to file order. Cycles are rejected
   with the cycle named (`a -> b -> c -> a`).
 * Every experiment is validated before any runs.
+* `--fail-fast` stops after the first experiment that misses its expectation.
+  The rest are marked `skipped` (not run) in the summary, report and JUnit.
 * Output: `runs/suite-<name>-<time>/` with `summary.json`, `report.md`,
   `junit.xml`, and each run's bundle. Exit 0 only if every experiment met its
   expectation.
