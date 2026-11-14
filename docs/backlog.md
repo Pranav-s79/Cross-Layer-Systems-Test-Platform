@@ -116,6 +116,19 @@ with a one-line reason and take the next one.
 - [x] **`crosslayer verify` on a tampered bundle.** Add tests that changing,
   deleting, or adding a file in a bundle makes `verify` exit non-zero and name
   the file; document the exit codes in `docs/run-bundle.md`.
+- [ ] **`--json` for `replay` and `diff-contracts`.** Every other reporting
+  command now has a machine-readable mode; these two print text only.
+- [ ] **Test `crosslayer new`.** The test suite has no direct test of the CLI
+  scaffold command; add one that scaffolds into a temp dir and runs
+  `adapters --check`-style conformance on the result.
+- [ ] **Coverage in CI.** Add `pytest-cov` to the dev extras and report
+  coverage for `crosslayer/core` in one CI job, so untested modules are
+  visible. Report only; no threshold.
+- [ ] **Extend mypy to `crosslayer/cli.py`.** It is the largest module outside
+  the checked paths; fix findings without changing behavior.
+- [ ] **Loader error-message tests.** `core/contracts/loader.py` raises many
+  `ConfigError`s with locations; add a parametrized test that each names the
+  offending key path so messages stay actionable.
 
 When the list runs out, review the code for bugs, missing tests, unclear
 error messages, or documentation gaps, and add five new items here with a
