@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Test that `crosslayer verify` names modified, missing and added bundle files, and document its exit codes.
 - Add `crosslayer suite --fail-fast` to stop after the first unmet experiment and mark the rest skipped.
 - Test that every subcommand exits 4 on a missing or malformed input file or bundle.
 - Add `--json` to `crosslayer show` and `crosslayer verify`.

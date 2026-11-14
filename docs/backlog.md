@@ -113,7 +113,7 @@ with a one-line reason and take the next one.
 - [x] **Suite fail-fast option.** `crosslayer suite --fail-fast` stops after the
   first experiment whose verdict differs from its expectation and marks the
   rest as skipped in the suite summary. Test and document in `docs/tooling.md`.
-- [ ] **`crosslayer verify` on a tampered bundle.** Add tests that changing,
+- [x] **`crosslayer verify` on a tampered bundle.** Add tests that changing,
   deleting, or adding a file in a bundle makes `verify` exit non-zero and name
   the file; document the exit codes in `docs/run-bundle.md`.
 

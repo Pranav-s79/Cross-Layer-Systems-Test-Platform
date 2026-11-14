@@ -289,3 +289,38 @@ def test_bundle_commands_exit_4_on_bad_bundle(command, kind, tmp_path):
         (bad / "manifest.json").write_text("{not json")
     paths = [str(bad)] * (2 if command in _TWO_PATHS else 1)
     assert main([command, *paths]) == 4
+
+
+def _verify_problems(bundle, capsys):
+    capsys.readouterr()
+    code = main(["verify", str(bundle), "--json"])
+    return code, json.loads(capsys.readouterr().out)["problems"]
+
+
+def test_verify_names_tampered_file(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+
+    (bundle / "violations.json").write_text("{}")
+    code, problems = _verify_problems(bundle, capsys)
+    assert code == 1 and problems == ["modified: violations.json"]
+
+
+def test_verify_names_deleted_file(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+
+    (bundle / "violations.json").unlink()
+    code, problems = _verify_problems(bundle, capsys)
+    assert code == 1 and problems == ["missing: violations.json"]
+
+
+def test_verify_names_added_file(tmp_path, capsys):
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    bundle = _bundle(tmp_path / "a")
+
+    (bundle / "extra.txt").write_text("added later")
+    code, problems = _verify_problems(bundle, capsys)
+    assert code == 1 and problems == ["unexpected: extra.txt"]
+    assert main(["verify", str(bundle)]) == 1
+    assert "unexpected: extra.txt" in capsys.readouterr().out

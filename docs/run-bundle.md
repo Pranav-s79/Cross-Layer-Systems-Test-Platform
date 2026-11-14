@@ -33,7 +33,9 @@ Every run writes `<output>/<run_id>/`, where
   fingerprint with the original. Exit 0 if both match, 1 otherwise.
 * **Summary:** `crosslayer show <bundle> [--limit N] [--json]` prints the verdict, per-contract table, and first violations from `manifest.json` and `contracts.json`. It runs nothing.
 * **File index:** `crosslayer verify <bundle> [--json]` reports missing, modified, or
-  unexpected files. `--json` prints `intact` and `problems`.
+  unexpected files, each as `missing: PATH`, `modified: PATH` or `unexpected: PATH`.
+  `--json` prints `intact` and `problems`. Exit 0 if intact, 1 if any problem, 4 if the
+  bundle or its manifest cannot be read.
 
 Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7), and an HTML
 report (Phase 13).
