@@ -79,7 +79,16 @@ def test_class_name():
     assert class_name("rv32i_core") == "Rv32iCoreAdapter"
 
 
-def test_cli(tmp_path, capsys):
+def test_cli(tmp_path, capsys, monkeypatch):
     assert main(["new", "adapter", "cli_made", "--dir", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert f"created {tmp_path / 'cli_made'}" in out and "pytest" in out
     assert (tmp_path / "cli_made" / "cli_made" / "adapter.py").is_file()
+
+    # The project the command wrote is a working adapter, not just files on disk.
+    monkeypatch.syspath_prepend(str(tmp_path / "cli_made"))
+    adapter = load_adapter("cli_made.adapter:CliMadeAdapter")
+    assert check_adapter_conformance(adapter) == []
+
     assert main(["new", "adapter", "cli_made", "--dir", str(tmp_path)]) == 4
+    assert "already exists" in capsys.readouterr().err

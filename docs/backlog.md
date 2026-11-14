@@ -118,7 +118,7 @@ with a one-line reason and take the next one.
   the file; document the exit codes in `docs/run-bundle.md`.
 - [x] **`--json` for `replay` and `diff-contracts`.** Every other reporting
   command now has a machine-readable mode; these two print text only.
-- [ ] **Test `crosslayer new`.** The test suite has no direct test of the CLI
+- [x] **Test `crosslayer new`.** The test suite has no direct test of the CLI
   scaffold command; add one that scaffolds into a temp dir and runs
   `adapters --check`-style conformance on the result.
 - [ ] **Coverage in CI.** Add `pytest-cov` to the dev extras and report

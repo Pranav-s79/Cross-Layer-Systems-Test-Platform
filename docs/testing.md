@@ -62,7 +62,9 @@ each fault experiment must fail.
 Every command's exit codes and output, plus `--help` for every subcommand.
 One table checks that each subcommand exits 4 on a missing or malformed input.
 The scaffold test generates a new adapter project and runs *its* test suite
-in a subprocess, so the template can't silently break.
+in a subprocess, so the template can't silently break. `crosslayer new` is also
+checked end to end: exit 0, then adapter conformance on its output, and exit 4
+on a second run.
 
 ## 5. Every bug gets a regression test
 
