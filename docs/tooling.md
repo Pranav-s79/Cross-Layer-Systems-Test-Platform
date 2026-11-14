@@ -168,6 +168,7 @@ and `owner` can change freely. Defaults are normalized (omitted `severity` =
 git show main:path/contracts.yaml > /tmp/old.yaml
 crosslayer diff-contracts /tmp/old.yaml path/contracts.yaml             # exit 1 on problems
 crosslayer diff-contracts /tmp/old.yaml path/contracts.yaml --markdown  # changelog per owner
+crosslayer diff-contracts /tmp/old.yaml path/contracts.yaml --json      # {ok, changes[]}
 ```
 
 Problems: a semantic change without a bump, or a version going backwards.

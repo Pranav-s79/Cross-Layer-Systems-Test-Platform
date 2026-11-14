@@ -2,7 +2,7 @@
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
     crosslayer suite SUITE [--out DIR] [--fail-fast] experiments in dependency order, with expected verdicts
-    crosslayer replay BUNDLE [--out DIR]   re-run a bundle's configuration and compare hashes
+    crosslayer replay BUNDLE [--out DIR] [--json]   re-run a bundle's configuration and compare hashes
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
@@ -10,7 +10,7 @@
     crosslayer test-contracts FILE... run contract tests (known-good / known-bad traces); --json
     crosslayer lint FILE...           static checks; --adapter for catalog checks, --strict, --json
     crosslayer schema [NAME]          JSON Schemas for editors (--write DIR)
-    crosslayer diff-contracts OLD NEW per-owner changelog; fails on unversioned semantic changes
+    crosslayer diff-contracts OLD NEW [--json] per-owner changelog; fails on unversioned semantic changes
     crosslayer new adapter NAME       scaffold a working adapter project (--dir DIR)
     crosslayer verify BUNDLE [--json]  check bundle files against manifest hashes
 
@@ -90,6 +90,14 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     m = result.manifest
     same_config = m["config_hash"] == original["config_hash"]
     same_events = m["events"]["fingerprint"] == original["events"]["fingerprint"]
+    if args.json:
+        print(json.dumps({
+            "original": {"run_id": original["run_id"], "verdict": original["verdict"]},
+            "replay": {"run_id": result.run_id, "verdict": result.verdict, "bundle": str(result.bundle_dir)},
+            "config_hash_match": same_config,
+            "fingerprint_match": same_events,
+        }, indent=2))
+        return 0 if same_config and same_events else 1
     print(f"original  {original['run_id']}  verdict={original['verdict']}")
     print(f"replay    {result.run_id}  verdict={result.verdict}")
     print(f"config hash        {'match' if same_config else 'DIFFERENT'}")
@@ -337,7 +345,17 @@ def _cmd_suite(args: argparse.Namespace) -> int:
 
 def _cmd_diff_contracts(args: argparse.Namespace) -> int:
     changes = diff_contracts(load_contracts_file(args.old), load_contracts_file(args.new))
-    if args.markdown:
+    if args.json:
+        print(json.dumps({
+            "ok": not any(c.problem for c in changes),
+            "changes": [
+                {"contract_id": c.contract_id, "owner": c.owner, "kind": c.kind,
+                 "old_version": c.old_version, "new_version": c.new_version,
+                 "fields": c.fields, "previous_owner": c.previous_owner, "problem": c.problem}
+                for c in changes
+            ],
+        }, indent=2))
+    elif args.markdown:
         print(render_changelog(changes), end="")
     else:
         if not changes:
@@ -421,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
     replay = sub.add_parser("replay", help="re-run a bundle's configuration and compare hashes")
     replay.add_argument("bundle", type=Path)
     replay.add_argument("--out", type=Path, help="directory for the new bundle (default: replays/ beside the bundle)")
+    replay.add_argument("--json", action="store_true", help="print one JSON document")
     replay.set_defaults(func=_cmd_replay)
 
     show = sub.add_parser("show", help="summarize an existing run bundle without re-running it")
@@ -462,6 +481,7 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("old", type=Path)
     diff.add_argument("new", type=Path)
     diff.add_argument("--markdown", action="store_true", help="print a Markdown changelog grouped by owner")
+    diff.add_argument("--json", action="store_true", help="print one JSON document")
     diff.set_defaults(func=_cmd_diff_contracts)
 
     new = sub.add_parser("new", help="scaffold a new adapter project")

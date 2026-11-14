@@ -28,9 +28,10 @@ Every run writes `<output>/<run_id>/`, where
 * **Event fingerprint:** SHA-256 of the normalized events without `run_id`.
   Same config on a deterministic system gives the same fingerprint
   (`crosslayer compare` checks this).
-* **Replay:** `crosslayer replay <bundle> [--out DIR]` re-runs
+* **Replay:** `crosslayer replay <bundle> [--out DIR] [--json]` re-runs
   `configuration.yaml` on any OS, then compares config hash and event
-  fingerprint with the original. Exit 0 if both match, 1 otherwise.
+  fingerprint with the original. Exit 0 if both match, 1 otherwise. `--json` prints
+  `config_hash_match` and `fingerprint_match`.
 * **Summary:** `crosslayer show <bundle> [--limit N] [--json]` prints the verdict, per-contract table, and first violations from `manifest.json` and `contracts.json`. It runs nothing.
 * **File index:** `crosslayer verify <bundle> [--json]` reports missing, modified, or
   unexpected files, each as `missing: PATH`, `modified: PATH` or `unexpected: PATH`.

@@ -116,7 +116,7 @@ with a one-line reason and take the next one.
 - [x] **`crosslayer verify` on a tampered bundle.** Add tests that changing,
   deleting, or adding a file in a bundle makes `verify` exit non-zero and name
   the file; document the exit codes in `docs/run-bundle.md`.
-- [ ] **`--json` for `replay` and `diff-contracts`.** Every other reporting
+- [x] **`--json` for `replay` and `diff-contracts`.** Every other reporting
   command now has a machine-readable mode; these two print text only.
 - [ ] **Test `crosslayer new`.** The test suite has no direct test of the CLI
   scaffold command; add one that scaffolds into a temp dir and runs

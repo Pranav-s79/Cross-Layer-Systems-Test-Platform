@@ -56,6 +56,18 @@ def test_replay_reports_changed_fingerprint(tmp_path, capsys):
     assert "event fingerprint  DIFFERENT" in capsys.readouterr().out
 
 
+def test_replay_json(tmp_path, capsys):
+    import json
+
+    main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "a"), "--quiet"])
+    original = _bundle(tmp_path / "a")
+    capsys.readouterr()
+    assert main(["replay", str(original), "--out", str(tmp_path / "r"), "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["config_hash_match"] is True and doc["fingerprint_match"] is True
+    assert doc["original"]["verdict"] == doc["replay"]["verdict"]
+
+
 def test_replay_rejects_non_bundle(tmp_path, capsys):
     assert main(["replay", str(tmp_path)]) == 4
 
@@ -160,6 +172,19 @@ def test_diff_contracts_command(tmp_path, capsys):
         "  - id: pipeline.rx_accounted\n", "  - id: pipeline.rx_accounted\n    version: 2\n"), encoding="utf-8")
     assert main(["diff-contracts", str(old), str(bumped), "--markdown"]) == 0
     assert "## firmware-rx" in capsys.readouterr().out
+
+
+def test_diff_contracts_json(tmp_path, capsys):
+    import json
+
+    old = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contracts.yaml"
+    changed = tmp_path / "changed.yaml"
+    changed.write_text(old.read_text(encoding="utf-8").replace("within_ms: 5", "within_ms: 6"), encoding="utf-8")
+    assert main(["diff-contracts", str(old), str(changed), "--json"]) == 1
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["ok"] is False and any(c["problem"] for c in doc["changes"])
+    assert main(["diff-contracts", str(old), str(old), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "changes": []}
 
 
 def test_version_flag(capsys):
