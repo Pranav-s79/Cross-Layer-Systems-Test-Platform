@@ -37,7 +37,7 @@ from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
 from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
-from crosslayer.core.orchestrator.suite import SuiteRunner, load_suite
+from crosslayer.core.orchestrator.suite import SuiteEntryResult, SuiteRunner, load_suite
 from crosslayer.core.schemas import SCHEMAS
 from crosslayer.scaffold import create_adapter_project
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
@@ -330,7 +330,7 @@ def _cmd_suite(args: argparse.Namespace) -> int:
     suite = load_suite(args.suite)
     print(f"suite     {suite.name} ({len(suite.entries)} experiments)")
 
-    def show(r) -> None:
+    def show(r: SuiteEntryResult) -> None:
         verdict = r.verdict.upper() if r.verdict else "-"
         detail = f"blocked by {', '.join(r.blocked_by)}" if r.blocked_by else (r.run_id or "")
         if r.status == "skipped":

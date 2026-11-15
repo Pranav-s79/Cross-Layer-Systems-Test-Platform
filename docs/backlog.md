@@ -124,7 +124,7 @@ with a one-line reason and take the next one.
 - [x] **Coverage in CI.** Add `pytest-cov` to the dev extras and report
   coverage for `crosslayer/core` in one CI job, so untested modules are
   visible. Report only; no threshold.
-- [ ] **Extend mypy to `crosslayer/cli.py`.** It is the largest module outside
+- [x] **Extend mypy to `crosslayer/cli.py`.** It is the largest module outside
   the checked paths; fix findings without changing behavior.
 - [ ] **Loader error-message tests.** `core/contracts/loader.py` raises many
   `ConfigError`s with locations; add a parametrized test that each names the
