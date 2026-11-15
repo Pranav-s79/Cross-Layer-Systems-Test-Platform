@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add `pytest-cov` to the dev extras and a CI job that reports coverage for `crosslayer/core`.
 - Test that `crosslayer new adapter` writes an adapter that passes conformance.
 - Add `--json` to `crosslayer replay` and `crosslayer diff-contracts`.
 - Test that `crosslayer verify` names modified, missing and added bundle files, and document its exit codes.

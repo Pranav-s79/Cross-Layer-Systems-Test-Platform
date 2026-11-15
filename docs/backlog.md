@@ -121,7 +121,7 @@ with a one-line reason and take the next one.
 - [x] **Test `crosslayer new`.** The test suite has no direct test of the CLI
   scaffold command; add one that scaffolds into a temp dir and runs
   `adapters --check`-style conformance on the result.
-- [ ] **Coverage in CI.** Add `pytest-cov` to the dev extras and report
+- [x] **Coverage in CI.** Add `pytest-cov` to the dev extras and report
   coverage for `crosslayer/core` in one CI job, so untested modules are
   visible. Report only; no threshold.
 - [ ] **Extend mypy to `crosslayer/cli.py`.** It is the largest module outside
