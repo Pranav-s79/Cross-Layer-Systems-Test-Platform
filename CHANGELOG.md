@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add five new items to the backlog.
 - Add a parametrized test that contract loader errors name the offending key path.
 - Extend mypy checks to `crosslayer/cli.py`.
 - Add `pytest-cov` to the dev extras and a CI job that reports coverage for `crosslayer/core`.
