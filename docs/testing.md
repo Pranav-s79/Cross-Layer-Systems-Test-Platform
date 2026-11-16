@@ -25,7 +25,7 @@ CI runs all of them on every push: ruff and mypy in the lint job, a coverage rep
 | Events and time | `test_events.py`, `test_units.py` | Invalid events can't be built; timestamps convert exactly |
 | Expressions | `test_expressions.py` | Unsafe code is rejected at load; missing data is "unresolved", not a crash; seeded random expressions raise only the documented errors |
 | Rules | `test_rules.py` | Each rule kind gives PASS and FAIL on hand-built traces, including edge cases |
-| Contracts | `test_contracts.py` | Loader errors name the field; preconditions, evidence gating, verdict rules |
+| Contracts | `test_contracts.py`, `test_loader_errors.py` | Loader errors name the field (one parametrized table); preconditions, evidence gating, verdict rules |
 | Adapters | `test_adapters.py` | Declared capabilities match the code; plugin discovery works |
 | Processes | `test_process.py` | Timeouts kill the whole process tree |
 | Runner and bundles | `test_runner.py` | Complete bundles, tamper detection, exact replay, config errors leave no bundle |

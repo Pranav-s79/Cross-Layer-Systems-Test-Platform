@@ -126,7 +126,7 @@ with a one-line reason and take the next one.
   visible. Report only; no threshold.
 - [x] **Extend mypy to `crosslayer/cli.py`.** It is the largest module outside
   the checked paths; fix findings without changing behavior.
-- [ ] **Loader error-message tests.** `core/contracts/loader.py` raises many
+- [x] **Loader error-message tests.** `core/contracts/loader.py` raises many
   `ConfigError`s with locations; add a parametrized test that each names the
   offending key path so messages stay actionable.
 
