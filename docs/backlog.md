@@ -129,7 +129,7 @@ with a one-line reason and take the next one.
 - [x] **Loader error-message tests.** `core/contracts/loader.py` raises many
   `ConfigError`s with locations; add a parametrized test that each names the
   offending key path so messages stay actionable.
-- [ ] **Extend mypy to the remaining `core` modules.** `core/schemas.py`,
+- [x] **Extend mypy to the remaining `core` modules.** `core/schemas.py`,
   `core/errors.py` and `core/verdict.py` are outside `[tool.mypy] files`;
   `mypy crosslayer/core` reports no errors today. Add them so they stay clean.
 - [ ] **Test `core/artifacts/environment.py` directly.** No test file

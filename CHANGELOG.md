@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Extend mypy checks to all of `crosslayer/core`.
 - Add five new items to the backlog.
 - Add a parametrized test that contract loader errors name the offending key path.
 - Extend mypy checks to `crosslayer/cli.py`.

@@ -38,7 +38,7 @@ jobs:
         run: python -m pip install ruff mypy PyYAML
       - name: Ruff (pyflakes rules)
         run: ruff check .
-      - name: Mypy (core/telemetry and core/units.py)
+      - name: Mypy (core and cli.py)
         run: mypy
 
   coverage:
