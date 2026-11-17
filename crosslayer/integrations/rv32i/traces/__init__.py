@@ -16,7 +16,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterator, Mapping, Union
+from typing import Any, Callable, Iterator, Mapping, Union
 
 from crosslayer.core.adapters import ParseDiagnostic
 
@@ -55,6 +55,10 @@ class TraceSource(ABC):
     """True if retirements carry the register values read (``rs1v``, ``rs2v``)."""
     artifacts: tuple[str, ...] = (TRACE_LOG,)
     """Raw files (in the run's raw directory) the source reads."""
+
+    def for_profile(self, signals: Mapping[str, Any] | None) -> "TraceSource":
+        """The source configured for one core profile (its ``signals`` map, if any)."""
+        return self
 
     def plusargs(self) -> list[str]:
         """Extra ``vvp`` plusargs that make the testbench emit this format."""
@@ -120,8 +124,9 @@ def checked(record: Record, label: str) -> Item:
 def sources() -> dict[str, TraceSource]:
     from crosslayer.integrations.rv32i.traces.commitlog import CommitLogSource
     from crosslayer.integrations.rv32i.traces.rvfi import RvfiSource
+    from crosslayer.integrations.rv32i.traces.vcd import VcdSignalsSource
 
-    return {s.name: s for s in (RvfiSource(), CommitLogSource())}
+    return {s.name: s for s in (RvfiSource(), CommitLogSource(), VcdSignalsSource())}
 
 
 TRACE_FORMATS = frozenset(sources())

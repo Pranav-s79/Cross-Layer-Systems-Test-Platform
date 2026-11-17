@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-vcd-baseline
+description: >
+  The baseline with retirements sampled from the waveform (VCD) through the
+  profile's signal map; the testbench prints no retirement lines. All 10
+  contracts must pass.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+  trace: vcd-signals

@@ -25,14 +25,14 @@ merges only when its exit check passes.
 - [x] `cores/<name>/core.yaml` with RTL, testbench, defines, provenance, and
   mutants; `parameters.core`; `SystemAdapter.faults_for`.
 
-### 3.3 · Trace sources beyond RVFI · `lead` · `feature/rtl-trace-sources`
+### 3.3 · Trace sources beyond RVFI · `lead` · done
 - [x] Move line parsing out of `_TraceParser` into `traces/rvfi.py` behind a
   `TraceSource` interface that yields typed records (boot, retire, output,
   bus error, halt, timeout). No behavior change.
 - [x] `trace: commit-log`: Spike-style commit lines (`core 0: 3 0x… (0x…) x5 0x…`,
   `mem 0x… 0x…`). Fields the format lacks stay absent, so the contracts that
   need them are INCONCLUSIVE, never PASS.
-- [ ] `trace: vcd-signals`: the profile maps RVFI-equivalent fields to
+- [x] `trace: vcd-signals`: the profile maps RVFI-equivalent fields to
   waveform signals plus a `valid` signal and clock; a standard-library VCD
   reader samples them. Works for any core that can dump a waveform.
 

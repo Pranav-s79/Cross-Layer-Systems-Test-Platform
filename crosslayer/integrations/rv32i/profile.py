@@ -18,7 +18,7 @@ from typing import Any, Collection, Mapping
 import yaml
 
 from crosslayer.core.errors import ConfigError
-from crosslayer.integrations.rv32i.traces import TRACE_FORMATS
+from crosslayer.integrations.rv32i.traces import RETIRE_FIELDS, TRACE_FORMATS
 
 CORES_DIR = Path(__file__).resolve().parent / "cores"
 PROFILE_NAME = "core.yaml"
@@ -30,8 +30,10 @@ _NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _DEFINE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(=[^\s]*)?$")
 _TOP_KEYS = {
     "schema_version", "name", "description", "isa", "trace", "testbench", "sources", "defines",
-    "clock_period_ns", "provenance", "mutants",
+    "clock_period_ns", "provenance", "signals", "mutants",
 }
+_SIGNAL_KEYS = {"clock", "valid", "fields"}
+_SIGNAL_NAME_RE = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)*$")
 _REQUIRED = ("schema_version", "name", "isa", "trace", "testbench", "sources")
 _MUTANT_KEYS = {"description", "target_subsystem", "target_interface", "model_fault", "edits", "defines"}
 _EDIT_KEYS = {"file", "find", "replace"}
@@ -69,6 +71,8 @@ class CoreProfile:
     clock_period_ns: int
     provenance: Mapping[str, Any]
     mutants: Mapping[str, Mutant] = field(default_factory=dict)
+    signals: Mapping[str, Any] | None = None
+    """Waveform signal map for ``trace: vcd-signals`` (clock, valid, fields)."""
 
     @property
     def trace(self) -> str:
@@ -160,6 +164,9 @@ def load_profile(
     provenance = doc.get("provenance", {})
     if not isinstance(provenance, dict):
         raise ConfigError("must be a mapping", location=f"{where}: provenance")
+    signals = _signals(doc.get("signals"), f"{where}: signals") if "signals" in doc else None
+    if "vcd-signals" in traces and signals is None:
+        raise ConfigError("is required when trace lists vcd-signals", location=f"{where}: signals")
 
     raw_mutants = doc.get("mutants", {}) or {}
     if not isinstance(raw_mutants, dict):
@@ -174,8 +181,30 @@ def load_profile(
     return CoreProfile(
         name=name, path=path, description=str(doc.get("description", "")), isa=isa, traces=tuple(traces),
         testbench=testbench, sources=tuple(sources), defines=tuple(defines), clock_period_ns=period,
-        provenance=provenance, mutants=mutants,
+        provenance=provenance, mutants=mutants, signals=signals,
     )
+
+
+def _signals(value: Any, loc: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ConfigError("must be a mapping with clock, valid and fields", location=loc)
+    _keys(value, _SIGNAL_KEYS, loc)
+    for key in ("clock", "valid"):
+        if not _SIGNAL_NAME_RE.match(_str(value.get(key), f"{loc}.{key}")):
+            raise ConfigError("must be a dotted hierarchical signal name", location=f"{loc}.{key}")
+    fields = value.get("fields")
+    if not isinstance(fields, dict) or not fields:
+        raise ConfigError("must map retirement fields to signal names", location=f"{loc}.fields")
+    unknown = sorted(set(fields) - set(RETIRE_FIELDS))
+    if unknown:
+        raise ConfigError(f"unknown fields {unknown} (known: {list(RETIRE_FIELDS)})", location=f"{loc}.fields")
+    for required in ("pc", "insn"):
+        if required not in fields:
+            raise ConfigError(f"must map {required!r}", location=f"{loc}.fields")
+    for key, name in fields.items():
+        if not isinstance(name, str) or not _SIGNAL_NAME_RE.match(name):
+            raise ConfigError("must be a dotted hierarchical signal name", location=f"{loc}.fields.{key}")
+    return {"clock": value["clock"], "valid": value["valid"], "fields": dict(fields)}
 
 
 def _mutant(

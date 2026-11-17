@@ -78,7 +78,8 @@ FAIL) without Python changes.
 trace source. Each source must pass the clean run (skipping only contracts
 whose fields it lacks) and first fail at the instruction the model predicts
 from the fields that source observes. Parser cases cover byte-lane
-reconstruction and each malformed-line diagnostic.
+reconstruction, malformed lines, VCD edge sampling, and unknown (x/z) or
+missing signals.
 
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
