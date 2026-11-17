@@ -118,9 +118,10 @@ def checked(record: Record, label: str) -> Item:
 
 
 def sources() -> dict[str, TraceSource]:
+    from crosslayer.integrations.rv32i.traces.commitlog import CommitLogSource
     from crosslayer.integrations.rv32i.traces.rvfi import RvfiSource
 
-    return {s.name: s for s in (RvfiSource(),)}
+    return {s.name: s for s in (RvfiSource(), CommitLogSource())}
 
 
 TRACE_FORMATS = frozenset(sources())

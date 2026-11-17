@@ -10,6 +10,7 @@ Where to plug in, smallest change first. Every extension ships with tests
 | **A contract** | Add it to a contracts YAML file, plus a PASS and a FAIL case in the contract tests | No |
 | **A fault** | Implement it in the system or adapter, declare a `FaultSpec` with its true target, add an experiment with `expect: fail` to the suite | No |
 | **A CPU core** | Add `cores/<name>/core.yaml` with its RTL and testbench, or point `parameters.core` at one anywhere ([rtl-verification.md](rtl-verification.md#core-profiles)) | No |
+| **A CPU trace format** | Subclass `TraceSource` in `integrations/rv32i/traces/` and add it to `sources()`; list it in a core profile's `trace` ([rtl-verification.md](rtl-verification.md#trace-sources)) | No |
 | **A new system** | `crosslayer new adapter NAME`, then follow [writing-an-adapter.md](writing-an-adapter.md) | No |
 | **A lint check** | Add a code to `core/contracts/lint.py` (or `core/orchestrator/lint.py` for experiments) and to the table in [tooling.md](tooling.md) | Yes, small |
 | **A rule kind** | Subclass `Rule` in `core/contracts/rules.py` with `@register_rule` (`parse`, `evaluate`, `selectors`, `requirements`), add it to `_RULES` in `core/schemas.py`, regenerate schemas, document it in [contract-language.md](contract-language.md) | Yes |

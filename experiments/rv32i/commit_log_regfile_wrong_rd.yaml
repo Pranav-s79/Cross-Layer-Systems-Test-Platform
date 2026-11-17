@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-commit-log-regfile-wrong-rd
+description: >
+  PicoRV32's TESTBUG_001 seen through a commit log. The wrong register write
+  is invisible until a later result uses it, so it is caught later than with
+  RVFI (which also records operand reads). Ground truth: regfile (interface writeback).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+  trace: commit-log
+faults:
+  - regfile_wrong_rd

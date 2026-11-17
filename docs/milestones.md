@@ -29,7 +29,7 @@ merges only when its exit check passes.
 - [x] Move line parsing out of `_TraceParser` into `traces/rvfi.py` behind a
   `TraceSource` interface that yields typed records (boot, retire, output,
   bus error, halt, timeout). No behavior change.
-- [ ] `trace: commit-log`: Spike-style commit lines (`core 0: 3 0x… (0x…) x5 0x…`,
+- [x] `trace: commit-log`: Spike-style commit lines (`core 0: 3 0x… (0x…) x5 0x…`,
   `mem 0x… 0x…`). Fields the format lacks stay absent, so the contracts that
   need them are INCONCLUSIVE, never PASS.
 - [ ] `trace: vcd-signals`: the profile maps RVFI-equivalent fields to

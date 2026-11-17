@@ -74,6 +74,12 @@ exactly once, each invalid profile field is a config error naming the field,
 and a copied profile with a new mutant runs end to end (clean PASS, mutant
 FAIL) without Python changes.
 
+`test_rv32i_traces.py` runs the clean core and every mutant through each
+trace source. Each source must pass the clean run (skipping only contracts
+whose fields it lacks) and first fail at the instruction the model predicts
+from the fields that source observes. Parser cases cover byte-lane
+reconstruction and each malformed-line diagnostic.
+
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
 Every command's exit codes and output, plus `--help` for every subcommand.

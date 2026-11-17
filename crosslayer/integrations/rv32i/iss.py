@@ -14,6 +14,7 @@ ground-truth earliest divergence that the RTL contracts should report.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Sequence
 
 MEM_BYTES = 64 * 1024
 OUT_ADDR = 0x1000_0000
@@ -303,10 +304,15 @@ class Model:
         return a >= b  # bgeu
 
 
-def first_divergence(clean: list[Retire], faulty: list[Retire]) -> int | None:
-    """Order of the first retired instruction that differs, or None."""
+def first_divergence(clean: list[Retire], faulty: list[Retire], fields: Sequence[str] | None = None) -> int | None:
+    """Order of the first retired instruction that differs, or None.
+
+    ``fields`` limits the comparison to what a trace source can observe (a
+    commit log has no operand values, so a wrong register read shows only
+    once it corrupts a result).
+    """
     for x, y in zip(clean, faulty):
-        if x != y:
+        if (x != y) if fields is None else any(getattr(x, f) != getattr(y, f) for f in fields):
             return x.order
     if len(clean) != len(faulty):
         return min(len(clean), len(faulty))

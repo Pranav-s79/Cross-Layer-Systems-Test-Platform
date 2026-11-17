@@ -45,6 +45,7 @@ from crosslayer.core.contracts.model import BoundaryContract
 from crosslayer.core.errors import AdapterError, ConfigError
 from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
+from crosslayer.core.telemetry.store import order_events
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
 from crosslayer.integrations.rv32i.iss import EBREAK, MODEL_FAULTS, ModelRun, Model, decode, lanes
 from crosslayer.integrations.rv32i.traces import TRACE_LOG, Record, TraceSource, sources
@@ -71,6 +72,7 @@ WAVE_NAME = "waveform.vcd"
 
 _DEFAULTS: dict[str, Any] = {
     "core": DEFAULT_CORE,
+    "trace": None,
     "program": "selftest",
     "max_cycles": 100_000,
     "waveform": False,
@@ -121,6 +123,14 @@ def _mutant_faults(profile: CoreProfile) -> list[FaultSpec]:
     ]
 
 
+def _trace_name(profile: CoreProfile, requested: str | None) -> str:
+    if requested is None:
+        return profile.trace
+    if requested not in profile.traces:
+        raise ConfigError(f"core {profile.name!r} supports traces {list(profile.traces)}", location="parameters.trace")
+    return requested
+
+
 class Rv32iAdapter(SystemAdapter):
     def describe(self) -> AdapterDescription:
         default = _load(DEFAULT_CORE)
@@ -154,8 +164,9 @@ class Rv32iAdapter(SystemAdapter):
 
     def faults_for(self, parameters: Mapping[str, Any], base_dir: Path) -> list[FaultSpec]:
         """Mutants of the selected core only, plus the timing fault."""
-        core = parameters.get("core", DEFAULT_CORE)
-        return [*_mutant_faults(_load(core, base_dir)), WAIT_STATES_FAULT]
+        profile = _load(parameters.get("core", DEFAULT_CORE), base_dir)
+        _trace_name(profile, parameters.get("trace"))  # an unsupported trace fails at plan time
+        return [*_mutant_faults(profile), WAIT_STATES_FAULT]
 
     def contracts(self) -> list[BoundaryContract]:
         return load_contracts_file(CONTRACTS_PATH)
@@ -169,7 +180,8 @@ class Rv32iAdapter(SystemAdapter):
             "rv.ref_next_pc", "rv.ref_mem_addr", "rv.ref_mem_wmask", "rv.ref_mem_wdata", "rv.ref_trap",
         )
         return [
-            EventSpec("cpu.boot", ("tb",), ("rv.max_cycles", "rv.wait_states")),
+            EventSpec("cpu.boot", ("tb",), ("rv.max_cycles", "rv.wait_states", "rv.trace", "rv.timed", "rv.has_operands"),
+                      description="run start; the trace format and whether it carries cycles and operand values"),
             EventSpec("cpu.retire", ("core",), retire, ("retire",),
                       description="one retired instruction (RVFI) with the reference model's values"),
             EventSpec("cpu.output", ("mmio",), ("rv.cycle", "rv.index", "rv.data", "rv.ref_data")),
@@ -188,6 +200,9 @@ class Rv32iAdapter(SystemAdapter):
         core = parameters.get("core", DEFAULT_CORE)
         if not isinstance(core, str) or not core:
             raise ConfigError("must be a built-in core name or a path to a core.yaml", location="parameters.core")
+        trace = parameters.get("trace")
+        if trace is not None and (not isinstance(trace, str) or trace not in sources()):
+            raise ConfigError(f"must be one of {sorted(sources())}", location="parameters.trace")
         program = parameters.get("program", _DEFAULTS["program"])
         if not isinstance(program, str) or not program:
             raise ConfigError("must be a built-in program name or a path to a .s file", location="parameters.program")
@@ -215,8 +230,8 @@ class Rv32iAdapter(SystemAdapter):
     def _profile(self, ctx: RunContext) -> CoreProfile:
         return _load(self._param(ctx, "core"), ctx.base_dir)
 
-    def _source(self, profile: CoreProfile) -> TraceSource:
-        return sources()[profile.trace]
+    def _source(self, ctx: RunContext, profile: CoreProfile) -> TraceSource:
+        return sources()[_trace_name(profile, self._param(ctx, "trace"))]
 
     def _program_path(self, ctx: RunContext) -> Path:
         program = self._param(ctx, "program")
@@ -317,7 +332,8 @@ class Rv32iAdapter(SystemAdapter):
         words = sum(1 for _ in (ctx.work_dir / HEX_NAME).open(encoding="utf-8"))
         command = [vvp, "-n", "sim.vvp", f"+hex={HEX_NAME}", f"+words={words}",
                    f"+max_cycles={self._param(ctx, 'max_cycles')}", f"+wait_states={self._wait_states(ctx)}"]
-        if self._param(ctx, "waveform"):
+        command += self._source(ctx, self._profile(ctx)).plusargs()
+        if self._param(ctx, "waveform") and f"+vcd={WAVE_NAME}" not in command:
             command.append(f"+vcd={WAVE_NAME}")
         result = run_process(
             command,
@@ -380,7 +396,7 @@ class Rv32iAdapter(SystemAdapter):
         image = program.image()
         reference = Model(image).run(max_steps=self._param(ctx, "max_cycles"))
         profile = self._profile(ctx)
-        source = self._source(profile)
+        source = self._source(ctx, profile)
 
         def fetch(pc: int) -> int:
             return int.from_bytes(image[pc:pc + 4].ljust(4, b"\0"), "little") if 0 <= pc < len(image) else 0
@@ -389,7 +405,7 @@ class Rv32iAdapter(SystemAdapter):
         for item in source.parse(ctx.raw_dir, fetch):
             parser.feed(item)
         return NormalizationResult(
-            events=parser.events,
+            events=order_events(parser.events),
             diagnostics=parser.diagnostics,
             stats={
                 "trace_source": source.name,
@@ -441,9 +457,9 @@ class _TraceParser:
         if self.source.timed:
             timestamp = record.fields.get("cyc", 0) * self.clock_period_ns
             timing = {"timestamp_source": "rtl_cycle_count", "clock_period_ns": self.clock_period_ns}
-        else:
-            timestamp = self.records
-            timing = {"timestamp_source": "trace_order"}
+        else:  # no cycles: keep file order (a source may emit a record after the line that completes it)
+            timestamp = record.line
+            timing = {"timestamp_source": "trace_line"}
         self.events.append(
             NormalizedEvent(
                 run_id=self.ctx.run_id,

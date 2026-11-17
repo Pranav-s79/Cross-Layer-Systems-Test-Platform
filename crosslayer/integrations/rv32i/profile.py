@@ -61,13 +61,18 @@ class CoreProfile:
     path: Path
     description: str
     isa: str
-    trace: str
+    traces: tuple[str, ...]
+    """Trace formats the testbench can produce; the first is the default."""
     testbench: str
     sources: tuple[str, ...]
     defines: tuple[str, ...]
     clock_period_ns: int
     provenance: Mapping[str, Any]
     mutants: Mapping[str, Mutant] = field(default_factory=dict)
+
+    @property
+    def trace(self) -> str:
+        return self.traces[0]
 
     @property
     def root(self) -> Path:
@@ -86,7 +91,7 @@ class CoreProfile:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "name": self.name, "isa": self.isa, "trace": self.trace, "sources": list(self.sources),
+            "name": self.name, "isa": self.isa, "traces": list(self.traces), "sources": list(self.sources),
             "testbench": self.testbench, "sha256": self.digest(), "provenance": dict(self.provenance),
         }
 
@@ -138,7 +143,10 @@ def load_profile(
     if not _NAME_RE.match(name):
         raise ConfigError("must be lowercase letters, digits, '_' or '-'", location=f"{where}: name")
     isa = _choice(doc["isa"], ISAS, f"{where}: isa")
-    trace = _choice(doc["trace"], TRACE_FORMATS, f"{where}: trace")
+    raw_traces = doc["trace"] if isinstance(doc["trace"], list) else [doc["trace"]]
+    traces = [_choice(v, TRACE_FORMATS, f"{where}: trace") for v in raw_traces]
+    if not traces or len(set(traces)) != len(traces):
+        raise ConfigError("must be a format or a non-empty list of distinct formats", location=f"{where}: trace")
     root = path.parent
     testbench = _file(root, doc["testbench"], f"{where}: testbench")
     raw_sources = _str_list(doc.get("sources"), f"{where}: sources", nonempty=True)
@@ -164,7 +172,7 @@ def load_profile(
         mutants[mname] = _mutant(mname, spec, loc, sources, subsystems, interfaces, model_faults)
 
     return CoreProfile(
-        name=name, path=path, description=str(doc.get("description", "")), isa=isa, trace=trace,
+        name=name, path=path, description=str(doc.get("description", "")), isa=isa, traces=tuple(traces),
         testbench=testbench, sources=tuple(sources), defines=tuple(defines), clock_period_ns=period,
         provenance=provenance, mutants=mutants,
     )
