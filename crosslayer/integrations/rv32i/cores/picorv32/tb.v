@@ -11,11 +11,15 @@
 //   +max_cycles=N      cycle limit (default 100000)
 //   +wait_states=N     extra cycles before memory answers (default 0)
 //   +vcd=FILE          write a waveform of the testbench and core top level
+//   +commit_log        print Spike-style commit lines instead of RET lines
 //
 // Output lines (parsed by crosslayer/integrations/rv32i/adapter.py):
 //   BOOT    max_cycles=.. wait_states=..
 //   RET     cyc=.. ord=.. pc=.. insn=.. rs1=.. rs1v=.. rs2=.. rs2v=.. rd=.. rdv=..
 //           npc=.. maddr=.. wmask=.. wdata=.. trap=..
+//   or, with +commit_log, the Spike --log-commits format:
+//   core   0: 3 0xPC (0xINSN) [xRD 0xVALUE] [mem 0xBYTE_ADDR [0xSTORE_DATA]]
+//   core   0: exception trap_breakpoint, epc 0xPC
 //   OUT     cyc=.. data=..
 //   BUSERR  cyc=.. addr=..
 //   HALT    cyc=.. retired=..
@@ -34,8 +38,10 @@ module tb;
 	reg [31:0] memory [0:MEM_WORDS-1];
 	reg [1023:0] hex_file;
 	reg [1023:0] vcd_file;
-	integer max_cycles, wait_states, wait_count, cycle, retired, words, i;
-	reg halting;
+	integer max_cycles, wait_states, wait_count, cycle, retired, words, i, shift;
+	reg halting, commit_log;
+	reg [3:0] lanes;
+	reg [31:0] data;
 
 	wire        mem_valid, mem_instr;
 	reg         mem_ready;
@@ -78,6 +84,7 @@ module tb;
 		if (!$value$plusargs("max_cycles=%d", max_cycles)) max_cycles = 100000;
 		if (!$value$plusargs("wait_states=%d", wait_states)) wait_states = 0;
 		if (!$value$plusargs("words=%d", words)) words = MEM_WORDS;
+		commit_log = $test$plusargs("commit_log");
 		if ($value$plusargs("vcd=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
 			$dumpvars(1, tb);
@@ -118,13 +125,43 @@ module tb;
 		end
 	end
 
+	// One Spike-style commit line from the RVFI signals. Memory accesses are
+	// printed at their byte address, and store data at its access width.
+	task print_commit;
+		begin
+			if (rvfi_trap) begin
+				if (rvfi_insn == 32'h0010_0073)
+					$display("core   0: exception trap_breakpoint, epc 0x%08x", rvfi_pc_rdata);
+				else if (rvfi_insn == 32'h0000_0073)
+					$display("core   0: exception trap_machine_ecall, epc 0x%08x", rvfi_pc_rdata);
+				else
+					$display("core   0: exception trap_illegal_instruction, epc 0x%08x", rvfi_pc_rdata);
+			end else begin
+				lanes = rvfi_mem_wmask ? rvfi_mem_wmask : rvfi_mem_rmask;
+				shift = lanes[0] ? 0 : lanes[1] ? 1 : lanes[2] ? 2 : 3;
+				data = rvfi_mem_wdata >> (8 * shift);
+				$write("core   0: 3 0x%08x (0x%08x)", rvfi_pc_rdata, rvfi_insn);
+				if (rvfi_rd_addr != 0) $write(" x%0d 0x%08x", rvfi_rd_addr, rvfi_rd_wdata);
+				if (lanes != 0) $write(" mem 0x%08x", rvfi_mem_addr + shift);
+				case (rvfi_mem_wmask)
+					4'b0000: ;
+					4'b1111: $write(" 0x%h", data);
+					4'b0011, 4'b1100: $write(" 0x%h", data[15:0]);
+					default: $write(" 0x%h", data[7:0]);
+				endcase
+				$write("\n");
+			end
+		end
+	endtask
+
 	// Trace: one line per retired instruction, then stop on a trap or the cycle limit.
 	always @(posedge clk) begin
 		if (resetn) begin
 			cycle <= cycle + 1;
 			if (rvfi_valid && !halting) begin
 				retired = retired + 1;
-				$display("RET cyc=%0d ord=%0d pc=%08x insn=%08x rs1=%0d rs1v=%08x rs2=%0d rs2v=%08x rd=%0d rdv=%08x npc=%08x maddr=%08x wmask=%x wdata=%08x trap=%0d",
+				if (commit_log) print_commit;
+				else $display("RET cyc=%0d ord=%0d pc=%08x insn=%08x rs1=%0d rs1v=%08x rs2=%0d rs2v=%08x rd=%0d rdv=%08x npc=%08x maddr=%08x wmask=%x wdata=%08x trap=%0d",
 					cycle, rvfi_order, rvfi_pc_rdata, rvfi_insn,
 					rvfi_rs1_addr, rvfi_rs1_rdata, rvfi_rs2_addr, rvfi_rs2_rdata,
 					rvfi_rd_addr, rvfi_rd_wdata, rvfi_pc_wdata,

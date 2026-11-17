@@ -36,3 +36,10 @@ experiments:
     path: fault_mem_wait_states.yaml
     expect: fail
     depends_on: [baseline]
+  - id: commit_log_baseline
+    path: commit_log_baseline.yaml
+    depends_on: [baseline]
+  - id: commit_log_regfile_wrong_rd
+    path: commit_log_regfile_wrong_rd.yaml
+    expect: fail
+    depends_on: [commit_log_baseline]

@@ -5,7 +5,7 @@ schema_version: 1
 name: picorv32
 description: YosysHQ PicoRV32, a size-optimized multi-cycle RV32I core
 isa: rv32i
-trace: rvfi
+trace: [rvfi, commit-log]   # the first is the default; see parameters.trace
 testbench: tb.v
 sources: [picorv32.v]
 defines: [RISCV_FORMAL]

@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add the `commit-log` RV32I trace source (Spike `--log-commits` format), `parameters.trace`, and a `+commit_log` testbench mode; `lockstep_operands` and `cpi_budget` (version 2) are SKIPPED on traces without operand values or cycles.
 - Move RV32I trace parsing behind a `TraceSource` interface (`rv32i/traces/`) that yields typed records.
 - Add `docs/milestones.md`, the step-by-step queue for Phases 3 and 4.
 - Add RV32I core profiles (`cores/<name>/core.yaml`): RTL sources, testbench, defines,

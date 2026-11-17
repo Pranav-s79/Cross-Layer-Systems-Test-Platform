@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-commit-log-baseline
+description: >
+  The baseline through a Spike-style commit log instead of the RVFI trace.
+  Every contract the format can evaluate must pass; lockstep_operands and
+  cpi_budget are SKIPPED because a commit log has no operand values or cycles.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+  trace: commit-log

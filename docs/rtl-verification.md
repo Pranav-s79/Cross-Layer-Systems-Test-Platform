@@ -50,12 +50,13 @@ JavaScript is disabled.
 
 ## What the adapter records
 
-The testbench provides 64 KiB of memory and prints one `RET` record for every
-RVFI retirement. The adapter preserves and indexes:
+The testbench provides 64 KiB of memory and prints one record per retired
+instruction, in the selected [trace format](#trace-sources). The adapter
+preserves and indexes:
 
 | Artifact | Purpose |
 |---|---|
-| `trace.log` | Raw boot, retirement, output, bus-error, halt, and timeout records |
+| `trace.log` | Raw boot, retirement (`RET` or commit lines), output, bus-error, halt, and timeout records |
 | `program.s` | Exact assembly source |
 | `program.hex` | Memory image passed to `$readmemh` |
 | `program.lst` | Address and machine word mapped to the source line |
@@ -65,8 +66,30 @@ RVFI retirement. The adapter preserves and indexes:
 
 Each normalized `cpu.retire` event includes the observed RVFI fields, the
 reference model's fields at the same retirement order, the decoded operation,
-the assembly source line, cycles per instruction, and a raw `trace.log#L…`
-reference.
+the assembly source line, cycles per instruction (timed formats), and a raw
+`trace.log#L…` reference. The `cpu.boot` event records the trace format and
+whether it carries cycles (`rv.timed`) and operand values (`rv.has_operands`).
+
+## Trace sources
+
+A trace source turns a testbench's output into the same retirement records
+(RVFI field names), so contracts and the reference model never depend on the
+format. A profile lists the formats its testbench supports (`trace:`, first
+is the default); `parameters.trace` selects one.
+
+| Format | Produced by | Cycles | Operand values | Fields rebuilt by the parser |
+|---|---|---|---|---|
+| `rvfi` | `RET` lines from the RVFI port | yes | yes | none |
+| `commit-log` | Spike `--log-commits` lines (`+commit_log` in `tb.v`) | no | no | byte lanes and store data from the width and byte address; next PC from the next line; an exception's instruction from the program image |
+
+Contracts that need a field a format lacks are SKIPPED, never passed:
+`lockstep_operands` needs operand values and `cpi_budget` needs cycles. The
+same mutants are still caught; one is caught later. `regfile_wrong_rd` writes
+the wrong register, which RVFI shows at the next read of it, but a commit log
+only shows it once a result depends on that value. The tests predict each
+format's first failing instruction from the model, compared on the fields
+that format observes. A timing-only fault (`mem_wait_states`) is invisible
+without cycles.
 
 ## Contracts
 
@@ -116,7 +139,7 @@ no Python changes.
 | Key | Meaning |
 |---|---|
 | `name`, `description` | Lowercase identifier; free text |
-| `isa`, `trace` | `rv32i`; `rvfi` (the testbench prints the `RET` protocol in `tb.v`) |
+| `isa`, `trace` | `rv32i`; a [trace format](#trace-sources) or a list of them (first is the default) |
 | `testbench`, `sources` | Paths inside the profile directory, compiled in this order |
 | `defines` | Always passed to `iverilog` as `-D` |
 | `clock_period_ns` | Converts cycles to event timestamps (default 10) |
@@ -135,6 +158,7 @@ and provenance in the manifest, and `rtl.diff` names the core.
 | Parameter | Default | Meaning |
 |---|---:|---|
 | `core` | `picorv32` | Built-in core name, or path to a `core.yaml` or its directory |
+| `trace` | profile default | A trace format the core's profile lists (`rvfi`, `commit-log`) |
 | `program` | `selftest` | Built-in name, `random`, or path to a `.s` file |
 | `max_cycles` | `100000` | Testbench cycle limit |
 | `waveform` | `false` | Write `waveform.vcd` when true |

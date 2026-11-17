@@ -45,12 +45,14 @@ cases:
     contract: rv32i.lockstep_operands
     expect: pass
     events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
   - name: register operand differs from the reference model
     contract: rv32i.lockstep_operands
     expect: fail
     expect_violations: 1
     events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
 
   - name: register writeback matches the reference model
@@ -118,6 +120,7 @@ cases:
     contract: rv32i.cpi_budget
     expect: pass
     events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
       - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
       - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
@@ -172,6 +175,7 @@ cases:
     contract: rv32i.cpi_budget
     expect: fail
     events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
       - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
       - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
@@ -222,3 +226,16 @@ cases:
       - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
       - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
       - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
+
+  - name: operand check does not apply to a trace without operand values
+    contract: rv32i.lockstep_operands
+    expect: skipped
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 0, rv.has_operands: 0}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rd: 5, rv.ref_rd: 5}}
+  - name: CPI budget does not apply to a trace without cycle counts
+    contract: rv32i.cpi_budget
+    expect: skipped
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 0, rv.has_operands: 0}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 0}}

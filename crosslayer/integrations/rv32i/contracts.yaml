@@ -62,6 +62,13 @@ contracts:
     source: regfile
     destination: alu
     severity: critical
+    version: 2
+    description: >
+      SKIPPED for trace sources that do not record the values read (a
+      commit log lists only results), never passed on missing data.
+    precondition:
+      event_type: cpu.boot
+      where: e.attributes["rv.has_operands"] == 1
     rule:
       kind: invariant
       select: {event_type: cpu.retire}
@@ -148,10 +155,15 @@ contracts:
     source: memory
     destination: core
     severity: major
+    version: 2
     description: >
       Timing, not correctness. PicoRV32 is multi-cycle, about 4 cycles for an
       ALU instruction with single-cycle memory. Slow memory raises it while
-      every result stays correct.
+      every result stays correct. SKIPPED for trace sources without cycle
+      counts.
+    precondition:
+      event_type: cpu.boot
+      where: e.attributes["rv.timed"] == 1
     rule:
       kind: threshold
       select: {event_type: cpu.retire}
