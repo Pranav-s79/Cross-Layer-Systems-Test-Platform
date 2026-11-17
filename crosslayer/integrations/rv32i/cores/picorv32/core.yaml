@@ -1,0 +1,74 @@
+# Core profile: everything the rv32i adapter needs to simulate one CPU core.
+# Adding a core means adding a directory like this one; no Python changes.
+# Paths are relative to this file. See docs/rtl-verification.md.
+schema_version: 1
+name: picorv32
+description: YosysHQ PicoRV32, a size-optimized multi-cycle RV32I core
+isa: rv32i
+trace: rvfi
+testbench: tb.v
+sources: [picorv32.v]
+defines: [RISCV_FORMAL]
+clock_period_ns: 10
+provenance:
+  upstream: https://github.com/YosysHQ/picorv32
+  commit: ef203c2b0a3fb793280f5114941416c425c5b461
+  license: ISC
+  modifications: none
+
+# Each mutant edits a run-local copy of the sources. Every `find` must match
+# exactly once, so a mutant that no longer applies fails the build loudly.
+# `model_fault` names the same bug in the reference model (iss.py), which
+# predicts the first instruction where the RTL should diverge.
+mutants:
+  bne_inverted:
+    description: BNE branches when its operands are equal.
+    target_subsystem: alu
+    target_interface: branch_decision
+    model_fault: bne_inverted
+    edits:
+      - file: picorv32.v
+        find: "\t\t\tinstr_bne:\n\t\t\t\talu_out_0 = !alu_eq;"
+        replace: "\t\t\tinstr_bne:\n\t\t\t\talu_out_0 = alu_eq;"
+  sub_as_add:
+    description: SUB adds instead of subtracting.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: sub_as_add
+    edits:
+      - file: picorv32.v
+        find: "alu_add_sub = instr_sub ? reg_op1 - reg_op2 : reg_op1 + reg_op2;"
+        replace: "alu_add_sub = reg_op1 + reg_op2;"
+  slt_unsigned:
+    description: Signed compares (SLT, SLTI, BLT, BGE) compare unsigned.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: slt_unsigned
+    edits:
+      - file: picorv32.v
+        find: "alu_lts = $signed(reg_op1) < $signed(reg_op2);"
+        replace: "alu_lts = reg_op1 < reg_op2;"
+  jal_imm_bit11:
+    description: The JAL target ignores bit 11 of the immediate.
+    target_subsystem: decoder
+    target_interface: jump_target
+    model_fault: jal_imm_bit11
+    edits:
+      - file: picorv32.v
+        find: "reg_next_pc <= current_pc + decoded_imm_j;"
+        replace: "reg_next_pc <= current_pc + (decoded_imm_j & ~32'h800);"
+  regfile_wrong_rd:
+    description: PicoRV32's own TESTBUG_001; results are written to register rd^1.
+    target_subsystem: regfile
+    target_interface: writeback
+    model_fault: regfile_wrong_rd
+    defines: [PICORV32_TESTBUG_001]
+  store_byte_lane:
+    description: SB always writes byte lane 0 of the word.
+    target_subsystem: lsu
+    target_interface: data_bus
+    model_fault: store_byte_lane
+    edits:
+      - file: picorv32.v
+        find: "mem_la_wstrb = 4'b0001 << reg_op1[1:0];"
+        replace: "mem_la_wstrb = 4'b0001;"

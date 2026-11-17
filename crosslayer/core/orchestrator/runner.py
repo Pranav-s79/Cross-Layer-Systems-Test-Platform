@@ -120,7 +120,7 @@ class ExperimentRunner:
             raise ConfigError(f"adapter {experiment.adapter!r} lacks required capabilities {sorted(missing)}")
         adapter.validate_parameters(experiment.parameters)
 
-        specs = {f.name: f for f in adapter.faults()}
+        specs = {f.name: f for f in adapter.faults_for(experiment.parameters, experiment.base_dir)}
         if experiment.faults and Capability.FAULT_INJECTION not in caps:
             raise ConfigError(f"adapter {experiment.adapter!r} does not support fault injection")
         unknown = [f.name for f in experiment.faults if f.name not in specs]

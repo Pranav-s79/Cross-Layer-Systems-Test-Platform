@@ -5,6 +5,9 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add RV32I core profiles (`cores/<name>/core.yaml`): RTL sources, testbench, defines,
+  provenance and mutants in YAML, selected with `parameters.core`; mutants move out of Python.
+- Add `SystemAdapter.faults_for(parameters, base_dir)` so an adapter's fault catalog can depend on its configuration.
 - Add direct tests for adapter discovery in `core/adapters/registry.py`.
 - Add direct tests for `core/artifacts/environment.py`.
 - Extend mypy checks to all of `crosslayer/core`.

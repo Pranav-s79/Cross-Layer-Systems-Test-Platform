@@ -224,6 +224,26 @@ def test_configuration_errors_create_no_bundle(tmp_path, adapter, overrides, mat
     assert not (tmp_path / "runs").exists() or not any((tmp_path / "runs").iterdir())
 
 
+class ProfiledAdapter(FakeAdapter):
+    """Offers `lose_ack` only when the `profile` parameter selects it."""
+
+    def faults_for(self, parameters, base_dir):
+        assert base_dir.is_dir()
+        return self.faults() if parameters.get("profile") == "lossy" else []
+
+    def validate_parameters(self, parameters):
+        pass
+
+
+def test_faults_are_validated_against_the_configuration_specific_catalog(tmp_path):
+    with pytest.raises(ConfigError, match="unknown faults"):
+        runner(tmp_path, ProfiledAdapter()).run(experiment(tmp_path, faults=["lose_ack"]))
+    result = runner(tmp_path, ProfiledAdapter()).run(
+        experiment(tmp_path, faults=["lose_ack"], parameters={"profile": "lossy"}))
+    assert result.verdict is Verdict.FAIL
+    assert result.manifest["faults"][0]["target_subsystem"] == "server"
+
+
 def test_analyze_mode_uses_inputs(tmp_path):
     log = tmp_path / "captured.log"
     log.write_text("0 req 9\n3 ack 9\n", encoding="utf-8")

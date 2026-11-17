@@ -57,6 +57,10 @@ capabilities you don't declare; the base class raises `UnsupportedOperation`.
   the adapter. Endpoints must be declared subsystems.
 * `faults()`: `FaultSpec`s with their **true target** (`target_subsystem`,
   optional `target_interface`). Localization will be scored against these.
+* `faults_for(parameters, base_dir)` (optional): the faults for one
+  configuration, when they depend on parameters (the rv32i adapter returns the
+  selected core's mutants). The runner validates experiments against it;
+  `faults()` stays the full catalog. Defaults to `faults()`.
 * `validate_parameters` / `validate_faults` reject bad values before a run.
 * `event_catalog()` (recommended) lets `crosslayer lint` catch contracts that
   use event types or keys you never emit:
