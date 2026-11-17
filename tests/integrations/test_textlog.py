@@ -95,11 +95,13 @@ def test_adapter_conforms_and_is_analyze_only():
     assert check_adapter_conformance(adapter) == []
     assert {str(c) for c in adapter.capabilities()} == {"collect", "normalize"}
     assert adapter.faults() == [] and adapter.contracts() == []
-    assert adapter.describe().subsystems == ("client", "server")
+    assert adapter.describe().subsystems == ("amf", "client", "gnb", "ngap", "rrc", "server", "smf")
 
 
 def test_builtin_profiles_load():
-    assert builtin_profiles() == ["synthetic_client", "synthetic_server"]
+    assert builtin_profiles() == [
+        "ocudu_gnb", "open5gs_amf", "open5gs_smf", "synthetic_client", "synthetic_server",
+    ]
     for name in builtin_profiles():
         profile = load_profile(name)
         assert profile.builtin and profile.name == name and len(profile.sha256) == 12

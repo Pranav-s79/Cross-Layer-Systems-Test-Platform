@@ -1,0 +1,38 @@
+schema_version: 1
+name: open5gs_amf
+description: Open5GS v2.8.0 AMF file-log messages used during registration and NGAP context setup.
+source_system: open5gs
+subsystem: amf
+timestamp:
+  group: ts
+  format: "%m/%d %H:%M:%S.%f"
+clock:
+  source: AMF host wall clock
+  sync: capture-specific
+  resolution_ms: 1
+unmatched: diagnostic
+rules:
+  - name: initial_ue_message
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[amf\] INFO: InitialUEMessage(?: \([^)]*:\d+\))?$'
+    event_type: ngap.initial_ue_message
+
+  - name: ngap_ue_ids
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[amf\] INFO:\s+RAN_UE_NGAP_ID\[(?P<ran>\d+)\] AMF_UE_NGAP_ID\[(?P<amf>\d+)\] TAC\[(?P<tac>\d+)\] CellID\[(?P<cell>0x[0-9a-fA-F]+)\](?: \([^)]*:\d+\))?$'
+    event_type: ngap.ue_ids_assigned
+    attributes:
+      ran.tac: {group: tac, type: int}
+      ran.cell_id: {group: cell, type: hex}
+    correlation:
+      ran_ue_ngap_id: {group: ran, type: int}
+      amf_ue_ngap_id: {group: amf, type: int}
+
+  - name: registration_request
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[gmm\] INFO: Registration request(?: \([^)]*:\d+\))?$'
+    event_type: registration.requested
+
+  - name: registration_complete
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[gmm\] INFO: \[(?P<supi>[^\]]+)\] Registration complete(?: \([^)]*:\d+\))?$'
+    event_type: registration.complete
+    correlation:
+      supi: supi
+

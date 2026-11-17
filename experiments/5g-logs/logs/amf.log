@@ -1,0 +1,5 @@
+11/17 09:00:00.037: [amf] INFO: InitialUEMessage (../src/amf/ngap-handler.c:668)
+11/17 09:00:00.038: [amf] INFO:     RAN_UE_NGAP_ID[11] AMF_UE_NGAP_ID[42] TAC[7] CellID[0x19b0] (../src/amf/ngap-handler.c:878)
+11/17 09:00:00.040: [gmm] INFO: Registration request (../src/amf/gmm-sm.c:1678)
+11/17 09:00:00.120: [gmm] INFO: [imsi-001010000000001] Registration complete (../src/amf/gmm-sm.c:3165)
+
