@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add `docs/milestones.md`, the step-by-step queue for Phases 3 and 4.
 - Add RV32I core profiles (`cores/<name>/core.yaml`): RTL sources, testbench, defines,
   provenance and mutants in YAML, selected with `parameters.core`; mutants move out of Python.
 - Add `SystemAdapter.faults_for(parameters, base_dir)` so an adapter's fault catalog can depend on its configuration.

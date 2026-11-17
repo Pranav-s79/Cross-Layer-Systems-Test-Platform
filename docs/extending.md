@@ -27,7 +27,7 @@ plugs in from outside, and `test_import_boundary.py` keeps it that way.
 
 ## Where it's going
 
-Small, scoped items are in [backlog.md](backlog.md). The larger direction is
+The active milestone queue is [milestones.md](milestones.md); small, scoped items are in [backlog.md](backlog.md). The larger direction is
 in the [roadmap](../ROADMAP.md):
 
 | Next | What it adds | Built from |

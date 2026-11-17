@@ -25,6 +25,8 @@ built hardware and software.
 | | 14 | Observability interoperability | 📋 |
 | | 15 | Security and governance | 📋 |
 
+The step-by-step queue for the current phases is [docs/milestones.md](docs/milestones.md).
+
 ## Principles
 
 1. **The core never depends on a target.** Each new domain should need zero
