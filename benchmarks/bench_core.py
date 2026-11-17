@@ -56,6 +56,8 @@ RULES = {
         "op": "<=",
         "value": 5000,
     },
+    "coverage": {"kind": "coverage", "select": {"event_type": "ack"}, "attribute": "bench.latency_us",
+                 "bins": [3, 4]},
     "invariant": {
         "kind": "invariant",
         "select": {"event_type": "ack"},

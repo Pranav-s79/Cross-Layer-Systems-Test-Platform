@@ -62,14 +62,14 @@ raw evidence, such as `raw_artifacts/sim.log#L315`.
     within_ms: 5
 ```
 
-Six rule kinds cover deadlines, state machines, percentiles, invariants, and
+Seven rule kinds cover deadlines, state machines, percentiles, coverage, invariants, and
 step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-language.md)
 
 ## What works today
 
 - **Adapters:** any system plugs in through one interface. The core never
   imports a target (enforced by a test).
-- **Contract engine:** six rule kinds, a sandboxed expression language, and
+- **Contract engine:** seven rule kinds, a sandboxed expression language, and
   PASS / FAIL / INCONCLUSIVE verdicts with no vacuous passes.
 - **Reproducible runs:** seeded experiments, hashed run bundles, replay, and
   repeatability checks.

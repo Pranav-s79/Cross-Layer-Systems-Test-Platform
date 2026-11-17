@@ -10,11 +10,11 @@ Every run writes `<output>/<run_id>/`, where
 | `versions.json` | CrossLayer version and git revision, Python, OS, adapter description, capabilities. |
 | `raw_artifacts/` | Untouched output of the system. Evidence points here (`raw_artifacts/sim.log#L315`). |
 | `normalized_events.jsonl` | One event per line, time-ordered: exactly what the contracts saw. |
-| `normalization.json` | Adapter stats and lines that could not be parsed. |
+| `normalization.json` | Adapter stats and lines that could not be parsed. Coverage bins, if the adapter reports them, are under `stats.coverage` as `{group: {bin: hits}}`. |
 | `contracts.json` | Each contract's definition and full result, with findings and evidence. |
 | `violations.json` | FAIL results only. |
 | `timings.json` | Seconds per runner stage: plan, build, execute, collect, normalize, evaluate, write (`write` covers events, normalization, contracts, violations). Stages that did not run are 0. Not part of the fingerprint. |
-| `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts. |
+| `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts, and coverage bins hit and never hit. |
 | `report.html` | Self-contained interactive report: five-step run walkthrough, pipeline timings, searchable contract results, expandable evidence, and replay instructions. It loads no network resources. |
 | `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. Each case has `severity`, `boundary` (`source -> destination`) and `version` properties. |
 | `replay.sh` | POSIX shell version of `crosslayer replay`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |

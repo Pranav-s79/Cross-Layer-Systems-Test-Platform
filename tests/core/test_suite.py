@@ -157,3 +157,85 @@ def test_misconfigured_entry_fails_before_anything_runs(tmp_path):
     with pytest.raises(ConfigError, match="experiment 'broken'.*unknown faults"):
         _runner(tmp_path).run(suite)
     assert not (tmp_path / "out").exists()  # not even the first experiment ran
+
+
+# -- seed sweeps ------------------------------------------------------------------
+
+
+class CoverageAdapter(FakeAdapter):
+    """Reports coverage bins that depend on the seed: odd seeds hit `a`, even seeds hit `b`."""
+
+    def normalize(self, ctx, artifacts):
+        result = super().normalize(ctx, artifacts)
+        result.stats["coverage"] = {"ops": {"a": ctx.seed % 2, "b": 1 - ctx.seed % 2, "never": 0}}
+        return result
+
+
+def test_seeds_expand_into_one_entry_per_seed(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": [3, 5]},
+        {"id": "range", "path": _experiment(tmp_path, "range"), "seeds": {"count": 3, "start": 10}},
+    ]))
+    assert [(e.id, e.experiment.seed, e.sweep) for e in suite.entries] == [
+        ("base@3", 3, "base"), ("base@5", 5, "base"),
+        ("range@10", 10, "range"), ("range@11", 11, "range"), ("range@12", 12, "range"),
+    ]
+
+
+def test_dependencies_pair_by_seed_or_fan_out(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": [1, 2]},
+        {"id": "paired", "path": _experiment(tmp_path, "paired"), "seeds": [1, 2], "depends_on": ["base"]},
+        {"id": "other", "path": _experiment(tmp_path, "other"), "seeds": [7], "depends_on": ["base"]},
+        {"id": "single", "path": _experiment(tmp_path, "single"), "depends_on": ["base"]},
+    ]))
+    deps = {e.id: e.depends_on for e in suite.entries}
+    assert deps["paired@1"] == ("base@1",) and deps["paired@2"] == ("base@2",)
+    assert deps["other@7"] == ("base@1", "base@2")
+    assert deps["single"] == ("base@1", "base@2")
+
+
+@pytest.mark.parametrize(
+    "seeds, match",
+    [
+        ([], "non-empty list"),
+        ([1, 1], "distinct"),
+        ([-1], "non-negative"),
+        ({"count": 0}, "'count' must be a positive integer"),
+        ({"count": 2, "step": 1}, "unknown keys"),
+        ({"count": 1001}, "at most 1000 seeds"),
+        ("1,2", "non-empty list"),
+    ],
+)
+def test_invalid_seeds_name_the_entry(tmp_path, seeds, match):
+    with pytest.raises(ConfigError, match=match) as info:
+        load_suite(_suite(tmp_path, [{"id": "a", "path": _experiment(tmp_path, "a"), "seeds": seeds}]))
+    assert "experiments[0].seeds" in str(info.value)
+
+
+def test_sweep_runs_every_seed_and_sums_coverage(tmp_path):
+    path = _suite(tmp_path, [
+        {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": {"count": 3}},
+        {"id": "fault", "path": _experiment(tmp_path, "fault", ["lose_ack"]), "expect": "fail",
+         "seeds": {"count": 3}, "depends_on": ["base"]},
+    ])
+    runner = SuiteRunner(tmp_path / "out", runner_factory=lambda out: ExperimentRunner(
+        out, adapter_loader=lambda ref: CoverageAdapter()))
+    outcome = runner.run(load_suite(path))
+    assert outcome.passed
+    assert [r.entry.id for r in outcome.results] == ["base@1", "base@2", "base@3", "fault@1", "fault@2", "fault@3"]
+    summary = json.loads((outcome.suite_dir / "summary.json").read_text(encoding="utf-8"))
+    base = next(s for s in summary["sweeps"] if s["sweep"] == "base")
+    assert base["seeds"] == [1, 2, 3] and base["counts"]["met"] == 3
+    assert base["coverage"] == {"ops": {"a": 2, "b": 1, "never": 0}}
+    assert base["never_hit"] == {"ops": ["never"]}
+    assert summary["experiments"][0]["sweep"] == "base" and summary["experiments"][0]["seed"] == 1
+    report = (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
+    assert "## Sweeps" in report and "| `base` | 3 | 3 | 0 | 0 | ops: never |" in report
+
+
+def test_sweep_without_coverage_says_so(tmp_path):
+    outcome = _runner(tmp_path).run(load_suite(_suite(tmp_path, [
+        {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": [1, 2]}])))
+    report = (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
+    assert "| `base` | 2 | 2 | 0 | 0 | no coverage reported |" in report

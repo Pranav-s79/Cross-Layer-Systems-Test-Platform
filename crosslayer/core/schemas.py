@@ -84,6 +84,14 @@ _RULES = [
         "min_samples": _NON_NEG_INT,
     }, **{"if": {"properties": {"aggregate": {"not": {"const": "count"}}}},
           "then": {"required": ["attribute"]}}),
+    _rule("coverage", ["select", "attribute", "bins"], {
+        "select": {"$ref": "#/$defs/selector"},
+        "attribute": {**_STR, "description": "Attribute whose values are the bins"},
+        "bins": {"type": "array", "minItems": 1, "uniqueItems": True,
+                 "items": {"type": ["string", "number"]},
+                 "description": "Values that must each be observed"},
+        "min_hits": {"type": "integer", "minimum": 1, "description": "Hits each bin needs (default 1)"},
+    }),
     _rule("invariant", ["select", "expect"], {
         "select": {"$ref": "#/$defs/selector"},
         "expect": {**_STR, "description": "Expression over the event `e` that must be true"},
@@ -222,6 +230,16 @@ def suite_schema() -> dict[str, Any]:
             "expect": {"enum": ["pass", "fail", "inconclusive", "skipped", "error"],
                        "description": "Verdict this experiment should produce (default pass)"},
             "depends_on": _STR_OR_LIST,
+            "seeds": {
+                "description": "Run once per seed (ids become <id>@<seed>): a list, or {count, start}",
+                "oneOf": [
+                    {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1,
+                     "maxItems": 1000, "uniqueItems": True},
+                    {"type": "object", "additionalProperties": False, "required": ["count"],
+                     "properties": {"count": {"type": "integer", "minimum": 1, "maximum": 1000},
+                                    "start": {"type": "integer", "minimum": 0}}},
+                ],
+            },
         },
     }
     return _document("suite", "CrossLayer experiment suite", {

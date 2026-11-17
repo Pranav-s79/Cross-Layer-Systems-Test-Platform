@@ -106,6 +106,20 @@ events lack the attribute, a pass becomes INCONCLUSIVE; a fail stands only
 when missing samples couldn't change it (`max` vs an upper bound, `min` vs a
 lower bound).
 
+### `coverage`
+Every listed value of an attribute (a *bin*) is observed at least
+`min_hits` times (default 1).
+```yaml
+kind: coverage
+select: {event_type: cpu.retire}
+attribute: rv.op
+bins: [add, sub, lw, sw, beq]
+min_hits: 1
+```
+A missing bin is a violation naming the bin (no evidence event exists for
+what never happened). If some selected events lack the attribute, unmet bins
+are unresolved instead; with no selected events the result is INCONCLUSIVE.
+
 ### `invariant`
 An expression holds for every matching event.
 ```yaml
