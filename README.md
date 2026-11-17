@@ -110,6 +110,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 | [Contract tooling](docs/tooling.md) | Tests, lint, schemas, suites, versioning, scaffolding |
 | [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system |
 | [RTL verification](docs/rtl-verification.md) | Run PicoRV32, inject mutants, and inspect lockstep evidence |
+| [Log analysis](docs/log-analysis.md) | Turn text logs into events with YAML log profiles |
 | [Run bundle format](docs/run-bundle.md) | What every run records |
 | [Testing](docs/testing.md) | How CrossLayer is tested, and where to add tests |
 | [Extending](docs/extending.md) | Extension points and where the project is going |

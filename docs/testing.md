@@ -82,6 +82,15 @@ from the fields that source observes. Parser cases cover byte-lane
 reconstruction, don't-care write-data lanes, malformed lines, VCD edge sampling, and unknown (x/z) or
 missing signals.
 
+`test_textlog.py` covers log profiles: each invalid profile or source field
+is a config error naming the field; timestamps with UTC offsets, `%z`, and
+year-less formats; first match wins; failed conversions, unmatched lines and
+non-UTF-8 lines become diagnostics. It also runs the synthetic two-source
+example (`experiments/textlog/`): zero diagnostics, every event's raw line
+re-parses to the same event, one clock across sources, baseline PASS,
+slow-reply FAIL, FAIL without the clock offset, replay, lint, and the
+example's contract tests.
+
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
 Every command's exit codes and output, plus `--help` for every subcommand.
@@ -107,6 +116,7 @@ committed (for example, `test_added_files_are_detected_by_verify`).
 | A CLI command | `tests/test_cli.py` |
 | The reference system or its contracts | `tests/integrations/test_sensor_pipeline.py` and `contract_tests.yaml` |
 | The RV32I adapter, contracts, or core profiles | `tests/integrations/test_rv32i.py`, `test_rv32i_profiles.py`, and `integrations/rv32i/contract_tests.yaml` |
+| The textlog adapter or a log profile | `tests/integrations/test_textlog.py` and `experiments/textlog/contract_tests.yaml` |
 
 Performance is measured separately with `python benchmarks/bench_core.py`
 (throughput) and `python benchmarks/bench_scaling.py` (time ratio at n and 4n
