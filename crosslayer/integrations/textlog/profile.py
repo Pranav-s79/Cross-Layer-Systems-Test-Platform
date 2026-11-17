@@ -40,7 +40,7 @@ _SUBSYSTEM_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 _OFFSET_RE = re.compile(r"^([+-])(\d{2}):(\d{2})$")
 _TOP_KEYS = {
     "schema_version", "name", "description", "source_system", "subsystem", "timestamp", "clock",
-    "skip", "unmatched", "rules",
+    "skip", "unmatched", "derived_correlation", "rules",
 }
 _REQUIRED = ("schema_version", "name", "source_system", "subsystem", "timestamp", "clock", "rules")
 _TIMESTAMP_KEYS = {"group", "format", "utc_offset", "year"}
@@ -147,6 +147,8 @@ class LogProfile:
     clock: Mapping[str, Any]
     """Free-form metadata about the log's clock, copied into each event's confidence_metadata."""
     rules: tuple[Rule, ...]
+    derived_correlation: tuple[str, ...] = ()
+    """Correlation ids added by a configured post-parse join, for event-catalog linting."""
     skip: tuple[re.Pattern[str], ...] = ()
     unmatched: str = "diagnostic"
     sha256: str = field(default="", compare=False)
@@ -245,6 +247,13 @@ def load_profile(
     unmatched = doc.get("unmatched", "diagnostic")
     if unmatched not in UNMATCHED:
         raise ConfigError(f"must be one of {list(UNMATCHED)}", location=f"{where}: unmatched")
+    derived_correlation = _list(doc.get("derived_correlation", []), f"{where}: derived_correlation")
+    for i, key in enumerate(derived_correlation):
+        if not isinstance(key, str):
+            raise ConfigError("must be a correlation id name", location=f"{where}: derived_correlation[{i}]")
+        _probe(f"{where}: derived_correlation[{i}]", correlation_ids={key: "0"})
+    if len(set(derived_correlation)) != len(derived_correlation):
+        raise ConfigError("must not repeat a correlation id", location=f"{where}: derived_correlation")
 
     raw_rules = _list(doc["rules"], f"{where}: rules")
     if not raw_rules:
@@ -259,7 +268,8 @@ def load_profile(
     return LogProfile(
         name=name, path=path, builtin=builtin, description=description.strip(), source_system=source_system,
         subsystem=subsystem, timestamp=timestamp, clock=clock, rules=tuple(rules), skip=tuple(skip),
-        unmatched=unmatched, sha256=hashlib.sha256(data).hexdigest()[:12],
+        derived_correlation=tuple(derived_correlation), unmatched=unmatched,
+        sha256=hashlib.sha256(data).hexdigest()[:12],
     )
 
 

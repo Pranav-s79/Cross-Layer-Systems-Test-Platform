@@ -11,6 +11,7 @@ clock:
   sync: capture-specific
   resolution_ms: 0.001
 unmatched: diagnostic
+derived_correlation: [ngap_ue]
 rules:
   - name: initial_ue_message
     match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] Tx PDU ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+): InitialUEMessage$'

@@ -10,11 +10,16 @@ plus optional facts about that capture::
         - {input: logs/client.log, profile: synthetic_client}
         - {input: logs/server.log, profile: synthetic_server,
            utc_offset: "+01:00", year: 2026, offset_ms: 250}
+      joins:
+        - {name: ngap_ue, keys: [ran_ue_ngap_id, amf_ue_ngap_id],
+           fallback_window_ms: 250}
 
 * collect:   copy each input into ``raw_artifacts/`` under its own file name
 * normalize: match each line against its profile's rules (first match wins),
              convert the timestamp to UTC, subtract the source's known clock
              offset, and time-order the events of all sources together.
+             Configured joins add a composite correlation id from exact id
+             pairs, or from an unambiguous bounded time-window fallback.
              Unmatched lines and failed conversions become diagnostics.
 
 Sources are validated at plan time (``faults_for``), before anything runs;
@@ -26,7 +31,9 @@ from __future__ import annotations
 
 import codecs
 import hashlib
-from dataclasses import dataclass
+import json
+import re
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -57,8 +64,10 @@ from crosslayer.integrations.textlog.profile import (
     timestamp_parser,
 )
 
-_PARAMETERS = {"sources"}
+_PARAMETERS = {"sources", "joins"}
 _SOURCE_KEYS = {"input", "profile", "offset_ms", "utc_offset", "year"}
+_JOIN_KEYS = {"name", "keys", "fallback_window_ms"}
+_CORRELATION_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 @dataclass(frozen=True)
@@ -101,6 +110,21 @@ class ResolvedSource:
         return meta
 
 
+@dataclass(frozen=True)
+class Join:
+    """A composite correlation id derived from explicit ids or a bounded time fallback."""
+
+    index: int
+    name: str
+    keys: tuple[str, str]
+    fallback_window_ms: int | float
+    fallback_window_ns: int
+
+    @property
+    def loc(self) -> str:
+        return f"parameters.joins[{self.index}]"
+
+
 def parse_sources(parameters: Mapping[str, Any]) -> list[Source]:
     """Check the shape of ``parameters`` (no file access) and return its sources."""
     unknown = set(parameters) - _PARAMETERS
@@ -140,6 +164,42 @@ def parse_sources(parameters: Mapping[str, Any]) -> list[Source]:
     return sources
 
 
+def parse_joins(parameters: Mapping[str, Any]) -> list[Join]:
+    """Validate configured composite-id joins without reading profiles or files."""
+    raw = parameters.get("joins", [])
+    if not isinstance(raw, list):
+        raise ConfigError("must be a list of join mappings", location="parameters.joins")
+    joins: list[Join] = []
+    for i, entry in enumerate(raw):
+        loc = f"parameters.joins[{i}]"
+        if not isinstance(entry, Mapping):
+            raise ConfigError("must be a mapping with name, keys and fallback_window_ms", location=loc)
+        extra = set(entry) - _JOIN_KEYS
+        if extra:
+            raise ConfigError(f"unknown keys {sorted(map(str, extra))} (allowed: {sorted(_JOIN_KEYS)})", location=loc)
+        missing = _JOIN_KEYS - set(entry)
+        if missing:
+            raise ConfigError(f"missing required keys {sorted(missing)}", location=loc)
+        name = entry["name"]
+        if not isinstance(name, str) or not _CORRELATION_NAME_RE.match(name):
+            raise ConfigError("must be a lowercase snake_case correlation id name", location=f"{loc}.name")
+        if any(join.name == name for join in joins):
+            raise ConfigError(f"duplicate join name {name!r}", location=f"{loc}.name")
+        keys = entry["keys"]
+        if (not isinstance(keys, list) or len(keys) != 2 or len(set(keys)) != 2
+                or not all(isinstance(key, str) and _CORRELATION_NAME_RE.match(key) for key in keys)):
+            raise ConfigError("must be two distinct lowercase snake_case correlation id names", location=f"{loc}.keys")
+        window = entry["fallback_window_ms"]
+        if isinstance(window, bool) or not isinstance(window, (int, float)) or window <= 0:
+            raise ConfigError("must be a positive number of milliseconds", location=f"{loc}.fallback_window_ms")
+        try:
+            window_ns = ms_to_ns(window)
+        except ValueError as exc:
+            raise ConfigError(str(exc), location=f"{loc}.fallback_window_ms") from None
+        joins.append(Join(i, name, (keys[0], keys[1]), window, window_ns))
+    return joins
+
+
 def builtin_subsystems() -> set[str]:
     return {s for p in _builtins() for s in p.subsystems}
 
@@ -161,7 +221,28 @@ def resolve_sources(parameters: Mapping[str, Any], base_dir: Path) -> list[Resol
         profile = load_profile(source.profile, base_dir, subsystems=declared, loc=f"{source.loc}.profile")
         parser = timestamp_parser(profile, source.utc_offset, source.year, source.loc)
         resolved.append(ResolvedSource(source, path, profile, parser, ms_to_ns(source.offset_ms)))
+    _validate_joins(parse_joins(parameters), resolved)
     return resolved
+
+
+def _validate_joins(joins: Sequence[Join], sources: Sequence[ResolvedSource]) -> None:
+    for join in joins:
+        profiles = [source.profile for source in sources]
+        declared = [profile.name for profile in profiles if join.name in profile.derived_correlation]
+        if not declared:
+            raise ConfigError(
+                f"no selected profile declares derived correlation id {join.name!r}", location=f"{join.loc}.name"
+            )
+        emitted = {key for profile in profiles for rule in profile.rules for key in rule.correlation}
+        for i, key in enumerate(join.keys):
+            if key not in emitted:
+                raise ConfigError(f"no selected profile emits correlation id {key!r}", location=f"{join.loc}.keys[{i}]")
+        if not any(set(join.keys) <= set(rule.correlation) for profile in profiles for rule in profile.rules):
+            raise ConfigError("no selected profile rule emits both join keys", location=f"{join.loc}.keys")
+        if join.name in emitted:
+            raise ConfigError(
+                f"selected profiles already emit correlation id {join.name!r}", location=f"{join.loc}.name"
+            )
 
 
 def _builtins() -> list[LogProfile]:
@@ -198,6 +279,7 @@ class TextLogAdapter(SystemAdapter):
                 subsystems.add(rule.subsystem)
                 attributes.update(rule.attributes)
                 ids.update(rule.correlation)
+                ids.update(profile.derived_correlation)
                 notes.append(f"{profile.name}/{rule.name}")
         return [
             EventSpec(event_type, tuple(sorted(subs)), tuple(sorted(attrs)), tuple(sorted(ids)),
@@ -207,6 +289,7 @@ class TextLogAdapter(SystemAdapter):
 
     def validate_parameters(self, parameters: Mapping[str, Any]) -> None:
         parse_sources(parameters)
+        parse_joins(parameters)
 
     def faults_for(self, parameters: Mapping[str, Any], base_dir: Path) -> list[FaultSpec]:
         """No faults; called at plan time, so it also loads every profile and checks every file."""
@@ -245,11 +328,79 @@ class TextLogAdapter(SystemAdapter):
             _read_source(ctx, r, by_name[r.source.artifact].path, events, diagnostics)
             for r in resolve_sources(ctx.parameters, ctx.base_dir)
         ]
+        ordered = order_events(events)
+        joined, join_stats = _apply_joins(ordered, parse_joins(ctx.parameters))
         return NormalizationResult(
-            events=order_events(events),
+            events=joined,
             diagnostics=diagnostics,
-            stats={"sources": per_source, "events": len(events), "diagnostics": len(diagnostics)},
+            stats={"sources": per_source, "joins": join_stats, "events": len(events), "diagnostics": len(diagnostics)},
         )
+
+
+def _apply_joins(events: Sequence[NormalizedEvent], joins: Sequence[Join]) -> tuple[list[NormalizedEvent], list[dict[str, Any]]]:
+    """Add configured composite correlation ids without guessing across ambiguous windows."""
+    joined = list(events)
+    stats: list[dict[str, Any]] = []
+    for join in joins:
+        anchors: list[tuple[NormalizedEvent, dict[str, str], str]] = []
+        for event in joined:
+            if all(key in event.correlation_ids for key in join.keys):
+                values = {key: event.correlation_ids[key] for key in join.keys}
+                composite = json.dumps([values[key] for key in join.keys], separators=(",", ":"))
+                anchors.append((event, values, composite))
+
+        counts = {"exact": 0, "fallback": 0, "ambiguous": 0, "unmatched": 0}
+        output: list[NormalizedEvent] = []
+        for event in joined:
+            present = {key: event.correlation_ids[key] for key in join.keys if key in event.correlation_ids}
+            if len(present) == len(join.keys):
+                values = {key: present[key] for key in join.keys}
+                composite = json.dumps([values[key] for key in join.keys], separators=(",", ":"))
+                output.append(_joined_event(event, join, composite, {
+                    "method": "id_pair", "confidence": "high", "ids": values,
+                }))
+                counts["exact"] += 1
+                continue
+
+            candidates = [
+                anchor for anchor in anchors
+                if abs(anchor[0].timestamp_ns - event.timestamp_ns) <= join.fallback_window_ns
+                and all(anchor[1][key] == value for key, value in present.items())
+            ]
+            composites = {anchor[2] for anchor in candidates}
+            if len(composites) == 1:
+                anchor = min(candidates, key=lambda item: (
+                    abs(item[0].timestamp_ns - event.timestamp_ns), item[0].timestamp_ns, item[0].event_id,
+                ))
+                delta_ns = abs(anchor[0].timestamp_ns - event.timestamp_ns)
+                output.append(_joined_event(event, join, anchor[2], {
+                    "method": "time_window",
+                    "confidence": "low",
+                    "ids": anchor[1],
+                    "window_ms": join.fallback_window_ms,
+                    "delta_ms": delta_ns / 1_000_000,
+                    "anchor_event_id": anchor[0].event_id,
+                }))
+                counts["fallback"] += 1
+            else:
+                output.append(event)
+                key = "ambiguous" if len(composites) > 1 else "unmatched"
+                counts[key] += 1
+        joined = output
+        stats.append({
+            "name": join.name,
+            "keys": list(join.keys),
+            "fallback_window_ms": join.fallback_window_ms,
+            **counts,
+        })
+    return joined, stats
+
+
+def _joined_event(event: NormalizedEvent, join: Join, value: str, metadata: Mapping[str, Any]) -> NormalizedEvent:
+    ids = {**event.correlation_ids, join.name: value}
+    joins = {**event.confidence_metadata.get("correlation_joins", {}), join.name: dict(metadata)}
+    confidence = {**event.confidence_metadata, "correlation_joins": joins}
+    return replace(event, correlation_ids=ids, confidence_metadata=confidence)
 
 
 def _read_source(
