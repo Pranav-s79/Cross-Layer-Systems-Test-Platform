@@ -150,23 +150,26 @@ contracts:
       max: 0
 
   - id: rv32i.cpi_budget
-    title: 95th-percentile cycles per instruction is at most 8
+    title: 95th-percentile cycles per fixed-latency instruction is at most 8
     owner: rtl-performance
     source: memory
     destination: core
     severity: major
-    version: 2
+    version: 3
     description: >
       Timing, not correctness. PicoRV32 is multi-cycle, about 4 cycles for an
       ALU instruction with single-cycle memory. Slow memory raises it while
-      every result stays correct. SKIPPED for trace sources without cycle
-      counts.
+      every result stays correct. Shifts are excluded: both bundled cores
+      shift in steps, so their latency grows with the shift amount by design.
+      SKIPPED for trace sources without cycle counts.
     precondition:
       event_type: cpu.boot
       where: e.attributes["rv.timed"] == 1
     rule:
       kind: threshold
-      select: {event_type: cpu.retire}
+      select:
+        event_type: cpu.retire
+        where: e.attributes["rv.op"] not in ("sll", "srl", "sra", "slli", "srli", "srai")
       attribute: rv.cpi
       aggregate: p95
       op: "<="

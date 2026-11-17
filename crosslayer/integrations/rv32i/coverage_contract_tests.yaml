@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../../schemas/contract-tests.schema.json
+schema_version: 1
+contracts: [coverage_contracts.yaml]
+cases:
+  - name: a program that retires every listed mnemonic
+    contract: rv32i.isa_mnemonics
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.op: add}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.op: sub}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.op: sll}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.op: slt}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.op: sltu}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.op: xor}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.op: srl}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.op: sra}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.op: or}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.op: and}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.op: addi}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.op: slti}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.op: sltiu}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.op: xori}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.op: ori}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.op: andi}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.op: slli}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.op: srli}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.op: srai}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.op: lb}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.op: lh}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.op: lw}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.op: lbu}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.op: lhu}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.op: sb}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.op: sh}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.op: sw}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.op: beq}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.op: bne}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.op: blt}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.op: bge}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.op: bltu}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.op: bgeu}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.op: lui}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.op: auipc}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.op: jal}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.op: jalr}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.op: ebreak}}
+  - name: a program that never retires a load
+    contract: rv32i.isa_mnemonics
+    expect: fail
+    expect_violations: 5
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.op: add}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.op: sub}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.op: sll}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.op: slt}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.op: sltu}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.op: xor}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.op: srl}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.op: sra}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.op: or}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.op: and}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.op: addi}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.op: slti}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.op: sltiu}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.op: xori}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.op: ori}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.op: andi}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.op: slli}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.op: srli}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.op: srai}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.op: sb}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.op: sh}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.op: sw}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.op: beq}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.op: bne}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.op: blt}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.op: bge}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.op: bltu}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.op: bgeu}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.op: lui}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.op: auipc}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.op: jal}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.op: jalr}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.op: ebreak}}

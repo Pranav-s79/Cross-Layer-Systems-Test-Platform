@@ -5,6 +5,12 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add seed sweeps to suites (`seeds: [..]` or `{count, start}`), with per-sweep counts and coverage bins summed across seeds.
+- Add the `coverage` rule kind and a coverage section in `report.md` for adapters that report `stats.coverage` bins.
+- Report RV32I ISA coverage (mnemonics, branch directions, access width and offset); add `coverage_contracts.yaml`, `isa_coverage`, and 20-seed random-program sweeps for both cores.
+- Generate random RV32I programs with branches, jumps, and every load/store width and offset; fix their output register (it wrote the port address).
+- Treat unknown RVFI write data in unwritten byte lanes as don't-care instead of dropping the retirement.
+- `rv32i.cpi_budget` (version 3) excludes shifts, whose latency depends on the shift amount.
 - Add a second RV32I core, FemtoRV32 Quark (BSD-3-Clause, no RVFI), verified through a testbench retirement monitor and its waveform, with six ported mutants and `experiments/rv32i-quark/`.
 - Add the `vcd-signals` RV32I trace source: retirements sampled from a streamed waveform through a profile signal map, so a core needs no trace printing.
 - Add the `commit-log` RV32I trace source (Spike `--log-commits` format), `parameters.trace`, and a `+commit_log` testbench mode; `lockstep_operands` and `cpi_budget` (version 2) are SKIPPED on traces without operand values or cycles.

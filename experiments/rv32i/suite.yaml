@@ -50,3 +50,10 @@ experiments:
     path: vcd_mem_wait_states.yaml
     expect: fail
     depends_on: [vcd_baseline]
+  - id: isa_coverage
+    path: isa_coverage.yaml
+    depends_on: [baseline]
+  - id: random_programs
+    path: random_programs.yaml
+    seeds: {count: 20}
+    depends_on: [baseline]

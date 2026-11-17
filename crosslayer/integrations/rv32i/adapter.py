@@ -47,7 +47,18 @@ from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
 from crosslayer.core.telemetry.store import order_events
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
-from crosslayer.integrations.rv32i.iss import EBREAK, MODEL_FAULTS, ModelRun, Model, decode, lanes
+from crosslayer.integrations.rv32i.iss import (
+    ACCESS_BYTES,
+    BRANCH_MNEMONICS,
+    Decoded,
+    EBREAK,
+    MNEMONICS,
+    MODEL_FAULTS,
+    Model,
+    ModelRun,
+    decode,
+    lanes,
+)
 from crosslayer.integrations.rv32i.traces import TRACE_LOG, Record, TraceSource, sources
 from crosslayer.integrations.rv32i.profile import (
     DEFAULT_CORE,
@@ -419,6 +430,7 @@ class Rv32iAdapter(SystemAdapter):
                 "reference_retired": len(reference.retires),
                 "reference_halt": reference.halt,
                 "diagnostics": len(parser.diagnostics),
+                "coverage": parser.coverage(),
             },
         )
 
@@ -448,6 +460,36 @@ class _TraceParser:
         self.outputs = 0
         self.last_cycle = 0
         self.last_retire: Mapping[str, int] | None = None
+        self.mnemonics = dict.fromkeys(MNEMONICS, 0)
+        self.branches = {f"{m}.{way}": 0 for m in BRANCH_MNEMONICS for way in ("taken", "not_taken")}
+        self.accesses = {
+            f"{m}+{offset}": 0
+            for m, size in ACCESS_BYTES.items()
+            if m.startswith("s") or source.operands  # a load's byte offset needs its base register value
+            for offset in range(0, 4, size)
+        }
+
+    def coverage(self) -> dict[str, dict[str, int]]:
+        """ISA coverage bins, zero-hit bins included: mnemonics retired, branch
+        directions, and each access width at each aligned byte offset."""
+        return {"mnemonic": self.mnemonics, "branch": self.branches, "memory": self.accesses}
+
+    def _count(self, f: Mapping[str, int], d: Decoded) -> None:
+        if d.mnemonic in self.mnemonics:
+            self.mnemonics[d.mnemonic] += 1
+        if f.get("trap"):
+            return
+        if d.kind == "branch" and "npc" in f:
+            way = "not_taken" if f["npc"] == (f["pc"] + 4) & 0xFFFF_FFFF else "taken"
+            self.branches[f"{d.mnemonic}.{way}"] += 1
+        offset = None
+        if d.kind == "store" and f.get("wmask"):
+            offset = (f["wmask"] & -f["wmask"]).bit_length() - 1
+        elif d.kind == "load" and "rs1v" in f:
+            offset = (f["rs1v"] + d.imm) & 3
+        key = f"{d.mnemonic}+{offset}"
+        if key in self.accesses:
+            self.accesses[key] += 1
 
     def feed(self, item: Record | ParseDiagnostic) -> None:
         if isinstance(item, ParseDiagnostic):
@@ -495,6 +537,7 @@ class _TraceParser:
         self.retired += 1
         attrs: dict[str, Any] = {name: f[key] for key, name in _RETIRE_ATTRS.items() if key in f}
         attrs.update({"rv.op": d.mnemonic, "rv.kind": d.kind})
+        self._count(f, d)
         if "cyc" in f:
             attrs["rv.cpi"] = f["cyc"] - self.last_cycle
             self.last_cycle = f["cyc"]

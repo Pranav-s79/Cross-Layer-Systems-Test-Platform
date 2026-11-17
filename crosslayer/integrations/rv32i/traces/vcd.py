@@ -187,10 +187,25 @@ def _bit(value: str | None) -> int | None:
     return int(value, 2)
 
 
+def _clear_unwritten_bits(bits: str, wmask: int) -> str:
+    """x/z bits of write data in lanes the mask leaves unwritten become 0 (RVFI don't-care)."""
+    padded = bits.rjust(32, bits[0] if bits[0] in "xz" else "0")[-32:]
+    out = list(padded)
+    for lane in range(4):
+        if not wmask >> lane & 1:
+            out[24 - 8 * lane:32 - 8 * lane] = ["0"] * 8
+    return "".join(out)
+
+
 def _sample(state: Mapping[str, str], ids: Mapping[str, str], signals: SignalMap, line: int, order: int) -> Item:
     fields: dict[str, int] = {"ord": order}
+    mask_signal = signals.fields.get("wmask")
+    wmask = _bit(state.get(ids[mask_signal])) if mask_signal else None
     for key, name in signals.fields.items():
-        value = _bit(state.get(ids[name]))
+        raw = state.get(ids[name])
+        if key == "wdata" and raw is not None and wmask is not None:
+            raw = _clear_unwritten_bits(raw, wmask)
+        value = _bit(raw)
         if value is None:
             return ParseDiagnostic(WAVEFORM, line, f"{name} is unknown (x/z or never set) on a retiring edge")
         fields[key] = value

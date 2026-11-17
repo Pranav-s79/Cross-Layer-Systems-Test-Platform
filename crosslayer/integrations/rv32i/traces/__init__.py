@@ -83,6 +83,28 @@ REQUIRED: dict[str, tuple[str, ...]] = {
 }
 
 
+_WDATA_RE = re.compile(r"\bwdata=([0-9a-fA-FxXzZ]{8})\b")
+_WMASK_RE = re.compile(r"\bwmask=([0-9a-fA-F])\b")
+
+
+def clear_unwritten_lanes(line: str) -> str:
+    """Replace x/z write-data digits in byte lanes the write mask leaves unwritten.
+
+    RVFI defines ``mem_wdata`` only in the lanes ``mem_wmask`` selects; the rest
+    are don't-care, and a core may leave them unknown (PicoRV32 does on a load
+    before any store). Unknown digits in a written lane are kept, so they are
+    still reported.
+    """
+    wdata, wmask = _WDATA_RE.search(line), _WMASK_RE.search(line)
+    if wdata is None or wmask is None or not any(c in "xXzZ" for c in wdata.group(1)):
+        return line
+    mask, digits = int(wmask.group(1), 16), list(wdata.group(1))
+    for lane in range(4):
+        if not mask >> lane & 1:
+            digits[6 - 2 * lane:8 - 2 * lane] = ["0", "0"]
+    return line[:wdata.start(1)] + "".join(digits) + line[wdata.end(1):]
+
+
 def ignorable(line: str) -> bool:
     return not line.strip() or line.startswith(_IGNORED)
 
