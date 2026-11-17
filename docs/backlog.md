@@ -134,7 +134,7 @@ with a one-line reason and take the next one.
   `mypy crosslayer/core` reports no errors today. Add them so they stay clean.
 - [x] **Test `core/artifacts/environment.py` directly.** No test file
   references it; cover the captured fields and their stability.
-- [ ] **Test the adapter registry directly.** No test references
+- [x] **Test the adapter registry directly.** No test references
   `core/adapters/registry.py`; cover lookup of an unknown adapter name and
   duplicate registration.
 - [ ] **Type-check the sensor-pipeline integration.** `mypy` reports two errors

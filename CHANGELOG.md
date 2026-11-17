@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add direct tests for adapter discovery in `core/adapters/registry.py`.
 - Add direct tests for `core/artifacts/environment.py`.
 - Extend mypy checks to all of `crosslayer/core`.
 - Add five new items to the backlog.
