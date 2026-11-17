@@ -1,0 +1,58 @@
+# SYNTHETIC format, written for the textlog example (experiments/textlog/).
+# It is not the log format of any real product.
+schema_version: 1
+name: synthetic_server
+description: >
+  Synthetic API server with syslog-style lines: local time without a year
+  or UTC offset, so each capture states its year and utc_offset in the
+  experiment's source entry.
+source_system: synthetic-server
+subsystem: server
+timestamp:
+  group: ts
+  format: "%b %d %H:%M:%S.%f"
+clock:
+  source: server host wall clock
+  sync: none
+  resolution_ms: 1
+skip:
+  - '^#'
+unmatched: diagnostic
+rules:
+  - name: listening
+    match: '^(?P<ts>[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}:\d{2}\.\d+) api-server\[(?P<pid>\d+)\]: INFO listening port=(?P<port>\d+)$'
+    event_type: server.start
+    attributes:
+      app.pid: {group: pid, type: int}
+      app.port: {group: port, type: int}
+  - name: accepted
+    match: '^(?P<ts>[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}:\d{2}\.\d+) api-server\[\d+\]: INFO accepted request=(?P<req>\d+) op=(?P<op>[a-z]+) peer=(?P<peer>\S+)$'
+    event_type: request.received
+    attributes:
+      app.op: op
+      app.peer: peer
+    correlation:
+      request: req
+  # First match wins: a 5xx reply is caught here, before the general rule below.
+  - name: replied_error
+    match: '^(?P<ts>[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}:\d{2}\.\d+) api-server\[\d+\]: \w+ replied request=(?P<req>\d+) status=(?P<status>5\d\d) took_ms=(?P<took>\d+)$'
+    event_type: response.sent
+    severity: error
+    attributes:
+      app.status: {group: status, type: int}
+      app.took_ms: {group: took, type: int}
+    correlation:
+      request: req
+  - name: replied
+    match: '^(?P<ts>[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}:\d{2}\.\d+) api-server\[\d+\]: INFO replied request=(?P<req>\d+) status=(?P<status>\d{3}) took_ms=(?P<took>\d+)$'
+    event_type: response.sent
+    attributes:
+      app.status: {group: status, type: int}
+      app.took_ms: {group: took, type: int}
+    correlation:
+      request: req
+  - name: served
+    match: '^(?P<ts>[A-Z][a-z]{2} [ \d]\d \d{2}:\d{2}:\d{2}\.\d+) api-server\[\d+\]: INFO served requests=(?P<n>\d+)$'
+    event_type: server.summary
+    attributes:
+      app.served: {group: n, type: int}

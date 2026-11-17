@@ -21,6 +21,7 @@ crosslayer = "crosslayer.cli:main"
 [project.entry-points."crosslayer.adapters"]
 sensor_pipeline = "crosslayer.integrations.sensor_pipeline:SensorPipelineAdapter"
 rv32i = "crosslayer.integrations.rv32i:Rv32iAdapter"
+textlog = "crosslayer.integrations.textlog:TextLogAdapter"
 
 [tool.setuptools.packages.find]
 include = ["crosslayer*"]
@@ -28,6 +29,7 @@ include = ["crosslayer*"]
 [tool.setuptools.package-data]
 "crosslayer.integrations.sensor_pipeline" = ["*.yaml", "fixtures/*.jsonl"]
 "crosslayer.integrations.rv32i" = ["*.yaml", "cores/*/*.yaml", "cores/*/*.v", "cores/*/*.md", "cores/*/LICENSE", "programs/*.s"]
+"crosslayer.integrations.textlog" = ["profiles/*.yaml"]
 "crosslayer.scaffold" = ["templates/*.tmpl"]
 
 [tool.pytest.ini_options]
