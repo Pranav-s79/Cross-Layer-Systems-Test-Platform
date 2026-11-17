@@ -1,0 +1,48 @@
+# SYNTHETIC format, written for the textlog example (experiments/textlog/).
+# It is not the log format of any real product.
+schema_version: 1
+name: synthetic_client
+description: >
+  Synthetic request/response client. One line per event: an ISO 8601 UTC
+  timestamp with milliseconds, a level, then key=value fields.
+source_system: synthetic-client
+subsystem: client
+timestamp:
+  group: ts
+  format: "%Y-%m-%dT%H:%M:%S.%fZ"
+  utc_offset: "+00:00"
+clock:
+  source: client host wall clock
+  sync: ntp
+  resolution_ms: 1
+skip:
+  - '^#'
+unmatched: diagnostic
+rules:
+  - name: session_start
+    match: '^(?P<ts>\S+) INFO session start client=(?P<client>\S+) build=(?P<build>0x[0-9a-f]+)$'
+    event_type: session.start
+    attributes:
+      app.client: client
+      app.build: {group: build, type: hex}
+  - name: send
+    match: '^(?P<ts>\S+) INFO send req=(?P<req>\d+) op=(?P<op>[a-z]+) bytes=(?P<bytes>\d+)$'
+    event_type: request.sent
+    attributes:
+      app.op: op
+      app.bytes: {group: bytes, type: int}
+    correlation:
+      request: req
+  - name: recv
+    match: '^(?P<ts>\S+) INFO recv req=(?P<req>\d+) status=(?P<status>\d{3}) rtt_ms=(?P<rtt>[0-9.]+)$'
+    event_type: response.received
+    attributes:
+      app.status: {group: status, type: int}
+      app.rtt_ms: {group: rtt, type: float}
+    correlation:
+      request: req
+  - name: session_end
+    match: '^(?P<ts>\S+) INFO session end sent=(?P<sent>\d+)$'
+    event_type: session.end
+    attributes:
+      app.sent: {group: sent, type: int}
