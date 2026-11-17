@@ -1,0 +1,14 @@
+# SYNTHETIC log, hand-written for the CrossLayer textlog example. Not captured from any real system.
+# Variant of server.log: request 1003 takes 180 ms. Local time UTC+01:00, no year; clock 250 ms ahead of the client.
+Nov 17 09:59:59.750 api-server[812]: INFO listening port=8080
+Nov 17 10:00:00.352 api-server[812]: INFO accepted request=1001 op=get peer=10.0.0.7
+Nov 17 10:00:00.370 api-server[812]: INFO replied request=1001 status=200 took_ms=18
+Nov 17 10:00:00.552 api-server[812]: INFO accepted request=1002 op=put peer=10.0.0.7
+Nov 17 10:00:00.593 api-server[812]: INFO replied request=1002 status=201 took_ms=41
+Nov 17 10:00:00.752 api-server[812]: INFO accepted request=1003 op=get peer=10.0.0.7
+Nov 17 10:00:00.932 api-server[812]: INFO replied request=1003 status=200 took_ms=180
+Nov 17 10:00:00.952 api-server[812]: INFO accepted request=1004 op=delete peer=10.0.0.7
+Nov 17 10:00:00.974 api-server[812]: INFO replied request=1004 status=204 took_ms=22
+Nov 17 10:00:01.152 api-server[812]: INFO accepted request=1005 op=get peer=10.0.0.7
+Nov 17 10:00:01.169 api-server[812]: INFO replied request=1005 status=200 took_ms=17
+Nov 17 10:00:01.750 api-server[812]: INFO served requests=5

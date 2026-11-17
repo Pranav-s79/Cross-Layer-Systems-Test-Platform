@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../schemas/contract-tests.schema.json
+# Contract tests for the SYNTHETIC textlog example: every contract has a case
+# it must PASS and a case it must FAIL.
+# Run: crosslayer test-contracts experiments/textlog/contract_tests.yaml --require-coverage
+schema_version: 1
+contracts: [contracts.yaml]
+cases:
+  # -- demo.request_answered -------------------------------------------------------
+  - name: replies within 100 ms pass
+    contract: demo.request_answered
+    expect: pass
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 102, type: request.received, subsystem: server, ids: {request: 1}}
+      - {t_ms: 143, type: response.sent, subsystem: server, ids: {request: 1}}
+      - {t_ms: 300, type: request.sent, subsystem: client, ids: {request: 2}}
+      - {t_ms: 399, type: response.sent, subsystem: server, ids: {request: 2}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  - name: a reply after 100 ms is a violation
+    contract: demo.request_answered
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 500, type: request.sent, subsystem: client, ids: {request: 3}}
+      - {t_ms: 682, type: response.sent, subsystem: server, ids: {request: 3}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  - name: a reply to a different request does not count
+    contract: demo.request_answered
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 120, type: response.sent, subsystem: server, ids: {request: 2}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  - name: without the client's session end the result is inconclusive
+    contract: demo.request_answered
+    expect: inconclusive
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 120, type: response.sent, subsystem: server, ids: {request: 1}}
+
+  # -- demo.request_flow -----------------------------------------------------------
+  - name: sent, received, replied, completed
+    contract: demo.request_flow
+    expect: pass
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 102, type: request.received, subsystem: server, ids: {request: 1}}
+      - {t_ms: 120, type: response.sent, subsystem: server, ids: {request: 1}}
+      - {t_ms: 122, type: response.received, subsystem: client, ids: {request: 1}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  - name: a server clock left uncorrected puts the reply after its completion
+    contract: demo.request_flow
+    expect: fail
+    expect_violations: 3   # two illegal transitions, then the request ends on response.sent
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 122, type: response.received, subsystem: client, ids: {request: 1}}
+      - {t_ms: 352, type: request.received, subsystem: server, ids: {request: 1}}
+      - {t_ms: 370, type: response.sent, subsystem: server, ids: {request: 1}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  - name: a request the client never completes is a violation
+    contract: demo.request_flow
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 100, type: request.sent, subsystem: client, ids: {request: 1}}
+      - {t_ms: 102, type: request.received, subsystem: server, ids: {request: 1}}
+      - {t_ms: 1200, type: session.end, subsystem: client}
+
+  # -- demo.server_status_ok -------------------------------------------------------
+  - name: 2xx replies pass
+    contract: demo.server_status_ok
+    expect: pass
+    events:
+      - {t_ms: 120, type: response.sent, subsystem: server, ids: {request: 1}, attrs: {app.status: 200}}
+      - {t_ms: 343, type: response.sent, subsystem: server, ids: {request: 2}, attrs: {app.status: 204}}
+
+  - name: a 503 reply is a violation
+    contract: demo.server_status_ok
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 120, type: response.sent, subsystem: server, ids: {request: 1}, attrs: {app.status: 200}}
+      - {t_ms: 343, type: response.sent, subsystem: server, ids: {request: 2}, severity: error,
+         attrs: {app.status: 503}}

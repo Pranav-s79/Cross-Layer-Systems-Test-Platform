@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../schemas/contracts.schema.json
+# Contracts for the SYNTHETIC two-source textlog example. Two of them join
+# events across the client and server logs by request id, so they only hold
+# when both clocks are aligned (utc_offset and offset_ms in the experiment).
+schema_version: 1
+contracts:
+  - id: demo.request_answered
+    title: Every client request gets a server reply within 100 ms
+    owner: api-server
+    source: client
+    destination: server
+    evidence: [{event_type: session.end}]
+    rule:
+      kind: response
+      trigger: {event_type: request.sent, subsystem: client}
+      response: [{event_type: response.sent, subsystem: server}]
+      correlate_by: request
+      within_ms: 100
+
+  - id: demo.request_flow
+    title: Each request is sent, received, replied to, and completed, in that order, across both logs
+    owner: api-team
+    source: client
+    destination: server
+    evidence: [{event_type: session.end}]
+    rule:
+      kind: transitions
+      select: {event_type: [request.sent, request.received, response.sent, response.received]}
+      state: event_type
+      group_by: request
+      initial: [request.sent]
+      final: [response.received]
+      allowed:
+        request.sent: [request.received]
+        request.received: [response.sent]
+        response.sent: [response.received]
+        response.received: []
+
+  - id: demo.server_status_ok
+    title: The server never replies with a 5xx status
+    owner: api-server
+    source: server
+    destination: client
+    rule:
+      kind: invariant
+      select: {event_type: response.sent, subsystem: server}
+      expect: e.attributes["app.status"] < 500

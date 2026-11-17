@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: textlog-slow-reply
+description: >
+  SYNTHETIC variant of the baseline: the server takes 180 ms to answer
+  request 1003, so demo.request_answered must fail at that request.
+adapter: textlog
+seed: 1
+timeout_s: 60
+inputs: [logs/client_slow_reply.log, logs/server_slow_reply.log]
+parameters:
+  sources:
+    - {input: logs/client_slow_reply.log, profile: synthetic_client}
+    - {input: logs/server_slow_reply.log, profile: synthetic_server, utc_offset: "+01:00", year: 2026, offset_ms: 250}
+contracts: [contracts.yaml]

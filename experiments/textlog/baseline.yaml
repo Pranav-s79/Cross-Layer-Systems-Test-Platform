@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: textlog-baseline
+description: >
+  SYNTHETIC two-source fixture: a client log (UTC) and a server log (local
+  time, no year, clock 250 ms ahead). Every contract is expected to pass.
+adapter: textlog
+seed: 1
+timeout_s: 60
+inputs: [logs/client.log, logs/server.log]
+parameters:
+  sources:
+    - {input: logs/client.log, profile: synthetic_client}
+    - {input: logs/server.log, profile: synthetic_server, utc_offset: "+01:00", year: 2026, offset_ms: 250}
+contracts: [contracts.yaml]
