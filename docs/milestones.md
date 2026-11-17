@@ -47,7 +47,7 @@ sources (RVFI text, a commit log derived from it, and its VCD).
 
 **Exit:** two cores, two trace formats, no changes under `crosslayer/core`.
 
-### 3.5 · Seed sweeps and ISA coverage · `routine` · `feature/rtl-coverage`
+### 3.5 · Seed sweeps and ISA coverage · `lead` · `feature/rtl-coverage`
 - [ ] `crosslayer suite` entries can repeat an experiment over a seed list
   (`seeds: [1, 2, 3]` or `seeds: {count: N}`); each seed gets its own bundle
   and the suite reports per-seed verdicts.
@@ -61,9 +61,24 @@ sources (RVFI text, a commit log derived from it, and its VCD).
 **Exit:** a 20-seed random-program sweep passes on PicoRV32, and the report
 lists any RV32I mnemonic the sweep never retired.
 
+### 3.6 · RV32I hardening · `routine` · `feature/rtl-hardening`
+- [ ] A JSON Schema for core profiles (`schemas/rv32i-core-profile.schema.json`)
+  that is never stricter than `profile.py`: every built-in profile validates,
+  and a test checks the schema against the loader's accepted keys. Reference it
+  from the `yaml-language-server` comment in each `core.yaml`.
+- [ ] Assembler and decoder round-trip tests: for seeded random valid RV32I
+  instructions, `decode(assemble(text))` gives back the mnemonic and operands,
+  and every reserved or unsupported encoding decodes as illegal in `iss.py`.
+- [ ] `crosslayer show` (or the report) prints, for an RV32I bundle, the first
+  failing retirement with its source line, PC, and observed vs reference
+  fields side by side. Generic in the core: driven by the contract's first
+  finding and the event's `*_ref`-style attribute pairs, not by RV32I names.
+
+**Exit:** all three steps merged with tests; no change in any suite verdict.
+
 ## Phase 4 · Wireless log analysis
 
-### 4.1 · Declarative log parser · `routine` · `feature/log-profiles`
+### 4.1 · Declarative log parser · `lead` · `feature/log-profiles`
 - [ ] A `textlog` integration whose YAML log profile maps line regexes to
   event types and attributes, with a timestamp format, a time zone, and
   per-source clock metadata (`confidence_metadata`). Unmatched lines are
@@ -74,7 +89,7 @@ lists any RV32I mnemonic the sweep never retired.
 **Exit:** a two-source synthetic fixture normalizes with zero diagnostics
 and every event links to its raw line.
 
-### 4.2 · 5G core and RAN logs · `routine` · `feature/5g-log-analysis`
+### 4.2 · 5G core and RAN logs · `lead` · `feature/5g-log-analysis`
 - [ ] Log profiles for Open5GS AMF/SMF and an OCUDU (srsRAN-derived) gNB.
   Fixtures must be real captures with source and version recorded, or
   clearly labeled synthetic fixtures written from the documented format.
