@@ -11,6 +11,7 @@ clock:
   sync: capture-specific
   resolution_ms: 1
 unmatched: diagnostic
+derived_correlation: [ngap_ue]
 rules:
   - name: pdu_session_allocated
     match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[smf\] INFO: UE SUPI\[(?P<supi>[^\]]+)\] DNN\[(?P<dnn>[^\]]+)\] IPv4\[(?P<ipv4>[^\]]*)\] IPv6\[(?P<ipv6>[^\]]*)\](?: \([^)]*:\d+\))?$'

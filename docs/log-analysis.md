@@ -31,6 +31,10 @@ parameters:
   sources:
     - {input: logs/client.log, profile: synthetic_client}
     - {input: logs/server.log, profile: synthetic_server, utc_offset: "+01:00", year: 2026, offset_ms: 250}
+  joins:
+    - name: ngap_ue
+      keys: [ran_ue_ngap_id, amf_ue_ngap_id]
+      fallback_window_ms: 250
 contracts: [contracts.yaml]
 ```
 
@@ -45,6 +49,21 @@ contracts: [contracts.yaml]
 `utc_offset` and `year` describe one capture, not the format, so they can be
 given here. Each input is copied to `raw_artifacts/` under its file name; two
 inputs with the same file name are rejected.
+
+### Composite correlation joins
+
+`joins` is optional. A join derives one correlation id from exactly two ids
+emitted by profiles. An event containing both ids gets an exact, high-confidence
+join. An event missing one or both ids gets the join only when every compatible
+anchor inside `fallback_window_ms` has the same pair. If two different pairs
+are possible, the event stays unjoined.
+
+Every joined event records the method, ids, and confidence under
+`confidence_metadata.correlation_joins.<name>`. A time fallback also records
+the configured window, time delta, and anchor event id. Normalization statistics
+count exact, fallback, ambiguous, and unmatched events for each join. Built-in
+profiles list possible derived ids in `derived_correlation`, so contract lint
+can validate `correlate_by` and `group_by` uses.
 
 ## Profile
 
@@ -61,6 +80,7 @@ timestamp:
   utc_offset: "+01:00"              # optional here; required here or in the source unless the format has %z
   year: 2026                        # optional here; required here or in the source if the format has no year
 clock: {source: server host wall clock, sync: none, resolution_ms: 1}
+derived_correlation: [ngap_ue]        # optional ids produced by parameters.joins
 skip: ['^#']                        # lines dropped silently (counted)
 unmatched: diagnostic               # or: ignore
 rules:                              # first match wins

@@ -93,7 +93,7 @@ and every event links to its raw line.
 - [x] Log profiles for Open5GS AMF/SMF and an OCUDU (srsRAN-derived) gNB.
   Fixtures must be real captures with source and version recorded, or
   clearly labeled synthetic fixtures written from the documented format.
-- [ ] Join RAN and core events on NGAP UE id pairs; fall back to a recorded
+- [x] Join RAN and core events on NGAP UE id pairs; fall back to a recorded
   time window, marking those joins as lower confidence.
 - [ ] Contracts: registration completes, PDU session setup completes, RRC
   state transitions are legal; faults: a dropped, a delayed, and a reordered
