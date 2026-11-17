@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: quark-mem-wait-states
+description: >
+  Memory answers 3 cycles late through Quark's rbusy/wbusy handshake. Results
+  stay correct; only timing changes. Ground truth: memory (interface instruction_bus).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: femtorv32-quark
+  program: selftest
+  max_cycles: 20000   # a clean run takes about 2,100 cycles (4,400 with wait states)
+faults:
+  - name: mem_wait_states
+    params: {cycles: 3}

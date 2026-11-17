@@ -39,11 +39,11 @@ merges only when its exit check passes.
 **Exit:** the PicoRV32 suite passes unchanged through each of the three
 sources (RVFI text, a commit log derived from it, and its VCD).
 
-### 3.4 · Second core · `lead` · `feature/rtl-second-core`
-- [ ] Vendor a second permissively licensed Verilog-2005 RV32I core that
+### 3.4 · Second core · `lead` · done
+- [x] Vendor a second permissively licensed Verilog-2005 RV32I core that
   Icarus can compile (check the license and record the upstream commit),
   with a profile that uses a non-RVFI trace source.
-- [ ] Port the mutants that apply to it and add `experiments/rv32i-<core>/`.
+- [x] Port the mutants that apply to it and add `experiments/rv32i-<core>/`.
 
 **Exit:** two cores, two trace formats, no changes under `crosslayer/core`.
 

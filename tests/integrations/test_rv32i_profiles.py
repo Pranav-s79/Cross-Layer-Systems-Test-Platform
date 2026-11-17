@@ -96,7 +96,7 @@ def test_invalid_profiles_name_the_offending_field(tmp_path: Path, changes, matc
 
 
 def test_unknown_core_lists_the_builtin_cores(tmp_path: Path):
-    with pytest.raises(ConfigError, match=r"unknown core 'nope' \(built-in: \['picorv32'"):
+    with pytest.raises(ConfigError, match=r"unknown core 'nope' \(built-in: \[.*'picorv32'"):
         Rv32iAdapter().faults_for({"core": "nope"}, tmp_path)
 
 

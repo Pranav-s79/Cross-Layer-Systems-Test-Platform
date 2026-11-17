@@ -104,6 +104,10 @@ jobs:
         run: crosslayer test-contracts crosslayer/integrations/rv32i/contract_tests.yaml --require-coverage
       - name: RV32I suite (baseline passes, every injected fault is detected)
         run: crosslayer suite experiments/rv32i/suite.yaml --out runs
+      - name: Second core without RVFI (FemtoRV32 Quark)
+        run: |
+          crosslayer lint experiments/rv32i-quark/suite.yaml --strict
+          crosslayer suite experiments/rv32i-quark/suite.yaml --out runs
       - name: Upload RV32I run bundles
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,13 +1,34 @@
 # RTL processor verification (RV32I)
 
-The `rv32i` adapter runs an unmodified RV32I core (PicoRV32 by default) with
-Icarus Verilog, normalizes its RISC-V Formal Interface (RVFI) retirement trace, and compares
+The `rv32i` adapter runs an unmodified RV32I core with Icarus Verilog,
+normalizes its RISC-V Formal Interface (RVFI) retirement trace, and compares
 every retired instruction with an independent RV32I instruction-set model.
 
-The bundled RTL is pinned to YosysHQ PicoRV32 commit
-`ef203c2b0a3fb793280f5114941416c425c5b461`. Its normalized Git blob matches
-upstream. See `crosslayer/integrations/rv32i/cores/picorv32/README.md` for provenance and
-license details.
+| Core | Upstream (pinned commit) | License | Trace | Suite |
+|---|---|---|---|---|
+| `picorv32` (default) | YosysHQ PicoRV32 `ef203c2b` | ISC | RVFI port (`rvfi`, `commit-log`, `vcd-signals`) | `experiments/rv32i/` |
+| `femtorv32-quark` | BrunoLevy/learn-fpga `0a97ede5` | BSD-3-Clause | No RVFI; a testbench monitor (`vcd-signals`, `commit-log`) | `experiments/rv32i-quark/` |
+
+Both RTL files are byte-identical to upstream (Git blobs recorded in each
+core's `README.md` and `core.yaml`); mutants edit run-local copies.
+
+### A core without RVFI
+
+FemtoRV32 Quark has no formal interface and no traps. Its testbench
+(`cores/femtorv32-quark/tb.v`) adds a retirement monitor that reads the
+core's state machine through hierarchical references, without editing the
+RTL. In EXECUTE it latches the PC, instruction, operands, next PC and data
+access; the instruction retires at that edge, or, for loads, stores and
+shifts, when WAIT_ALU_OR_MEM ends, with the final write-back value. It
+applies RVFI conventions (unused operands read 0, word-aligned data
+addresses) and pulses `mon_valid`, which the profile's `signals` map samples
+from the waveform. The testbench ends the run when EBREAK or ECALL retires
+(Quark executes them as no-ops) and reports it as a trap, like RVFI would.
+It also overrides `ADDR_WIDTH` to 32 so the core can reach the output port.
+
+The six mutants are rewritten for Quark's RTL and name the same model
+faults; each first fails at the instruction the model predicts, as on
+PicoRV32 (`test_rv32i_traces.py`).
 
 ## Prerequisites
 
@@ -29,6 +50,7 @@ Start with the clean core, then run the dependency-ordered mutant suite:
 ```sh
 crosslayer run experiments/rv32i/baseline.yaml --out runs
 crosslayer suite experiments/rv32i/suite.yaml --out runs
+crosslayer suite experiments/rv32i-quark/suite.yaml --out runs   # second core
 ```
 
 The baseline must pass all 10 contracts. Each mutant experiment declares
