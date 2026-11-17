@@ -256,6 +256,17 @@ class SystemAdapter(ABC):
     def faults(self) -> list[FaultSpec]:
         return []
 
+    def faults_for(self, parameters: Mapping[str, Any], base_dir: Path) -> list[FaultSpec]:
+        """Faults available for one configuration; defaults to ``faults()``.
+
+        Override when the catalog depends on parameters, for example a
+        selected hardware profile that brings its own faults. ``base_dir``
+        resolves relative paths in ``parameters``. The core validates an
+        experiment's faults against this list; ``faults()`` stays the
+        configuration-independent catalog used for conformance and listings.
+        """
+        return self.faults()
+
     def event_catalog(self) -> list[EventSpec] | None:
         """Event types this adapter can emit, or None if unknown.
 

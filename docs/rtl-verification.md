@@ -1,12 +1,12 @@
 # RTL processor verification (RV32I)
 
-The `rv32i` adapter runs the unmodified PicoRV32 core with Icarus Verilog,
-normalizes its RISC-V Formal Interface (RVFI) retirement trace, and compares
+The `rv32i` adapter runs an unmodified RV32I core (PicoRV32 by default) with
+Icarus Verilog, normalizes its RISC-V Formal Interface (RVFI) retirement trace, and compares
 every retired instruction with an independent RV32I instruction-set model.
 
 The bundled RTL is pinned to YosysHQ PicoRV32 commit
 `ef203c2b0a3fb793280f5114941416c425c5b461`. Its normalized Git blob matches
-upstream. See `crosslayer/integrations/rv32i/rtl/README.md` for provenance and
+upstream. See `crosslayer/integrations/rv32i/cores/picorv32/README.md` for provenance and
 license details.
 
 ## Prerequisites
@@ -105,10 +105,36 @@ Functional faults are modeled independently in `iss.py`. Simulator-enabled
 tests assert that the RTL trace first differs from the clean reference at the
 same retirement order predicted by that model.
 
+## Core profiles
+
+Each core is a directory with a `core.yaml`, its RTL, and a testbench. The
+built-in profile is [`cores/picorv32/core.yaml`](../crosslayer/integrations/rv32i/cores/picorv32/core.yaml).
+Select a core with `parameters.core`: a built-in name, or a path (relative to
+the experiment) to a `core.yaml` or its directory. A new core or mutant needs
+no Python changes.
+
+| Key | Meaning |
+|---|---|
+| `name`, `description` | Lowercase identifier; free text |
+| `isa`, `trace` | `rv32i`; `rvfi` (the testbench prints the `RET` protocol in `tb.v`) |
+| `testbench`, `sources` | Paths inside the profile directory, compiled in this order |
+| `defines` | Always passed to `iverilog` as `-D` |
+| `clock_period_ns` | Converts cycles to event timestamps (default 10) |
+| `provenance` | Free-form mapping recorded in the bundle (`upstream`, `commit`, `license`) |
+| `mutants.<name>` | `target_subsystem`, optional `target_interface`, `edits` (`file`, `find`, `replace`) and/or `defines`, optional `model_fault` |
+
+Profiles are validated before anything runs: unknown keys, missing files,
+targets the adapter does not declare, and model faults `iss.py` does not
+know are config errors. Each mutant `find` must match exactly once at build
+time. Only the selected core's mutants (plus `mem_wait_states`) are valid
+faults for an experiment. The build records the core's name, files, SHA-256,
+and provenance in the manifest, and `rtl.diff` names the core.
+
 ## Parameters
 
 | Parameter | Default | Meaning |
 |---|---:|---|
+| `core` | `picorv32` | Built-in core name, or path to a `core.yaml` or its directory |
 | `program` | `selftest` | Built-in name, `random`, or path to a `.s` file |
 | `max_cycles` | `100000` | Testbench cycle limit |
 | `waveform` | `false` | Write `waveform.vcd` when true |

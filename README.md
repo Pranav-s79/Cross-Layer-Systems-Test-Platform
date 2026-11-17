@@ -77,8 +77,8 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   dependency order and expected verdicts.
 - **Contract tooling:** contract tests, a linter, JSON Schemas, versioning,
   and `crosslayer new adapter` scaffolding.
-- **RTL verification:** unmodified PicoRV32 under Icarus Verilog, RVFI trace
-  normalization, structural and lockstep contracts, seven injected faults,
+- **RTL verification:** unmodified PicoRV32 under Icarus Verilog, declarative
+  core profiles (RTL, testbench, mutants in YAML), RVFI trace normalization, structural and lockstep contracts, seven injected faults,
   optional VCD waveforms, and seeded random programs.
 - **Fault injection:** five faults in the reference pipeline and seven in the
   RV32I integration, with clean baselines and explicit target labels.

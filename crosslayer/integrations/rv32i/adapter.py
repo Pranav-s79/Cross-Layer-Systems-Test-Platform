@@ -2,8 +2,9 @@
 
 Lifecycle:
 
-* build:     assemble the program, apply any RTL mutant to a copy of
-             ``picorv32.v``, and compile the testbench with ``iverilog``
+* build:     assemble the program, load the selected core profile
+             (``cores/<name>/core.yaml``), apply any RTL mutant to run-local
+             copies of its sources, and compile the testbench with ``iverilog``
 * execute:   run the compiled simulation with ``vvp`` under a cycle limit
 * collect:   keep the trace, the program (source, hex, listing), the mutant
              diff, and optionally a waveform
@@ -18,7 +19,6 @@ still needed so the reference model can run.
 from __future__ import annotations
 
 import difflib
-import hashlib
 import json
 import re
 import shutil
@@ -47,16 +47,19 @@ from crosslayer.core.errors import AdapterError, ConfigError
 from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
-from crosslayer.integrations.rv32i.iss import EBREAK, ModelRun, Model, decode, lanes
+from crosslayer.integrations.rv32i.iss import EBREAK, MODEL_FAULTS, ModelRun, Model, decode, lanes
+from crosslayer.integrations.rv32i.profile import (
+    DEFAULT_CORE,
+    CoreProfile,
+    apply_mutants,
+    builtin_cores,
+    load_profile,
+)
 
 HERE = Path(__file__).resolve().parent
-RTL_DIR = HERE / "rtl"
-CORE_RTL = RTL_DIR / "picorv32.v"
-TESTBENCH = RTL_DIR / "tb.v"
 PROGRAMS_DIR = HERE / "programs"
 CONTRACTS_PATH = HERE / "contracts.yaml"
 SOURCE_SYSTEM = "rv32i"
-CLOCK_PERIOD_NS = 10
 
 TRACE_NAME = "trace.log"
 STDERR_NAME = "sim.stderr.log"
@@ -68,6 +71,7 @@ DIFF_NAME = "rtl.diff"
 WAVE_NAME = "waveform.vcd"
 
 _DEFAULTS: dict[str, Any] = {
+    "core": DEFAULT_CORE,
     "program": "selftest",
     "max_cycles": 100_000,
     "waveform": False,
@@ -79,39 +83,10 @@ _SENTINEL = -1
 """Reference value when the model retired nothing at this position: never
 equal to a real 32-bit value, so every lockstep check fails there."""
 
-# Each mutant is a set of exact, single-occurrence text edits to picorv32.v,
-# or a define PicoRV32 itself provides for testing its verification flow.
-_MUTANTS: dict[str, dict[str, Any]] = {
-    "bne_inverted": {
-        "edits": [("\t\t\tinstr_bne:\n\t\t\t\talu_out_0 = !alu_eq;", "\t\t\tinstr_bne:\n\t\t\t\talu_out_0 = alu_eq;")],
-    },
-    "sub_as_add": {
-        "edits": [("alu_add_sub = instr_sub ? reg_op1 - reg_op2 : reg_op1 + reg_op2;", "alu_add_sub = reg_op1 + reg_op2;")],
-    },
-    "slt_unsigned": {
-        "edits": [("alu_lts = $signed(reg_op1) < $signed(reg_op2);", "alu_lts = reg_op1 < reg_op2;")],
-    },
-    "jal_imm_bit11": {
-        "edits": [("reg_next_pc <= current_pc + decoded_imm_j;",
-                   "reg_next_pc <= current_pc + (decoded_imm_j & ~32'h800);")],
-    },
-    "regfile_wrong_rd": {"defines": ["PICORV32_TESTBUG_001"]},
-    "store_byte_lane": {
-        "edits": [("mem_la_wstrb = 4'b0001 << reg_op1[1:0];", "mem_la_wstrb = 4'b0001;")],
-    },
-}
-
 _RET_FIELDS = ("cyc", "ord", "pc", "insn", "rs1", "rs1v", "rs2", "rs2v", "rd", "rdv", "npc", "maddr", "wmask", "wdata", "trap")
 _DECIMAL = {"cyc", "ord", "rs1", "rs2", "rd", "trap", "retired", "max_cycles", "wait_states"}
 _LINE_RE = re.compile(r"^(?P<tag>[A-Z]+)(?P<rest>(?:\s+[a-z0-9_]+=[0-9a-fA-FxXzZ]+)*)\s*$")
 _IGNORED = ("VCD info:",)  # simulator chatter, not trace content
-
-
-def _rtl_digest() -> str:
-    h = hashlib.sha256()
-    for path in (CORE_RTL, TESTBENCH):
-        h.update(path.read_bytes())
-    return h.hexdigest()[:12]
 
 
 def _positive_int(value: Any, location: str) -> int:
@@ -120,26 +95,51 @@ def _positive_int(value: Any, location: str) -> int:
     return value
 
 
+SUBSYSTEMS = ("fetch", "decoder", "regfile", "alu", "lsu", "memory", "mmio", "core", "tb")
+INTERFACES = (
+    InterfaceSpec("instruction_bus", "memory", "fetch", "instruction fetches on the memory bus"),
+    InterfaceSpec("jump_target", "decoder", "fetch", "decoded jump and branch offsets steer the PC"),
+    InterfaceSpec("branch_decision", "alu", "fetch", "the branch compare selects the next PC"),
+    InterfaceSpec("operand_read", "regfile", "alu", "register read ports feed the ALU"),
+    InterfaceSpec("writeback", "alu", "regfile", "results written to the register file"),
+    InterfaceSpec("data_bus", "lsu", "memory", "loads and stores on the memory bus"),
+    InterfaceSpec("output_port", "lsu", "mmio", "stores to the memory-mapped output port"),
+)
+WAIT_STATES_FAULT = FaultSpec(
+    "mem_wait_states", "Testbench memory answers `cycles` clock cycles late (timing only).",
+    target_subsystem="memory", target_interface="instruction_bus",
+    parameters={"cycles": "extra cycles per memory access (default 3)"},
+)
+"""Applies to every core: it is a testbench plusarg, not an RTL edit."""
+
+
+def _load(core: str, base_dir: Path | None = None) -> CoreProfile:
+    return load_profile(core, base_dir, subsystems=SUBSYSTEMS, interfaces={i.name for i in INTERFACES},
+                        model_faults=MODEL_FAULTS)
+
+
+def _mutant_faults(profile: CoreProfile) -> list[FaultSpec]:
+    return [
+        FaultSpec(m.name, f"RTL mutant ({profile.name}): {m.description}",
+                  target_subsystem=m.target_subsystem, target_interface=m.target_interface)
+        for m in profile.mutants.values()
+    ]
+
+
 class Rv32iAdapter(SystemAdapter):
     def describe(self) -> AdapterDescription:
+        default = _load(DEFAULT_CORE)
         return AdapterDescription(
             name="rv32i",
-            adapter_version="0.1.0",
-            system="PicoRV32 RV32I core (YosysHQ), RTL simulated with Icarus Verilog",
-            system_version=f"picorv32.v+tb.v sha256:{_rtl_digest()}",
-            subsystems=("fetch", "decoder", "regfile", "alu", "lsu", "memory", "mmio", "core", "tb"),
-            interfaces=(
-                InterfaceSpec("instruction_bus", "memory", "fetch", "instruction fetches on the memory bus"),
-                InterfaceSpec("jump_target", "decoder", "fetch", "decoded jump and branch offsets steer the PC"),
-                InterfaceSpec("branch_decision", "alu", "fetch", "the branch compare selects the next PC"),
-                InterfaceSpec("operand_read", "regfile", "alu", "register read ports feed the ALU"),
-                InterfaceSpec("writeback", "alu", "regfile", "results written to the register file"),
-                InterfaceSpec("data_bus", "lsu", "memory", "loads and stores on the memory bus"),
-                InterfaceSpec("output_port", "lsu", "mmio", "stores to the memory-mapped output port"),
-            ),
+            adapter_version="0.2.0",
+            system="RV32I cores described by core profiles, RTL simulated with Icarus Verilog",
+            system_version=f"default core {default.name} sha256:{default.digest()}",
+            subsystems=SUBSYSTEMS,
+            interfaces=INTERFACES,
             description=(
-                "Unmodified PicoRV32 RTL in a CrossLayer testbench. Each retired instruction is "
-                "compared with a reference RV32I model running the same program."
+                "Unmodified RTL of a selected core (built-in: " + ", ".join(builtin_cores()) + ") in its "
+                "profile's testbench. Each retired instruction is compared with a reference RV32I model "
+                "running the same program."
             ),
             external_dependencies=("Icarus Verilog (iverilog, vvp) on PATH",),
         )
@@ -150,23 +150,17 @@ class Rv32iAdapter(SystemAdapter):
         )
 
     def faults(self) -> list[FaultSpec]:
-        return [
-            FaultSpec("bne_inverted", "RTL mutant: BNE branches when its operands are equal.",
-                      target_subsystem="alu", target_interface="branch_decision"),
-            FaultSpec("sub_as_add", "RTL mutant: SUB adds instead of subtracting.",
-                      target_subsystem="alu", target_interface="writeback"),
-            FaultSpec("slt_unsigned", "RTL mutant: signed compares (SLT, SLTI, BLT, BGE) compare unsigned.",
-                      target_subsystem="alu", target_interface="writeback"),
-            FaultSpec("jal_imm_bit11", "RTL mutant: the JAL target ignores bit 11 of the immediate.",
-                      target_subsystem="decoder", target_interface="jump_target"),
-            FaultSpec("regfile_wrong_rd", "RTL mutant (PicoRV32's own TESTBUG_001): results are written to register rd^1.",
-                      target_subsystem="regfile", target_interface="writeback"),
-            FaultSpec("store_byte_lane", "RTL mutant: SB always writes byte lane 0 of the word.",
-                      target_subsystem="lsu", target_interface="data_bus"),
-            FaultSpec("mem_wait_states", "Testbench memory answers `cycles` clock cycles late (timing only).",
-                      target_subsystem="memory", target_interface="instruction_bus",
-                      parameters={"cycles": "extra cycles per memory access (default 3)"}),
-        ]
+        """Mutants of every built-in core, plus the timing fault."""
+        specs: dict[str, FaultSpec] = {}
+        for core in builtin_cores():
+            for spec in _mutant_faults(_load(core)):
+                specs.setdefault(spec.name, spec)
+        return [*specs.values(), WAIT_STATES_FAULT]
+
+    def faults_for(self, parameters: Mapping[str, Any], base_dir: Path) -> list[FaultSpec]:
+        """Mutants of the selected core only, plus the timing fault."""
+        core = parameters.get("core", DEFAULT_CORE)
+        return [*_mutant_faults(_load(core, base_dir)), WAIT_STATES_FAULT]
 
     def contracts(self) -> list[BoundaryContract]:
         return load_contracts_file(CONTRACTS_PATH)
@@ -196,6 +190,9 @@ class Rv32iAdapter(SystemAdapter):
         unknown = set(parameters) - set(_DEFAULTS)
         if unknown:
             raise ConfigError(f"unknown parameters {sorted(unknown)} (allowed: {sorted(_DEFAULTS)})")
+        core = parameters.get("core", DEFAULT_CORE)
+        if not isinstance(core, str) or not core:
+            raise ConfigError("must be a built-in core name or a path to a core.yaml", location="parameters.core")
         program = parameters.get("program", _DEFAULTS["program"])
         if not isinstance(program, str) or not program:
             raise ConfigError("must be a built-in program name or a path to a .s file", location="parameters.program")
@@ -219,6 +216,9 @@ class Rv32iAdapter(SystemAdapter):
 
     def _param(self, ctx: RunContext, name: str) -> Any:
         return ctx.parameters.get(name, _DEFAULTS[name])
+
+    def _profile(self, ctx: RunContext) -> CoreProfile:
+        return _load(self._param(ctx, "core"), ctx.base_dir)
 
     def _program_path(self, ctx: RunContext) -> Path:
         program = self._param(ctx, "program")
@@ -266,33 +266,32 @@ class Rv32iAdapter(SystemAdapter):
         self._write_program(ctx, source, program)
         shutil.copyfile(ctx.raw_dir / HEX_NAME, ctx.work_dir / HEX_NAME)
 
-        original = CORE_RTL.read_text(encoding="utf-8")
-        rtl, defines, applied = original, ["RISCV_FORMAL"], []
-        for fault in ctx.faults:
-            mutant = _MUTANTS.get(fault.name)
-            if mutant is None:
-                continue
-            for old, new in mutant.get("edits", []):
-                found = rtl.count(old)
-                if found != 1:
-                    raise AdapterError(f"mutant {fault.name!r} no longer applies to picorv32.v "
-                                       f"(expected 1 match, found {found})")
-                rtl = rtl.replace(old, new)
-            defines += mutant.get("defines", [])
-            applied.append(fault.name)
-        core = ctx.work_dir / "picorv32.v"
-        core.write_text(rtl, encoding="utf-8", newline="\n")
+        profile = self._profile(ctx)
+        applied = [f.name for f in ctx.faults if f.name in profile.mutants]
+        try:
+            texts, mutant_defines = apply_mutants(profile, applied)
+        except ConfigError as exc:
+            raise AdapterError(str(exc)) from None
+        diff_lines: list[str] = []
+        for name in (profile.testbench, *profile.sources):
+            original = profile.file(name).read_text(encoding="utf-8")
+            text = texts.get(name, original)
+            target = ctx.work_dir / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8", newline="\n")
+            if text != original:
+                diff_lines += difflib.unified_diff(
+                    original.splitlines(keepends=True), text.splitlines(keepends=True),
+                    f"{profile.name}/{name}", f"{profile.name}/{name} (mutant)",
+                )
+        defines = [*profile.defines, *mutant_defines]
         if applied:
-            diff = difflib.unified_diff(
-                original.splitlines(keepends=True), rtl.splitlines(keepends=True),
-                "rtl/picorv32.v", "rtl/picorv32.v (mutant)",
-            )
-            text = "".join(diff) + "".join(f"# compiled with -D{d}\n" for d in defines[1:])
-            (ctx.raw_dir / DIFF_NAME).write_text(f"# mutants: {', '.join(applied)}\n{text}", encoding="utf-8",
-                                                 newline="\n")
+            text = "".join(diff_lines) + "".join(f"# compiled with -D{d}\n" for d in mutant_defines)
+            (ctx.raw_dir / DIFF_NAME).write_text(f"# core: {profile.name}\n# mutants: {', '.join(applied)}\n{text}",
+                                                 encoding="utf-8", newline="\n")
 
         command = [iverilog, "-g2005", *(f"-D{d}" for d in defines), "-o", "sim.vvp",
-                   str(TESTBENCH), core.name]
+                   profile.testbench, *profile.sources]
         stdout_log = ctx.work_dir / "iverilog.stdout.log"
         stderr_log = ctx.work_dir / "iverilog.stderr.log"
         result = run_process(
@@ -302,7 +301,8 @@ class Rv32iAdapter(SystemAdapter):
             stdout_path=stdout_log,
             stderr_path=stderr_log,
         )
-        details: dict[str, Any] = {"command": command, "mutants": applied, "program_words": len(program.words)}
+        details: dict[str, Any] = {"command": command, "core": profile.summary(), "mutants": applied,
+                                   "program_words": len(program.words)}
         if result.error is not None or result.timed_out or result.exit_code != 0:
             details["error"] = result.error or ("timeout" if result.timed_out else f"exit code {result.exit_code}")
             logs = [
@@ -381,7 +381,7 @@ class Rv32iAdapter(SystemAdapter):
         by_name = {a.name: a for a in artifacts}
         _, program = self._program(ctx)
         reference = Model(program.image()).run(max_steps=self._param(ctx, "max_cycles"))
-        parser = _TraceParser(ctx, program, reference)
+        parser = _TraceParser(ctx, program, reference, self._profile(ctx).clock_period_ns)
         with by_name[TRACE_NAME].path.open("r", encoding="utf-8") as fh:
             for lineno, raw in enumerate(fh, start=1):
                 parser.feed(lineno, raw.rstrip("\r\n"))
@@ -400,8 +400,9 @@ class Rv32iAdapter(SystemAdapter):
 
 
 class _TraceParser:
-    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun) -> None:
+    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun, clock_period_ns: int) -> None:
         self.ctx = ctx
+        self.clock_period_ns = clock_period_ns
         self.program = program
         self.reference = reference
         self.events: list[NormalizedEvent] = []
@@ -447,13 +448,13 @@ class _TraceParser:
                 event_id=f"{TRACE_NAME}:{lineno}",
                 source_system=SOURCE_SYSTEM,
                 subsystem=subsystem,
-                timestamp_ns=cycle * CLOCK_PERIOD_NS,
+                timestamp_ns=cycle * self.clock_period_ns,
                 event_type=event_type,
                 severity=severity,
                 correlation_ids=correlation or {},
                 attributes=attributes,
                 raw_artifact_ref=self.ctx.raw_ref(TRACE_NAME, lineno),
-                confidence_metadata={"timestamp_source": "rtl_cycle_count", "clock_period_ns": CLOCK_PERIOD_NS},
+                confidence_metadata={"timestamp_source": "rtl_cycle_count", "clock_period_ns": self.clock_period_ns},
             )
         )
 

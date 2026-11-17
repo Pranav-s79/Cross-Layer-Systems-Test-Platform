@@ -69,6 +69,11 @@ simulator. When Icarus is present, it also proves that the unmodified RTL
 passes and each functional mutant first differs at the instruction predicted
 by the independently modeled fault.
 
+`test_rv32i_profiles.py` checks core profiles: every built-in mutant applies
+exactly once, each invalid profile field is a config error naming the field,
+and a copied profile with a new mutant runs end to end (clean PASS, mutant
+FAIL) without Python changes.
+
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
 Every command's exit codes and output, plus `--help` for every subcommand.
@@ -93,7 +98,7 @@ committed (for example, `test_added_files_are_detected_by_verify`).
 | A file format | `tests/core/test_schemas.py`, then `crosslayer schema --write schemas` |
 | A CLI command | `tests/test_cli.py` |
 | The reference system or its contracts | `tests/integrations/test_sensor_pipeline.py` and `contract_tests.yaml` |
-| The RV32I adapter or contracts | `tests/integrations/test_rv32i.py` and `integrations/rv32i/contract_tests.yaml` |
+| The RV32I adapter, contracts, or core profiles | `tests/integrations/test_rv32i.py`, `test_rv32i_profiles.py`, and `integrations/rv32i/contract_tests.yaml` |
 
 Performance is measured separately with `python benchmarks/bench_core.py`
 (throughput) and `python benchmarks/bench_scaling.py` (time ratio at n and 4n
