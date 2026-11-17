@@ -1,0 +1,89 @@
+schema_version: 1
+name: ocudu_gnb
+description: OCUDU release 26.10 gNB NGAP and RRC file-log messages.
+source_system: ocudu
+subsystem: gnb
+timestamp:
+  group: ts
+  format: "%Y-%m-%dT%H:%M:%S.%f"
+clock:
+  source: gNB host wall clock
+  sync: capture-specific
+  resolution_ms: 0.001
+unmatched: diagnostic
+rules:
+  - name: initial_ue_message
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] Tx PDU ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+): InitialUEMessage$'
+    event_type: ngap.initial_ue_message
+    subsystem: ngap
+    correlation:
+      ue: {group: ue, type: int}
+      ran_ue_ngap_id: {group: ran, type: int}
+
+  - name: downlink_nas_transport
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] Rx PDU ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+) amf_ue=(?P<amf>\d+): DownlinkNASTransport$'
+    event_type: ngap.downlink_nas_transport
+    subsystem: ngap
+    correlation:
+      ue: {group: ue, type: int}
+      ran_ue_ngap_id: {group: ran, type: int}
+      amf_ue_ngap_id: {group: amf, type: int}
+
+  - name: pdu_session_setup_request
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] Rx PDU ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+) amf_ue=(?P<amf>\d+): PDUSessionResourceSetupRequest$'
+    event_type: pdu_session.setup_requested
+    subsystem: ngap
+    correlation:
+      ue: {group: ue, type: int}
+      ran_ue_ngap_id: {group: ran, type: int}
+      amf_ue_ngap_id: {group: amf, type: int}
+
+  - name: pdu_session_setup_started
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+) amf_ue=(?P<amf>\d+): "PDU Session Resource Setup Procedure" started\.\.\.$'
+    event_type: pdu_session.setup_started
+    subsystem: ngap
+    correlation:
+      ue: {group: ue, type: int}
+      ran_ue_ngap_id: {group: ran, type: int}
+      amf_ue_ngap_id: {group: amf, type: int}
+
+  - name: pdu_session_setup_complete
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[NGAP\s*\] \[I\] ue=(?P<ue>\d+) ran_ue=(?P<ran>\d+) amf_ue=(?P<amf>\d+): "PDU Session Resource Setup Procedure" finished successfully$'
+    event_type: pdu_session.setup_complete
+    subsystem: ngap
+    correlation:
+      ue: {group: ue, type: int}
+      ran_ue_ngap_id: {group: ran, type: int}
+      amf_ue_ngap_id: {group: amf, type: int}
+
+  - name: rrc_setup_started
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[RRC\s*\] \[I\] ue=(?P<ue>\d+) c-rnti=(?P<rnti>0x[0-9a-fA-F]+): "RRC Setup Procedure" started\.\.\.$'
+    event_type: rrc.setup_started
+    subsystem: rrc
+    correlation:
+      ue: {group: ue, type: int}
+      rnti: {group: rnti, type: hex}
+
+  - name: rrc_setup_complete
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[RRC\s*\] \[I\] ue=(?P<ue>\d+) c-rnti=(?P<rnti>0x[0-9a-fA-F]+): "RRC Setup Procedure" finished successfully$'
+    event_type: rrc.connected
+    subsystem: rrc
+    correlation:
+      ue: {group: ue, type: int}
+      rnti: {group: rnti, type: hex}
+
+  - name: rrc_reconfiguration_started
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[RRC\s*\] \[I\] ue=(?P<ue>\d+) c-rnti=(?P<rnti>0x[0-9a-fA-F]+): "RRC Reconfiguration Procedure" started\.\.\.$'
+    event_type: rrc.reconfiguration_started
+    subsystem: rrc
+    correlation:
+      ue: {group: ue, type: int}
+      rnti: {group: rnti, type: hex}
+
+  - name: rrc_reconfiguration_complete
+    match: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}) \[RRC\s*\] \[I\] ue=(?P<ue>\d+) c-rnti=(?P<rnti>0x[0-9a-fA-F]+): "RRC Reconfiguration Procedure" finished successfully$'
+    event_type: rrc.connected
+    subsystem: rrc
+    correlation:
+      ue: {group: ue, type: int}
+      rnti: {group: rnti, type: hex}

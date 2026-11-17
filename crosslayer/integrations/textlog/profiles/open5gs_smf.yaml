@@ -1,0 +1,35 @@
+schema_version: 1
+name: open5gs_smf
+description: Open5GS v2.8.0 SMF file-log messages used during PDU-session allocation.
+source_system: open5gs
+subsystem: smf
+timestamp:
+  group: ts
+  format: "%m/%d %H:%M:%S.%f"
+clock:
+  source: SMF host wall clock
+  sync: capture-specific
+  resolution_ms: 1
+unmatched: diagnostic
+rules:
+  - name: pdu_session_allocated
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[smf\] INFO: UE SUPI\[(?P<supi>[^\]]+)\] DNN\[(?P<dnn>[^\]]+)\] IPv4\[(?P<ipv4>[^\]]*)\] IPv6\[(?P<ipv6>[^\]]*)\](?: \([^)]*:\d+\))?$'
+    event_type: pdu_session.allocated
+    attributes:
+      core.dnn: dnn
+      core.ipv4: ipv4
+      core.ipv6: ipv6
+    correlation:
+      supi: supi
+
+  - name: pdu_session_removed
+    match: '^(?P<ts>\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}): \[smf\] INFO: Removed Session: UE IMSI:\[(?P<supi>[^\]]+)\] DNN:\[(?P<dnn>[^:\]]+):(?P<psi>\d+)\] IPv4:\[(?P<ipv4>[^\]]*)\] IPv6:\[(?P<ipv6>[^\]]*)\](?: \([^)]*:\d+\))?$'
+    event_type: pdu_session.removed
+    attributes:
+      core.dnn: dnn
+      core.pdu_session_id: {group: psi, type: int}
+      core.ipv4: ipv4
+      core.ipv6: ipv6
+    correlation:
+      supi: supi
+

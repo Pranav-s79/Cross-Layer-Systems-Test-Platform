@@ -79,18 +79,18 @@ lists any RV32I mnemonic the sweep never retired.
 ## Phase 4 · Wireless log analysis
 
 ### 4.1 · Declarative log parser · `lead` · `feature/log-profiles`
-- [ ] A `textlog` integration whose YAML log profile maps line regexes to
+- [x] A `textlog` integration whose YAML log profile maps line regexes to
   event types and attributes, with a timestamp format, a time zone, and
   per-source clock metadata (`confidence_metadata`). Unmatched lines are
   diagnostics, not crashes.
-- [ ] Multiple sources in one experiment (`inputs:` with a profile per input),
+- [x] Multiple sources in one experiment (`inputs:` with a profile per input),
   each event tagged with its source; contract tests for a two-source fixture.
 
 **Exit:** a two-source synthetic fixture normalizes with zero diagnostics
 and every event links to its raw line.
 
 ### 4.2 · 5G core and RAN logs · `lead` · `feature/5g-log-analysis`
-- [ ] Log profiles for Open5GS AMF/SMF and an OCUDU (srsRAN-derived) gNB.
+- [x] Log profiles for Open5GS AMF/SMF and an OCUDU (srsRAN-derived) gNB.
   Fixtures must be real captures with source and version recorded, or
   clearly labeled synthetic fixtures written from the documented format.
 - [ ] Join RAN and core events on NGAP UE id pairs; fall back to a recorded
