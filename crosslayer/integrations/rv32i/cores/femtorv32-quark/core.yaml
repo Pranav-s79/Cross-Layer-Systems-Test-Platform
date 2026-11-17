@@ -1,0 +1,97 @@
+# Core profile for FemtoRV32 Quark. See ../picorv32/core.yaml and
+# docs/rtl-verification.md. Quark has no RVFI port: the retirement monitor in
+# tb.v reads its internal state and the waveform is the trace.
+schema_version: 1
+name: femtorv32-quark
+description: Bruno Levy's FemtoRV32 Quark, a minimal multi-cycle RV32I core without RVFI
+isa: rv32i
+trace: [vcd-signals, commit-log]
+testbench: tb.v
+sources: [femtorv32_quark.v]
+defines: [BENCH]   # Quark's own simulation initializers (cycle counter, shifter, x0)
+clock_period_ns: 10
+provenance:
+  upstream: https://github.com/BrunoLevy/learn-fpga
+  path: FemtoRV/RTL/PROCESSOR/femtorv32_quark.v
+  commit: 0a97ede525c54e12f9ce5c425b0f84bc2b80bdc2
+  git_blob: 52705e57b8eedf37387a32284eb4996116610b1c
+  license: BSD-3-Clause
+  modifications: none
+
+signals:
+  clock: tb.clk
+  valid: tb.mon_valid
+  fields:
+    cyc: tb.mon_cyc
+    ord: tb.mon_order
+    pc: tb.mon_pc
+    insn: tb.mon_insn
+    rs1: tb.mon_rs1
+    rs1v: tb.mon_rs1v
+    rs2: tb.mon_rs2
+    rs2v: tb.mon_rs2v
+    rd: tb.mon_rd
+    rdv: tb.mon_rdv
+    npc: tb.mon_npc
+    maddr: tb.mon_maddr
+    wmask: tb.mon_wmask
+    wdata: tb.mon_wdata
+    trap: tb.mon_trap
+
+# The same six bugs as PicoRV32's mutants, written for Quark's RTL, so each
+# names the same reference-model fault.
+mutants:
+  bne_inverted:
+    description: BNE branches when its operands are equal.
+    target_subsystem: alu
+    target_interface: branch_decision
+    model_fault: bne_inverted
+    edits:
+      - file: femtorv32_quark.v
+        find: "funct3Is[1] & !EQ  | // BNE"
+        replace: "funct3Is[1] &  EQ  | // BNE"
+  sub_as_add:
+    description: SUB adds instead of subtracting.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: sub_as_add
+    edits:
+      - file: femtorv32_quark.v
+        find: "(funct3Is[0]  ? instr[30] & instr[5] ? aluMinus[31:0] : aluPlus : 32'b0) |"
+        replace: "(funct3Is[0]  ? aluPlus : 32'b0) |"
+  slt_unsigned:
+    description: Signed compares (SLT, SLTI, BLT, BGE) compare unsigned.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: slt_unsigned
+    edits:
+      - file: femtorv32_quark.v
+        find: "wire        LT  = (aluIn1[31] ^ aluIn2[31]) ? aluIn1[31] : aluMinus[32];"
+        replace: "wire        LT  = aluMinus[32];"
+  jal_imm_bit11:
+    description: The JAL target ignores bit 11 of the immediate.
+    target_subsystem: decoder
+    target_interface: jump_target
+    model_fault: jal_imm_bit11
+    edits:
+      - file: femtorv32_quark.v
+        find: "instr[3] ? Jimm[ADDR_WIDTH-1:0] :"
+        replace: "instr[3] ? (Jimm[ADDR_WIDTH-1:0] & ~32'h800) :"
+  regfile_wrong_rd:
+    description: Results are written to register rd^1 (as PicoRV32's TESTBUG_001).
+    target_subsystem: regfile
+    target_interface: writeback
+    model_fault: regfile_wrong_rd
+    edits:
+      - file: femtorv32_quark.v
+        find: "if (rdId != 0)\n         registerFile[rdId] <= writeBackData;"
+        replace: "if (rdId != 0 && rdId != 1)\n         registerFile[rdId ^ 5'd1] <= writeBackData;"
+  store_byte_lane:
+    description: SB always writes byte lane 0 of the word.
+    target_subsystem: lsu
+    target_interface: data_bus
+    model_fault: store_byte_lane
+    edits:
+      - file: femtorv32_quark.v
+        find: "(loadstore_addr[0] ? 4'b1000 : 4'b0100) :\n\t\t          (loadstore_addr[0] ? 4'b0010 : 4'b0001)"
+        replace: "(4'b0001) :\n\t\t          (4'b0001)"

@@ -77,11 +77,13 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   dependency order and expected verdicts.
 - **Contract tooling:** contract tests, a linter, JSON Schemas, versioning,
   and `crosslayer new adapter` scaffolding.
-- **RTL verification:** unmodified PicoRV32 under Icarus Verilog, declarative
-  core profiles (RTL, testbench, mutants in YAML), RVFI trace normalization, structural and lockstep contracts, seven injected faults,
-  optional VCD waveforms, and seeded random programs.
-- **Fault injection:** five faults in the reference pipeline and seven in the
-  RV32I integration, with clean baselines and explicit target labels.
+- **RTL verification:** two unmodified RV32I cores (PicoRV32, and FemtoRV32
+  Quark, which has no RVFI port) under Icarus Verilog; declarative core
+  profiles (RTL, testbench, mutants in YAML); RVFI, Spike commit-log, and
+  waveform (VCD) trace sources; structural and lockstep contracts; seven
+  injected faults per core; seeded random programs.
+- **Fault injection:** five faults in the reference pipeline and seven per RV32I
+  core, with clean baselines and explicit target labels.
 
 > The sensor pipeline is a deterministic simulation. The RV32I integration
 > runs a real processor RTL core in a simulator; it is not hardware-in-the-loop.

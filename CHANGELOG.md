@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a second RV32I core, FemtoRV32 Quark (BSD-3-Clause, no RVFI), verified through a testbench retirement monitor and its waveform, with six ported mutants and `experiments/rv32i-quark/`.
 - Add the `vcd-signals` RV32I trace source: retirements sampled from a streamed waveform through a profile signal map, so a core needs no trace printing.
 - Add the `commit-log` RV32I trace source (Spike `--log-commits` format), `parameters.trace`, and a `+commit_log` testbench mode; `lockstep_operands` and `cpi_budget` (version 2) are SKIPPED on traces without operand values or cycles.
 - Move RV32I trace parsing behind a `TraceSource` interface (`rv32i/traces/`) that yields typed records.

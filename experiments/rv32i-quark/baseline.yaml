@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: quark-baseline
+description: >
+  Unmodified FemtoRV32 Quark runs the self-test program; retirements come
+  from its waveform through the testbench monitor. All 10 contracts must pass.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: femtorv32-quark
+  program: selftest
+  max_cycles: 20000   # a clean run takes about 2,100 cycles (4,400 with wait states)

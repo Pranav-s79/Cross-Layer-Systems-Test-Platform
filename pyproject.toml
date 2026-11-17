@@ -27,7 +27,7 @@ include = ["crosslayer*"]
 
 [tool.setuptools.package-data]
 "crosslayer.integrations.sensor_pipeline" = ["*.yaml", "fixtures/*.jsonl"]
-"crosslayer.integrations.rv32i" = ["*.yaml", "cores/*/*.yaml", "cores/*/*.v", "cores/*/*.md", "programs/*.s"]
+"crosslayer.integrations.rv32i" = ["*.yaml", "cores/*/*.yaml", "cores/*/*.v", "cores/*/*.md", "cores/*/LICENSE", "programs/*.s"]
 "crosslayer.scaffold" = ["templates/*.tmpl"]
 
 [tool.pytest.ini_options]

@@ -28,8 +28,12 @@ SIMULATED_TRACES = ["rvfi", "commit-log", "vcd-signals"]
 UNTIMED_SKIPS = {"rv32i.lockstep_operands", "rv32i.cpi_budget"}
 
 
-def _picorv32_source(trace: str) -> TraceSource:
-    return sources()[trace].for_profile(load_profile("picorv32").signals)
+SECOND_CORE = "femtorv32-quark"
+"""A core with no RVFI port: a testbench monitor and its waveform are the trace."""
+
+
+def _configured_source(trace: str, core: str = "picorv32") -> TraceSource:
+    return sources()[trace].for_profile(load_profile(core).signals)
 
 
 def _context(tmp_path: Path, **parameters) -> RunContext:
@@ -127,9 +131,10 @@ def test_trace_must_be_one_the_selected_core_supports(tmp_path: Path):
         adapter.faults_for({"core": str(root), "trace": "commit-log"}, tmp_path)
 
 
-def _run(tmp_path: Path, trace: str, faults=()):
+def _run(tmp_path: Path, trace: str, faults=(), core: str = "picorv32"):
     doc = {"schema_version": 1, "name": f"trace-{trace}", "adapter": "rv32i", "seed": 1, "timeout_s": 120,
-           "parameters": {"program": "selftest", "trace": trace}, "faults": list(faults)}
+           "parameters": {"core": core, "program": "selftest", "trace": trace, "max_cycles": 20_000},
+           "faults": list(faults)}
     return ExperimentRunner(tmp_path / "runs").run(parse_experiment(doc, base_dir=tmp_path, source="test"))
 
 
@@ -139,14 +144,34 @@ def test_clean_core_passes_through_every_trace_source(tmp_path: Path, trace: str
     result = _run(tmp_path, trace)
     assert result.verdict is Verdict.PASS
     skipped = {r.contract.id for r in result.results if r.verdict is Verdict.SKIPPED}
-    assert skipped == (set() if _picorv32_source(trace).timed else UNTIMED_SKIPS)
+    assert skipped == (set() if _configured_source(trace).timed else UNTIMED_SKIPS)
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
 @pytest.mark.parametrize("trace", SIMULATED_TRACES)
 @pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
 def test_each_trace_source_finds_the_predicted_first_divergence(tmp_path: Path, trace: str, fault: str):
-    result = _run(tmp_path, trace, [fault])
+    _assert_predicted_first_divergence(_run(tmp_path, trace, [fault]), trace, fault)
+
+
+@pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
+@pytest.mark.parametrize("trace", ["vcd-signals", "commit-log"])
+def test_second_core_without_rvfi_passes_through_its_trace_sources(tmp_path: Path, trace: str):
+    result = _run(tmp_path, trace, core=SECOND_CORE)
+    assert result.verdict is Verdict.PASS
+    assert result.manifest["build"]["core"]["name"] == SECOND_CORE
+    skipped = {r.contract.id for r in result.results if r.verdict is Verdict.SKIPPED}
+    assert skipped == (set() if _configured_source(trace, SECOND_CORE).timed else UNTIMED_SKIPS)
+
+
+@pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
+@pytest.mark.parametrize("trace", ["vcd-signals", "commit-log"])
+@pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
+def test_second_core_mutants_first_diverge_where_the_model_predicts(tmp_path: Path, trace: str, fault: str):
+    _assert_predicted_first_divergence(_run(tmp_path, trace, [fault], core=SECOND_CORE), trace, fault, SECOND_CORE)
+
+
+def _assert_predicted_first_divergence(result, trace: str, fault: str, core: str = "picorv32") -> None:
     assert result.verdict is Verdict.FAIL
     events = read_events_jsonl(result.bundle_dir / "normalized_events.jsonl")
     fields = ("pc", "insn", "rs1_val", "rs2_val", "rd", "rd_val", "next_pc", "mem_addr", "mem_wmask", "mem_wdata", "trap")
@@ -156,7 +181,7 @@ def test_each_trace_source_finds_the_predicted_first_divergence(tmp_path: Path, 
             f"rv.{f}" in e.attributes and e.attributes[f"rv.{f}"] != e.attributes[f"rv.ref_{f}"] for f in fields)
     )
     image = assemble(SELFTEST).image()
-    observed = [f for f in fields if _picorv32_source(trace).operands or f not in ("rs1_val", "rs2_val")]
+    observed = [f for f in fields if _configured_source(trace, core).operands or f not in ("rs1_val", "rs2_val")]
     clean, faulty = Model(image).run().retires, Model(image, faults={fault}).run().retires
     assert first == first_divergence(clean, faulty, observed)
 

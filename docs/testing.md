@@ -75,7 +75,8 @@ and a copied profile with a new mutant runs end to end (clean PASS, mutant
 FAIL) without Python changes.
 
 `test_rv32i_traces.py` runs the clean core and every mutant through each
-trace source. Each source must pass the clean run (skipping only contracts
+trace source, on both PicoRV32 and FemtoRV32 Quark (which has no RVFI port).
+Each source must pass the clean run (skipping only contracts
 whose fields it lacks) and first fail at the instruction the model predicts
 from the fields that source observes. Parser cases cover byte-lane
 reconstruction, malformed lines, VCD edge sampling, and unknown (x/z) or
