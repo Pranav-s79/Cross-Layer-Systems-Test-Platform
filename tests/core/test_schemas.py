@@ -36,11 +36,20 @@ def test_schema_is_valid_and_checked_in_copy_is_current(name):
     )
 
 
+def _kind(path: Path) -> str:
+    """Tell files under experiments/ apart by their top-level keys, as `crosslayer check` does."""
+    doc = load(path)
+    if "experiments" in doc:
+        return "suite"
+    if "cases" in doc:
+        return "contract-tests"
+    return "experiment" if "seed" in doc or "adapter" in doc else "contracts"
+
+
 def _repo_files():
     yield from (("contracts", p) for p in ROOT.glob("crosslayer/integrations/*/contracts.yaml"))
     yield from (("contract-tests", p) for p in ROOT.glob("crosslayer/integrations/*/contract_tests.yaml"))
-    yield from (("experiment", p) for p in ROOT.glob("experiments/**/*.yaml") if "suite" not in p.name)
-    yield from (("suite", p) for p in ROOT.glob("experiments/**/suite*.yaml"))
+    yield from ((_kind(p), p) for p in ROOT.glob("experiments/**/*.yaml"))
 
 
 @pytest.mark.parametrize("name, path", list(_repo_files()), ids=lambda x: getattr(x, "name", x))

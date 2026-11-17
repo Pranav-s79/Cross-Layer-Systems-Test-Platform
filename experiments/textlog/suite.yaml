@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/suite.schema.json
+schema_version: 1
+name: textlog
+description: >
+  SYNTHETIC two-source log fixture. The baseline must pass; the slow-reply
+  variant must then fail. The variant depends on the baseline: if the clean
+  logs fail, a detected slow reply proves nothing.
+experiments:
+  - id: baseline
+    path: baseline.yaml
+  - id: slow_reply
+    path: slow_reply.yaml
+    expect: fail
+    depends_on: [baseline]

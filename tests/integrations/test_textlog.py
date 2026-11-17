@@ -1,8 +1,10 @@
-"""textlog: declarative log profiles and multi-source normalization."""
+"""textlog: declarative log profiles, multi-source normalization, and the
+SYNTHETIC two-source example in experiments/textlog/."""
 
 from __future__ import annotations
 
 import datetime as dt
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -11,8 +13,11 @@ from typing import Any, Callable
 import pytest
 import yaml
 
-from crosslayer.core.adapters import RunContext, check_adapter_conformance
+from crosslayer.core.adapters import RunContext, check_adapter_conformance, check_events_against_catalog
 from crosslayer.core.errors import ConfigError
+from crosslayer.core.orchestrator import ExperimentRunner, load_experiment, parse_experiment
+from crosslayer.core.telemetry import read_events_jsonl
+from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.textlog import TextLogAdapter
 from crosslayer.integrations.textlog.profile import (
     PROFILES_DIR,
@@ -21,6 +26,8 @@ from crosslayer.integrations.textlog.profile import (
     load_profile,
 )
 
+EXPERIMENTS = Path(__file__).resolve().parents[2] / "experiments" / "textlog"
+CONTRACTS = {"demo.request_answered", "demo.request_flow", "demo.server_status_ok"}
 UTC = dt.timezone.utc
 
 
@@ -71,6 +78,13 @@ def _normalize(tmp_path: Path, sources: list[dict[str, Any]], files: dict[str, b
     ctx = RunContext(run_id="t", seed=0, parameters=params, faults=(), raw_dir=raw, work_dir=tmp_path,
                      base_dir=base, timeout_s=10, inputs=tuple((base / s["input"]).resolve() for s in sources))
     return adapter.normalize(ctx, adapter.collect(ctx, None))
+
+
+@pytest.fixture(scope="module")
+def runs(tmp_path_factory):
+    out = tmp_path_factory.mktemp("runs")
+    runner = ExperimentRunner(out)
+    return {name: runner.run(load_experiment(EXPERIMENTS / f"{name}.yaml")) for name in ("baseline", "slow_reply")}
 
 
 # -- adapter -----------------------------------------------------------------------------
@@ -242,6 +256,33 @@ def test_invalid_sources_name_the_offending_field(tmp_path, parameters, match):
         adapter.faults_for(parameters, tmp_path)
 
 
+def test_plan_rejects_bad_sources_before_any_bundle_exists(tmp_path):
+    doc = yaml.safe_load((EXPERIMENTS / "baseline.yaml").read_text(encoding="utf-8"))
+    doc["parameters"]["sources"][1]["profile"] = "synthetic_sever"
+    config = parse_experiment(doc, base_dir=EXPERIMENTS, source="test")
+    with pytest.raises(ConfigError, match=r"parameters\.sources\[1\]\.profile: unknown profile 'synthetic_sever'"):
+        ExperimentRunner(tmp_path / "runs").run(config)
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize(
+    "inputs, sources, message",
+    [
+        (["logs/client.log", "logs/server.log"], [0], r"input 'server\.log' has no entry in parameters\.sources"),
+        (["logs/client.log"], [0, 1], r"parameters\.sources\[1\]\.input: 'logs/server\.log' is not listed in inputs"),
+    ],
+)
+def test_every_input_needs_exactly_one_source(tmp_path, inputs, sources, message):
+    doc = yaml.safe_load((EXPERIMENTS / "baseline.yaml").read_text(encoding="utf-8"))
+    doc["inputs"] = inputs
+    doc["parameters"]["sources"] = [doc["parameters"]["sources"][i] for i in sources]
+    result = ExperimentRunner(tmp_path).run(parse_experiment(doc, base_dir=EXPERIMENTS, source="test"))
+    assert result.verdict is Verdict.ERROR
+    [error] = result.manifest["errors"]
+    assert error["stage"] == "collect"
+    assert re.search(message, error["message"])
+
+
 # -- timestamps --------------------------------------------------------------------------
 
 
@@ -351,3 +392,95 @@ def test_unmatched_lines_are_diagnostics_unless_ignored(tmp_path, unmatched, dia
     assert "not valid UTF-8" in result.diagnostics[-1].message and result.diagnostics[-1].line == 5
     [stats] = result.stats["sources"]
     assert (stats["lines"], stats["blank"], stats["skipped"], stats["unmatched"]) == (6, 1, 1, 1)
+
+
+# -- the synthetic two-source example ----------------------------------------------------
+
+
+def test_two_source_fixture_normalizes_with_zero_diagnostics(runs):
+    result = runs["baseline"]
+    assert result.manifest["events"]["parse_diagnostics"] == 0
+    assert result.manifest["events"]["count"] == 24
+    events = read_events_jsonl(result.bundle_dir / "normalized_events.jsonl")
+    assert {e.source_system for e in events} == {"synthetic-client", "synthetic-server"}
+    assert check_events_against_catalog(events, TextLogAdapter().event_catalog()) == []
+
+
+def test_every_event_links_to_its_raw_line(runs):
+    for result in runs.values():
+        events = read_events_jsonl(result.bundle_dir / "normalized_events.jsonl")
+        assert events
+        for event in events:
+            name, _, line = event.event_id.rpartition(":")
+            assert event.raw_artifact_ref == f"raw_artifacts/{name}#L{line}"
+            raw = (result.bundle_dir / "raw_artifacts" / name).read_text(encoding="utf-8").splitlines()[int(line) - 1]
+            profile = load_profile(event.attributes["log.source"])
+            assert name.startswith(profile.name.removeprefix("synthetic_"))
+            parsed = profile.match(raw)
+            assert parsed is not None and not isinstance(parsed, str)
+            assert parsed.rule.event_type == event.event_type
+
+
+def test_events_from_both_sources_are_ordered_on_one_clock(runs):
+    events = read_events_jsonl(runs["baseline"].bundle_dir / "normalized_events.jsonl")
+    assert [e.timestamp_ns for e in events] == sorted(e.timestamp_ns for e in events)
+    flow = [(e.subsystem, e.event_type) for e in events if e.correlation_ids.get("request") == "1001"]
+    assert flow == [("client", "request.sent"), ("server", "request.received"),
+                    ("server", "response.sent"), ("client", "response.received")]
+    by_id = {e.event_id: e for e in events}
+    # server.log line 5 reads "Nov 17 10:00:00.370" local (UTC+01:00) on a clock 250 ms ahead
+    assert by_id["server.log:5"].timestamp_ns == _ns(2026, 11, 17, 9, 0, 0, us=120_000)
+    assert by_id["server.log:5"].confidence_metadata["assumed_year"] == 2026
+    assert events[0].event_id == "server.log:3"  # the server started before the client session
+
+
+def test_baseline_passes_and_slow_reply_fails_its_target_contract(runs):
+    baseline = runs["baseline"]
+    assert baseline.verdict is Verdict.PASS
+    assert {r.contract.id: r.verdict for r in baseline.results} == dict.fromkeys(CONTRACTS, Verdict.PASS)
+
+    slow = runs["slow_reply"]
+    assert slow.verdict is Verdict.FAIL
+    assert {r.contract.id for r in slow.results if r.verdict is Verdict.FAIL} == {"demo.request_answered"}
+    [answered] = [r for r in slow.results if r.contract.id == "demo.request_answered"]
+    [finding] = answered.findings
+    refs = [ref.raw_artifact_ref for ref in finding.evidence]
+    assert "raw_artifacts/client_slow_reply.log#L8" in refs
+    for ref in refs:
+        path, _, line = ref.partition("#L")
+        assert "1003" in (slow.bundle_dir / path).read_text(encoding="utf-8").splitlines()[int(line) - 1]
+
+
+def test_without_the_clock_offset_the_cross_source_contracts_fail(tmp_path):
+    doc = yaml.safe_load((EXPERIMENTS / "baseline.yaml").read_text(encoding="utf-8"))
+    del doc["parameters"]["sources"][1]["offset_ms"]
+    result = ExperimentRunner(tmp_path).run(parse_experiment(doc, base_dir=EXPERIMENTS, source="test"))
+    by_id = {r.contract.id: r for r in result.results}
+    assert by_id["demo.request_answered"].verdict is Verdict.FAIL
+    assert by_id["demo.request_answered"].stats["violations"] == 5
+    assert by_id["demo.request_flow"].verdict is Verdict.FAIL
+    assert by_id["demo.server_status_ok"].verdict is Verdict.PASS
+
+
+def test_replay_reproduces_the_bundle(runs, tmp_path):
+    original = runs["baseline"]
+    replay = ExperimentRunner(tmp_path).run(load_experiment(original.bundle_dir / "configuration.yaml"))
+    assert replay.manifest["config_hash"] == original.manifest["config_hash"]
+    assert replay.manifest["events"]["fingerprint"] == original.manifest["events"]["fingerprint"]
+
+
+def test_example_experiments_have_no_lint_errors_or_warnings():
+    from crosslayer.core.contracts.lint import LintLevel
+    from crosslayer.core.orchestrator.lint import lint_experiment
+
+    for name in ("baseline", "slow_reply"):
+        findings = lint_experiment(load_experiment(EXPERIMENTS / f"{name}.yaml"))
+        assert [f for f in findings if f.level is not LintLevel.INFO] == [], name
+
+
+def test_contract_tests_pass_with_full_coverage():
+    from crosslayer.core.contracts.testing import run_contract_tests
+
+    report = run_contract_tests(EXPERIMENTS / "contract_tests.yaml")
+    assert report.passed, [r.problems for r in report.results if not r.passed]
+    assert report.uncovered() == []

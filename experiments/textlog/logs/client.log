@@ -1,0 +1,14 @@
+# SYNTHETIC log, hand-written for the CrossLayer textlog example. Not captured from any real system.
+# The client clock is the reference clock (UTC). Each request is answered by the server in server.log.
+2026-11-17T09:00:00.000Z INFO session start client=web-7 build=0x1f3a
+2026-11-17T09:00:00.100Z INFO send req=1001 op=get bytes=120
+2026-11-17T09:00:00.122Z INFO recv req=1001 status=200 rtt_ms=22.0
+2026-11-17T09:00:00.300Z INFO send req=1002 op=put bytes=2048
+2026-11-17T09:00:00.345Z INFO recv req=1002 status=201 rtt_ms=45.0
+2026-11-17T09:00:00.500Z INFO send req=1003 op=get bytes=96
+2026-11-17T09:00:00.519Z INFO recv req=1003 status=200 rtt_ms=19.0
+2026-11-17T09:00:00.700Z INFO send req=1004 op=delete bytes=64
+2026-11-17T09:00:00.726Z INFO recv req=1004 status=204 rtt_ms=26.0
+2026-11-17T09:00:00.900Z INFO send req=1005 op=get bytes=128
+2026-11-17T09:00:00.921Z INFO recv req=1005 status=200 rtt_ms=21.0
+2026-11-17T09:00:01.200Z INFO session end sent=5
