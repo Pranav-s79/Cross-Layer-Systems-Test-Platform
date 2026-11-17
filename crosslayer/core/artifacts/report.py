@@ -22,10 +22,26 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|").replace("\n", " ")
 
 
+def coverage_bins(stats: Any) -> dict[str, dict[str, int]] | None:
+    """``stats["coverage"]`` if it has the bin shape ``{group: {bin: hits}}``, else None.
+
+    Adapters report coverage this way in their normalization stats, listing
+    bins with zero hits too, so reports can show what was never exercised.
+    """
+    coverage = stats.get("coverage") if isinstance(stats, dict) else None
+    if not isinstance(coverage, dict) or not coverage or not all(
+        isinstance(bins, dict) and all(isinstance(n, int) and not isinstance(n, bool) for n in bins.values())
+        for bins in coverage.values()
+    ):
+        return None
+    return {str(g): {str(b): int(n) for b, n in bins.items()} for g, bins in coverage.items()}
+
+
 def render_markdown(
     manifest: dict[str, Any],
     results: Sequence[ContractResult],
     timings: dict[str, float] | None = None,
+    coverage: dict[str, dict[str, int]] | None = None,
 ) -> str:
     exp = manifest["experiment"]
     adapter = manifest["adapter"]
@@ -117,6 +133,15 @@ def render_markdown(
         out.append("## Inconclusive\n")
         for r in inconclusive:
             out.append(f"- `{r.contract.id}`: {r.summary}")
+        out.append("")
+
+    if coverage:
+        out.append("## Coverage\n")
+        out.append("| Group | Bins hit | Never hit |")
+        out.append("|---|---|---|")
+        for group, bins in coverage.items():
+            never = [b for b, n in bins.items() if n == 0]
+            out.append(f"| {group} | {len(bins) - len(never)}/{len(bins)} | {_cell(', '.join(never)) or '-'} |")
         out.append("")
 
     if timings:

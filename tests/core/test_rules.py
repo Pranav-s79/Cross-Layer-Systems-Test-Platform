@@ -396,3 +396,60 @@ def test_percentile_rank_matches_exact_rational_definition():
             values = list(range(1, n + 1))
             exact_rank = max(1, math.ceil(Fraction(pct * n, 100)))
             assert nearest_rank_percentile(values, pct) == exact_rank
+
+
+# -- coverage --------------------------------------------------------------------
+
+
+def _ops(*values):
+    return [ev("cpu.retire", i, attrs={"app.op": v}) for i, v in enumerate(values)]
+
+
+def test_coverage_passes_when_every_bin_is_hit():
+    r = rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", bins=["add", "sub"])
+    out = r.evaluate(_ops("add", "sub", "add", "xor"))
+    assert out.verdict is Verdict.PASS
+    assert out.stats["covered"] == 2 and out.summary == "2/2 bins of app.op hit"
+
+
+def test_coverage_names_each_bin_never_hit():
+    r = rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", bins=["add", "sub", "ecall"])
+    out = r.evaluate(_ops("add", "add"))
+    assert out.verdict is Verdict.FAIL
+    assert out.stats["unmet"] == ["sub", "ecall"]
+    assert [f.kind for f in out.findings] == [FindingKind.VIOLATION, FindingKind.VIOLATION]
+    assert "'ecall' observed 0 times" in out.findings[1].message and not out.findings[1].evidence
+    assert "missing: sub, ecall" in out.summary
+
+
+def test_coverage_min_hits_and_numeric_bins():
+    r = rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", bins=[0, 1], min_hits=2)
+    out = r.evaluate(_ops(0, 0, 1))
+    assert out.verdict is Verdict.FAIL and out.stats["unmet"] == ["1"]
+    assert len(out.findings[0].evidence) == 1  # the one hit it did see
+
+
+def test_coverage_is_unresolved_when_events_lack_the_attribute():
+    r = rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", bins=["add", "sub"])
+    out = r.evaluate(_ops("add") + [ev("cpu.retire", 9)])
+    assert out.verdict is Verdict.INCONCLUSIVE
+    assert out.findings[0].kind is FindingKind.UNRESOLVED
+
+
+def test_coverage_with_nothing_selected_is_inconclusive():
+    r = rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", bins=["add"])
+    assert r.evaluate([ev("other", 1)]).verdict is Verdict.INCONCLUSIVE
+
+
+@pytest.mark.parametrize(
+    "raw, match",
+    [
+        ({"bins": []}, "non-empty list"),
+        ({"bins": ["a", "a"]}, "repeat"),
+        ({"bins": [True]}, "strings or numbers"),
+        ({"bins": ["a"], "min_hits": 0}, "min_hits"),
+    ],
+)
+def test_coverage_rejects_bad_configuration(raw, match):
+    with pytest.raises(ConfigError, match=match):
+        rule(kind="coverage", select={"event_type": "cpu.retire"}, attribute="app.op", **raw)

@@ -104,6 +104,10 @@ experiments:
     path: fault_silent_drop.yaml
     expect: fail                   # default: pass
     depends_on: [baseline]
+  - id: random_programs
+    path: random_programs.yaml
+    seeds: {count: 20}             # or a list: [1, 2, 3]
+    depends_on: [baseline]
 ```
 
 ```sh
@@ -116,6 +120,13 @@ crosslayer suite experiments/reference/suite.yaml --out runs
 * Order is a topological sort; ties go to file order. Cycles are rejected
   with the cycle named (`a -> b -> c -> a`).
 * Every experiment is validated before any runs.
+* `seeds` makes an entry a **sweep**: one run per seed, ids `<id>@<seed>`
+  (at most 1,000 seeds), each of which must meet `expect`. Depending on a
+  sweep means every seed of it, except between two sweeps over the same
+  seeds, where seed *n* depends only on seed *n*. If runs report coverage
+  bins (`stats.coverage` in `normalization.json`, `{group: {bin: hits}}`
+  with zero-hit bins listed), the report sums them per sweep and lists the
+  bins no seed hit; `summary.json` has the totals under `sweeps`.
 * `--fail-fast` stops after the first experiment that misses its expectation.
   The rest are marked `skipped` (not run) in the summary, report and JUnit.
 * Output: `runs/suite-<name>-<time>/` with `summary.json`, `report.md`,

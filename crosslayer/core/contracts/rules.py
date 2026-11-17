@@ -675,6 +675,84 @@ class ThresholdRule(Rule):
         )
 
 
+# -- coverage --------------------------------------------------------------------
+
+
+@register_rule
+class CoverageRule(Rule):
+    """Every listed value (bin) of an attribute must be observed at least ``min_hits`` times.
+
+    Functional-coverage closure as a contract: for example, every RV32I
+    mnemonic retires at least once. A missing bin is a violation with no
+    evidence events (what was never seen leaves none); the finding names the
+    bin. If some selected events lack the attribute, an unmet bin is
+    unresolved instead, since those events might have hit it.
+    """
+
+    kind = "coverage"
+
+    def selectors(self) -> dict[str, Selector]:
+        return {"select": self.select}
+
+    def requirements(self) -> list[tuple[str, str, str]]:
+        return [("select", "attributes", self.attribute)]
+
+    def __init__(self, select: Selector, attribute: str, bins: tuple[Any, ...], min_hits: int) -> None:
+        self.select = select
+        self.attribute = attribute
+        self.bins = bins
+        self.min_hits = min_hits
+
+    @classmethod
+    def parse(cls, raw: Mapping[str, Any], location: str) -> "CoverageRule":
+        _check_keys(raw, {"select", "attribute", "bins"}, {"min_hits"}, location)
+        attribute = _str(raw, "attribute", location)
+        bins = raw["bins"]
+        if (not isinstance(bins, list) or not bins
+                or not all(isinstance(b, (str, int, float)) and not isinstance(b, bool) for b in bins)):
+            raise ConfigError("must be a non-empty list of strings or numbers", location=f"{location}.bins")
+        if len(set(bins)) != len(bins):
+            raise ConfigError("must not repeat a bin", location=f"{location}.bins")
+        assert attribute is not None
+        return cls(parse_selector(raw["select"], f"{location}.select"), attribute, tuple(bins),
+                   _int(raw, "min_hits", location, 1, minimum=1) or 1)
+
+    def evaluate(self, events: Sequence[NormalizedEvent]) -> RuleOutcome:
+        selected = _select(self.select, events)
+        if not selected:
+            return _insufficient(0, 1, "matching events", {"bins": len(self.bins)})
+        hits = dict.fromkeys(self.bins, 0)
+        first: dict[Any, NormalizedEvent] = {}
+        missing = 0
+        for e in selected:
+            if self.attribute not in e.attributes:
+                missing += 1
+                continue
+            value = e.attributes[self.attribute]
+            if value in hits:
+                hits[value] += 1
+                first.setdefault(value, e)
+        unmet = [b for b in self.bins if hits[b] < self.min_hits]
+        f = FindingCollector()
+        end = selected[-1].timestamp_ns
+        for b in unmet:
+            message = f"{self.attribute} = {b!r} observed {hits[b]} times (need >= {self.min_hits})"
+            evidence = [first[b]] if b in first else []
+            if missing:
+                f.unresolved(f"{message}, but {missing} matching events lacked the attribute", evidence)
+            else:
+                f.violation(message, evidence, at_ns=end, observed=hits[b])
+        covered = len(self.bins) - len(unmet)
+        listed = ", ".join(map(str, unmet[:10])) + (" ..." if len(unmet) > 10 else "")
+        return RuleOutcome(
+            verdict=f.verdict(),
+            summary=f"{covered}/{len(self.bins)} bins of {self.attribute} hit" + (f" (missing: {listed})" if unmet else ""),
+            findings=f.findings,
+            stats={"bins": len(self.bins), "covered": covered, "unmet": [str(b) for b in unmet],
+                   "missing_samples": missing, "violations": f.violations},
+        )
+
+
 # -- invariant -------------------------------------------------------------------
 
 
