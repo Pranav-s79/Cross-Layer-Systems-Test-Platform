@@ -17,14 +17,19 @@ from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.rv32i.adapter import Rv32iAdapter
 from crosslayer.integrations.rv32i.asm import assemble
 from crosslayer.integrations.rv32i.iss import MODEL_FAULTS, OUT_ADDR, Model, ModelRun, first_divergence
-from crosslayer.integrations.rv32i.traces import Record, sources
+from crosslayer.integrations.rv32i.profile import load_profile
+from crosslayer.integrations.rv32i.traces import Record, TraceSource, sources
 from crosslayer.integrations.rv32i.traces.commitlog import CommitLogSource
 
 PACKAGE = Path(__file__).resolve().parents[2] / "crosslayer" / "integrations" / "rv32i"
 SELFTEST = (PACKAGE / "programs" / "selftest.s").read_text(encoding="utf-8")
 HAS_ICARUS = shutil.which("iverilog") is not None and shutil.which("vvp") is not None
-SIMULATED_TRACES = ["rvfi", "commit-log"]
+SIMULATED_TRACES = ["rvfi", "commit-log", "vcd-signals"]
 UNTIMED_SKIPS = {"rv32i.lockstep_operands", "rv32i.cpi_budget"}
+
+
+def _picorv32_source(trace: str) -> TraceSource:
+    return sources()[trace].for_profile(load_profile("picorv32").signals)
 
 
 def _context(tmp_path: Path, **parameters) -> RunContext:
@@ -117,7 +122,7 @@ def test_trace_must_be_one_the_selected_core_supports(tmp_path: Path):
     root = tmp_path / "rvfi_only"
     shutil.copytree(PACKAGE / "cores" / "picorv32", root)
     profile = (root / "core.yaml").read_text(encoding="utf-8")
-    (root / "core.yaml").write_text(profile.replace("trace: [rvfi, commit-log]", "trace: rvfi"), encoding="utf-8")
+    (root / "core.yaml").write_text(profile.replace("trace: [rvfi, commit-log, vcd-signals]", "trace: rvfi"), encoding="utf-8")
     with pytest.raises(ConfigError, match="supports traces \\['rvfi'\\]"):
         adapter.faults_for({"core": str(root), "trace": "commit-log"}, tmp_path)
 
@@ -134,7 +139,7 @@ def test_clean_core_passes_through_every_trace_source(tmp_path: Path, trace: str
     result = _run(tmp_path, trace)
     assert result.verdict is Verdict.PASS
     skipped = {r.contract.id for r in result.results if r.verdict is Verdict.SKIPPED}
-    assert skipped == (set() if sources()[trace].timed else UNTIMED_SKIPS)
+    assert skipped == (set() if _picorv32_source(trace).timed else UNTIMED_SKIPS)
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
@@ -151,6 +156,51 @@ def test_each_trace_source_finds_the_predicted_first_divergence(tmp_path: Path, 
             f"rv.{f}" in e.attributes and e.attributes[f"rv.{f}"] != e.attributes[f"rv.ref_{f}"] for f in fields)
     )
     image = assemble(SELFTEST).image()
-    observed = [f for f in fields if sources()[trace].operands or f not in ("rs1_val", "rs2_val")]
+    observed = [f for f in fields if _picorv32_source(trace).operands or f not in ("rs1_val", "rs2_val")]
     clean, faulty = Model(image).run().retires, Model(image, faults={fault}).run().retires
     assert first == first_divergence(clean, faulty, observed)
+
+
+VCD_HEADER = """$timescale 1ns $end
+$scope module tb $end
+$var reg 1 ! clk $end
+$var integer 32 " cycle $end
+$scope module uut $end
+$var wire 1 # valid $end
+$var wire 32 $ pc [31:0] $end
+$var wire 32 % insn [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+"""
+SIGNALS = {"clock": "tb.clk", "valid": "tb.uut.valid",
+           "fields": {"cyc": "tb.cycle", "pc": "tb.uut.pc", "insn": "tb.uut.insn"}}
+
+
+def _vcd(tmp_path: Path, body: str) -> list:
+    from crosslayer.integrations.rv32i.traces.vcd import WAVEFORM, VcdSignalsSource
+
+    (tmp_path / WAVEFORM).write_text(VCD_HEADER + body, encoding="utf-8")
+    (tmp_path / "trace.log").write_text("BOOT max_cycles=10 wait_states=0\nHALT cyc=3 retired=1\n", encoding="utf-8")
+    return list(VcdSignalsSource().for_profile(SIGNALS).parse(tmp_path, lambda pc: 0))
+
+
+def test_vcd_samples_the_values_in_effect_just_before_each_rising_edge(tmp_path: Path):
+    # The edge at #10 captures valid=1, pc=4 (set at #5); the changes made AT #10
+    # (pc=8, valid=0) belong to the next cycle, as for a flip-flop.
+    items = _vcd(tmp_path, "#0\n$dumpvars\n0!\nb0 \"\n0#\nb0 $\nb10011 %\n$end\n"
+                           "#5\n1#\nb100 $\nb1 \"\n#10\n1!\nb1000 $\n0#\nb10 \"\n#15\n0!\n#20\n1!\n")
+    retires = [i for i in items if isinstance(i, Record) and i.kind == "retire"]
+    assert [(r.fields["pc"], r.fields["insn"], r.fields["cyc"], r.line) for r in retires] == [(4, 0b10011, 1, 24)]  # line 24 is the "#10" edge
+    assert [i.kind for i in items if isinstance(i, Record)] == ["boot", "retire", "halt"]
+
+
+def test_vcd_reports_unknown_values_and_missing_signals(tmp_path: Path):
+    [unknown] = [i for i in _vcd(tmp_path, "#0\n0!\nb0 \"\n1#\nbx $\nb1 %\n#10\n1!\n") if not isinstance(i, Record)]
+    assert "tb.uut.pc is unknown" in unknown.message
+    from crosslayer.integrations.rv32i.traces.vcd import VcdSignalsSource
+
+    (tmp_path / "waveform.vcd").write_text(VCD_HEADER, encoding="utf-8")
+    missing = VcdSignalsSource().for_profile({**SIGNALS, "valid": "tb.uut.nope"})
+    [problem] = [i for i in missing.parse(tmp_path, lambda pc: 0) if not isinstance(i, Record)]
+    assert "signals not in the waveform: ['tb.uut.nope']" in problem.message

@@ -231,7 +231,7 @@ class Rv32iAdapter(SystemAdapter):
         return _load(self._param(ctx, "core"), ctx.base_dir)
 
     def _source(self, ctx: RunContext, profile: CoreProfile) -> TraceSource:
-        return sources()[_trace_name(profile, self._param(ctx, "trace"))]
+        return sources()[_trace_name(profile, self._param(ctx, "trace"))].for_profile(profile.signals)
 
     def _program_path(self, ctx: RunContext) -> Path:
         program = self._param(ctx, "program")
@@ -380,6 +380,10 @@ class Rv32iAdapter(SystemAdapter):
         wave = ctx.work_dir / WAVE_NAME
         if wave.is_file():
             shutil.move(str(wave), ctx.raw_dir / WAVE_NAME)
+        needed = self._source(ctx, self._profile(ctx)).artifacts
+        for name in needed:
+            if not (ctx.raw_dir / name).is_file():
+                raise AdapterError(f"trace source needs {name}, which was not produced")
             optional.append((WAVE_NAME, "text/plain", "waveform (VCD) of the testbench and core top level"))
         for name, media_type, description in optional:
             path = ctx.raw_dir / name

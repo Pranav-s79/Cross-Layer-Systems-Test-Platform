@@ -43,3 +43,10 @@ experiments:
     path: commit_log_regfile_wrong_rd.yaml
     expect: fail
     depends_on: [commit_log_baseline]
+  - id: vcd_baseline
+    path: vcd_baseline.yaml
+    depends_on: [baseline]
+  - id: vcd_mem_wait_states
+    path: vcd_mem_wait_states.yaml
+    expect: fail
+    depends_on: [vcd_baseline]

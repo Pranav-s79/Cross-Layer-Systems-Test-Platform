@@ -12,6 +12,7 @@
 //   +wait_states=N     extra cycles before memory answers (default 0)
 //   +vcd=FILE          write a waveform of the testbench and core top level
 //   +commit_log        print Spike-style commit lines instead of RET lines
+//   +no_retire_lines   print no retirement lines (the waveform is the trace)
 //
 // Output lines (parsed by crosslayer/integrations/rv32i/adapter.py):
 //   BOOT    max_cycles=.. wait_states=..
@@ -39,7 +40,7 @@ module tb;
 	reg [1023:0] hex_file;
 	reg [1023:0] vcd_file;
 	integer max_cycles, wait_states, wait_count, cycle, retired, words, i, shift;
-	reg halting, commit_log;
+	reg halting, commit_log, retire_lines;
 	reg [3:0] lanes;
 	reg [31:0] data;
 
@@ -85,6 +86,7 @@ module tb;
 		if (!$value$plusargs("wait_states=%d", wait_states)) wait_states = 0;
 		if (!$value$plusargs("words=%d", words)) words = MEM_WORDS;
 		commit_log = $test$plusargs("commit_log");
+		retire_lines = !$test$plusargs("no_retire_lines");
 		if ($value$plusargs("vcd=%s", vcd_file)) begin
 			$dumpfile(vcd_file);
 			$dumpvars(1, tb);
@@ -160,7 +162,8 @@ module tb;
 			cycle <= cycle + 1;
 			if (rvfi_valid && !halting) begin
 				retired = retired + 1;
-				if (commit_log) print_commit;
+				if (!retire_lines) ;
+				else if (commit_log) print_commit;
 				else $display("RET cyc=%0d ord=%0d pc=%08x insn=%08x rs1=%0d rs1v=%08x rs2=%0d rs2v=%08x rd=%0d rdv=%08x npc=%08x maddr=%08x wmask=%x wdata=%08x trap=%0d",
 					cycle, rvfi_order, rvfi_pc_rdata, rvfi_insn,
 					rvfi_rs1_addr, rvfi_rs1_rdata, rvfi_rs2_addr, rvfi_rs2_rdata,

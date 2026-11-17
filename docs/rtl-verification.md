@@ -62,7 +62,7 @@ preserves and indexes:
 | `program.lst` | Address and machine word mapped to the source line |
 | `rtl.diff` | Exact run-local RTL edit for an injected mutant |
 | `process.json` | Simulator command, exit status, and duration |
-| `waveform.vcd` | Optional top-level and core waveform |
+| `waveform.vcd` | Top-level and core waveform (optional; always written for `vcd-signals`) |
 
 Each normalized `cpu.retire` event includes the observed RVFI fields, the
 reference model's fields at the same retirement order, the decoded operation,
@@ -81,6 +81,15 @@ is the default); `parameters.trace` selects one.
 |---|---|---|---|---|
 | `rvfi` | `RET` lines from the RVFI port | yes | yes | none |
 | `commit-log` | Spike `--log-commits` lines (`+commit_log` in `tb.v`) | no | no | byte lanes and store data from the width and byte address; next PC from the next line; an exception's instruction from the program image |
+| `vcd-signals` | The waveform, through the profile's `signals` map; the testbench prints no retirement lines | if `cyc` is mapped | if `rs1v` and `rs2v` are mapped | none; unmapped fields are absent |
+
+`vcd-signals` needs no trace printing in the RTL or testbench, only a waveform
+dump. At each rising edge of `signals.clock` the reader takes the values in
+effect just before the edge, as a flip-flop would; if `signals.valid` is 1,
+`signals.fields` (RVFI field name to dotted signal name) form one retirement,
+whose evidence points at the edge's `#time` line in `waveform.vcd`. The reader
+streams the file, so memory does not grow with simulation length. Markers
+still come from `trace.log`; both are merged by cycle.
 
 Contracts that need a field a format lacks are SKIPPED, never passed:
 `lockstep_operands` needs operand values and `cpi_budget` needs cycles. The
@@ -89,7 +98,7 @@ the wrong register, which RVFI shows at the next read of it, but a commit log
 only shows it once a result depends on that value. The tests predict each
 format's first failing instruction from the model, compared on the fields
 that format observes. A timing-only fault (`mem_wait_states`) is invisible
-without cycles.
+without cycles, and caught through a waveform (`vcd_mem_wait_states`).
 
 ## Contracts
 
@@ -144,6 +153,7 @@ no Python changes.
 | `defines` | Always passed to `iverilog` as `-D` |
 | `clock_period_ns` | Converts cycles to event timestamps (default 10) |
 | `provenance` | Free-form mapping recorded in the bundle (`upstream`, `commit`, `license`) |
+| `signals` | For `vcd-signals`: `clock`, `valid`, and `fields` (RVFI field to signal name; `pc` and `insn` required) |
 | `mutants.<name>` | `target_subsystem`, optional `target_interface`, `edits` (`file`, `find`, `replace`) and/or `defines`, optional `model_fault` |
 
 Profiles are validated before anything runs: unknown keys, missing files,
@@ -158,7 +168,7 @@ and provenance in the manifest, and `rtl.diff` names the core.
 | Parameter | Default | Meaning |
 |---|---:|---|
 | `core` | `picorv32` | Built-in core name, or path to a `core.yaml` or its directory |
-| `trace` | profile default | A trace format the core's profile lists (`rvfi`, `commit-log`) |
+| `trace` | profile default | A trace format the core's profile lists (`rvfi`, `commit-log`, `vcd-signals`) |
 | `program` | `selftest` | Built-in name, `random`, or path to a `.s` file |
 | `max_cycles` | `100000` | Testbench cycle limit |
 | `waveform` | `false` | Write `waveform.vcd` when true |

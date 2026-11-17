@@ -5,7 +5,7 @@ schema_version: 1
 name: picorv32
 description: YosysHQ PicoRV32, a size-optimized multi-cycle RV32I core
 isa: rv32i
-trace: [rvfi, commit-log]   # the first is the default; see parameters.trace
+trace: [rvfi, commit-log, vcd-signals]   # the first is the default; see parameters.trace
 testbench: tb.v
 sources: [picorv32.v]
 defines: [RISCV_FORMAL]
@@ -15,6 +15,28 @@ provenance:
   commit: ef203c2b0a3fb793280f5114941416c425c5b461
   license: ISC
   modifications: none
+
+# For trace: vcd-signals, retirements are sampled from the waveform just
+# before each rising edge of `clock` on which `valid` is 1.
+signals:
+  clock: tb.clk
+  valid: tb.uut.rvfi_valid
+  fields:
+    cyc: tb.cycle
+    ord: tb.uut.rvfi_order
+    pc: tb.uut.rvfi_pc_rdata
+    insn: tb.uut.rvfi_insn
+    rs1: tb.uut.rvfi_rs1_addr
+    rs1v: tb.uut.rvfi_rs1_rdata
+    rs2: tb.uut.rvfi_rs2_addr
+    rs2v: tb.uut.rvfi_rs2_rdata
+    rd: tb.uut.rvfi_rd_addr
+    rdv: tb.uut.rvfi_rd_wdata
+    npc: tb.uut.rvfi_pc_wdata
+    maddr: tb.uut.rvfi_mem_addr
+    wmask: tb.uut.rvfi_mem_wmask
+    wdata: tb.uut.rvfi_mem_wdata
+    trap: tb.uut.rvfi_trap
 
 # Each mutant edits a run-local copy of the sources. Every `find` must match
 # exactly once, so a mutant that no longer applies fails the build loudly.
