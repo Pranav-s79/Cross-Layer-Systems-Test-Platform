@@ -26,7 +26,7 @@ merges only when its exit check passes.
   mutants; `parameters.core`; `SystemAdapter.faults_for`.
 
 ### 3.3 · Trace sources beyond RVFI · `lead` · `feature/rtl-trace-sources`
-- [ ] Move line parsing out of `_TraceParser` into `traces/rvfi.py` behind a
+- [x] Move line parsing out of `_TraceParser` into `traces/rvfi.py` behind a
   `TraceSource` interface that yields typed records (boot, retire, output,
   bus error, halt, timeout). No behavior change.
 - [ ] `trace: commit-log`: Spike-style commit lines (`core 0: 3 0x… (0x…) x5 0x…`,

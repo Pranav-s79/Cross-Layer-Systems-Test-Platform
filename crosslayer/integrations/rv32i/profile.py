@@ -18,13 +18,12 @@ from typing import Any, Collection, Mapping
 import yaml
 
 from crosslayer.core.errors import ConfigError
+from crosslayer.integrations.rv32i.traces import TRACE_FORMATS
 
 CORES_DIR = Path(__file__).resolve().parent / "cores"
 PROFILE_NAME = "core.yaml"
 DEFAULT_CORE = "picorv32"
 SCHEMA_VERSION = 1
-TRACE_FORMATS = frozenset({"rvfi"})
-"""Trace protocols the adapter can parse (see the testbench header in cores/picorv32/tb.v)."""
 ISAS = frozenset({"rv32i"})
 
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")

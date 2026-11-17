@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Move RV32I trace parsing behind a `TraceSource` interface (`rv32i/traces/`) that yields typed records.
 - Add `docs/milestones.md`, the step-by-step queue for Phases 3 and 4.
 - Add RV32I core profiles (`cores/<name>/core.yaml`): RTL sources, testbench, defines,
   provenance and mutants in YAML, selected with `parameters.core`; mutants move out of Python.
