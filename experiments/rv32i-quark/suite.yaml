@@ -39,3 +39,7 @@ experiments:
     path: fault_mem_wait_states.yaml
     expect: fail
     depends_on: [baseline]
+  - id: random_programs
+    path: random_programs.yaml
+    seeds: {count: 20}
+    depends_on: [baseline]

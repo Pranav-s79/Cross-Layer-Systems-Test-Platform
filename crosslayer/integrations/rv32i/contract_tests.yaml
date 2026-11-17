@@ -121,111 +121,111 @@ cases:
     expect: pass
     events:
       - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
   - name: three slow instructions push p95 over budget
     contract: rv32i.cpi_budget
     expect: fail
     events:
       - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 4}}
-      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
-      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
-      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.cpi: 12}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
+      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
+      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
 
   - name: operand check does not apply to a trace without operand values
     contract: rv32i.lockstep_operands
@@ -239,3 +239,83 @@ cases:
     events:
       - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 0, rv.has_operands: 0}}
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 0}}
+  - name: slow shifts do not count against the CPI budget
+    contract: rv32i.cpi_budget
+    expect: pass
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 4, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 5, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 6, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 7, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 8, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 9, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 10, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 11, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 12, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 13, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 14, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 15, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 16, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 17, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 18, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 19, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 20, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 21, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 22, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 23, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 24, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 25, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 26, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 27, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 28, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 29, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 30, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 31, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 32, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 33, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 34, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 35, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 36, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 37, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 38, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 39, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 40, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 41, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 42, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 43, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 44, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 45, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 46, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 47, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 51, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 52, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 53, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 54, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 55, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 56, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 57, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 58, type: cpu.retire, subsystem: core, attrs: {rv.op: slli, rv.cpi: 30}}
+      - {t_us: 59, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 60, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 61, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 62, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 63, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 64, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 65, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 66, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 67, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 68, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 69, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 70, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 71, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 72, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 73, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 74, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}
+      - {t_us: 75, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 4}}

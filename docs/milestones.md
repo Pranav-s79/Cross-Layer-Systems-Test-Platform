@@ -47,14 +47,14 @@ sources (RVFI text, a commit log derived from it, and its VCD).
 
 **Exit:** two cores, two trace formats, no changes under `crosslayer/core`.
 
-### 3.5 · Seed sweeps and ISA coverage · `lead` · `feature/rtl-coverage`
-- [ ] `crosslayer suite` entries can repeat an experiment over a seed list
+### 3.5 · Seed sweeps and ISA coverage · `lead` · done
+- [x] `crosslayer suite` entries can repeat an experiment over a seed list
   (`seeds: [1, 2, 3]` or `seeds: {count: N}`); each seed gets its own bundle
   and the suite reports per-seed verdicts.
-- [ ] The rv32i adapter records ISA coverage in `normalize` stats: retired
+- [x] The rv32i adapter records ISA coverage in `normalize` stats: retired
   count per mnemonic, taken and not-taken per branch kind, and each load and
   store width and alignment; shown in `report.md`.
-- [ ] A `coverage` contract kind or threshold contract that fails when a
+- [x] A `coverage` contract kind or threshold contract that fails when a
   listed mnemonic never retires (for example the self-test must retire every
   RV32I mnemonic the assembler supports).
 

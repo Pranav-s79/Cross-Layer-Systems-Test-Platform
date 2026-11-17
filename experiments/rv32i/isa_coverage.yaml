@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: rv32i-isa-coverage
+description: >
+  The self-test must retire every RV32I mnemonic (ECALL excepted, see
+  coverage_contracts.yaml) on top of the default contracts.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  program: selftest
+  max_cycles: 100000
+contracts:
+  - ../../crosslayer/integrations/rv32i/coverage_contracts.yaml

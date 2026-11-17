@@ -17,6 +17,7 @@ from crosslayer.integrations.rv32i.traces import (
     Record,
     TraceSource,
     checked,
+    clear_unwritten_lanes,
     ignorable,
     parse_marker,
     parse_tagged,
@@ -38,7 +39,7 @@ class RvfiSource(TraceSource):
                 if marker is not None:
                     yield marker
                     continue
-                parsed = parse_tagged(line)
+                parsed = parse_tagged(clear_unwritten_lanes(line))
                 if isinstance(parsed, str):
                     yield ParseDiagnostic(TRACE_LOG, lineno, parsed)
                 elif parsed[0] != "RET":

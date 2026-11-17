@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: quark-random-programs
+description: >
+  A seeded random RV32I program (randprog.py: ALU, shifts, loads and stores
+  of every width and offset, forward branches and jumps). The suite runs it
+  as a sweep; the seed here is only the default.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: femtorv32-quark
+  program: random
+  random_instructions: 300
+  max_cycles: 20000

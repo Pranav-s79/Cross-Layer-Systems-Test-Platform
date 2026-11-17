@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../../schemas/contracts.schema.json
+# Functional-coverage contracts for RV32I programs. Not part of the adapter's
+# default contracts: an experiment opts in with `contracts: [<this file>]`.
+schema_version: 1
+contracts:
+  - id: rv32i.isa_mnemonics
+    title: Every RV32I mnemonic retires at least once
+    owner: rtl-verification
+    source: decoder
+    destination: core
+    severity: major
+    description: >
+      Coverage closure for the program, not a property of the core. ECALL is
+      not listed: like EBREAK it ends the run, so a program that halts on
+      EBREAK cannot also retire it. The adapter's normalization stats report
+      branch-direction and memory-offset bins too.
+    rule:
+      kind: coverage
+      select: {event_type: cpu.retire}
+      attribute: rv.op
+      bins: [add, sub, sll, slt, sltu, xor, srl, sra, or, and, addi, slti, sltiu, xori, ori, andi, slli, srli, srai, lb, lh, lw, lbu, lhu, sb, sh, sw, beq, bne, blt, bge, bltu, bgeu, lui, auipc, jal, jalr, ebreak]

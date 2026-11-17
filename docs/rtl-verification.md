@@ -135,7 +135,7 @@ without cycles, and caught through a waveform (`vcd_mem_wait_states`).
 | `rv32i.program_output` | Memory-mapped output values match in order |
 | `rv32i.clean_halt` | The run reaches EBREAK at the expected retirement count |
 | `rv32i.no_bus_errors` | No access leaves mapped memory |
-| `rv32i.cpi_budget` | The 95th-percentile CPI is at most eight cycles |
+| `rv32i.cpi_budget` | The 95th-percentile CPI of non-shift instructions is at most eight cycles (both cores shift in steps, so shift latency grows with the amount) |
 
 Run the known-good and known-bad case for every contract without a simulator:
 
@@ -196,9 +196,40 @@ and provenance in the manifest, and `rtl.diff` names the core.
 | `waveform` | `false` | Write `waveform.vcd` when true |
 | `random_instructions` | `300` | Body length for `program: random` |
 
-Random programs use the experiment seed, initialize every working register,
-stay within an aligned scratch region, avoid unbounded control flow, emit one
-output value, and terminate with EBREAK.
+Random programs use the experiment seed and initialize every working
+register. They mix ALU and shift instructions, LUI and AUIPC, loads and
+stores of every width at every aligned byte offset of a scratch region, and
+forward-only branches, JAL, and AUIPC+JALR pairs, so they always terminate.
+A quarter of the branches compare a register with itself, so each branch is
+taken and not taken across seeds. All working registers are XOR-folded into
+the one output value; EBREAK ends the program.
+
+## Coverage
+
+Every run reports ISA coverage bins in `normalization.json` and `report.md`:
+
+| Group | Bins |
+|---|---|
+| `mnemonic` | Each of the 39 RV32I mnemonics the model executes, retired |
+| `branch` | Each branch mnemonic, taken and not taken |
+| `memory` | Each load and store width at each aligned byte offset (load offsets need operand values, so they are omitted for `commit-log`) |
+
+Both suites run `random_programs` as a 20-seed sweep, and the suite report
+lists bins no seed hit. On both cores the only one is `ecall`, which ends a
+run like EBREAK and so is never generated. `isa_coverage` adds
+[`coverage_contracts.yaml`](../crosslayer/integrations/rv32i/coverage_contracts.yaml),
+a `coverage` contract that fails if the self-test leaves any other mnemonic
+unretired.
+
+Random sweeps found two bugs the self-test hid:
+
+* PicoRV32 reports `mem_wdata` as unknown (`x`) on a load that precedes
+  every store; RVFI defines it only in written lanes. The parsers now treat
+  unknown digits in unwritten lanes as don't-care (unknowns in written lanes
+  are still diagnostics). Before, the line was dropped and lockstep failed
+  from that instruction on.
+* The old generator wrote its output through `t0`, which is `x5`, the output
+  register, so every random program printed the port address.
 
 ## Scope
 

@@ -60,6 +60,14 @@ _I = {0: "addi", 2: "slti", 3: "sltiu", 4: "xori", 6: "ori", 7: "andi"}
 _LOADS = {0: "lb", 1: "lh", 2: "lw", 4: "lbu", 5: "lhu"}
 _STORES = {0: "sb", 1: "sh", 2: "sw"}
 _BRANCHES = {0: "beq", 1: "bne", 4: "blt", 5: "bge", 6: "bltu", 7: "bgeu"}
+_SHIFTS_I = ("slli", "srli", "srai")
+MNEMONICS = (
+    *_R.values(), *_I.values(), *_SHIFTS_I, *_LOADS.values(), *_STORES.values(), *_BRANCHES.values(),
+    "lui", "auipc", "jal", "jalr", "ecall", "ebreak",
+)
+"""Every RV32I mnemonic the model executes (FENCE is not modeled)."""
+BRANCH_MNEMONICS = tuple(_BRANCHES.values())
+ACCESS_BYTES = {"lb": 1, "lbu": 1, "lh": 2, "lhu": 2, "lw": 4, "sb": 1, "sh": 2, "sw": 4}
 
 
 def decode(insn: int) -> Decoded:
