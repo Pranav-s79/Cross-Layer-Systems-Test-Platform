@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import difflib
 import json
-import re
 import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -48,6 +47,7 @@ from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
 from crosslayer.integrations.rv32i.iss import EBREAK, MODEL_FAULTS, ModelRun, Model, decode, lanes
+from crosslayer.integrations.rv32i.traces import TRACE_LOG, Record, TraceSource, sources
 from crosslayer.integrations.rv32i.profile import (
     DEFAULT_CORE,
     CoreProfile,
@@ -61,7 +61,6 @@ PROGRAMS_DIR = HERE / "programs"
 CONTRACTS_PATH = HERE / "contracts.yaml"
 SOURCE_SYSTEM = "rv32i"
 
-TRACE_NAME = "trace.log"
 STDERR_NAME = "sim.stderr.log"
 PROCESS_NAME = "process.json"
 PROGRAM_NAME = "program.s"
@@ -83,10 +82,6 @@ _SENTINEL = -1
 """Reference value when the model retired nothing at this position: never
 equal to a real 32-bit value, so every lockstep check fails there."""
 
-_RET_FIELDS = ("cyc", "ord", "pc", "insn", "rs1", "rs1v", "rs2", "rs2v", "rd", "rdv", "npc", "maddr", "wmask", "wdata", "trap")
-_DECIMAL = {"cyc", "ord", "rs1", "rs2", "rd", "trap", "retired", "max_cycles", "wait_states"}
-_LINE_RE = re.compile(r"^(?P<tag>[A-Z]+)(?P<rest>(?:\s+[a-z0-9_]+=[0-9a-fA-FxXzZ]+)*)\s*$")
-_IGNORED = ("VCD info:",)  # simulator chatter, not trace content
 
 
 def _positive_int(value: Any, location: str) -> int:
@@ -220,6 +215,9 @@ class Rv32iAdapter(SystemAdapter):
     def _profile(self, ctx: RunContext) -> CoreProfile:
         return _load(self._param(ctx, "core"), ctx.base_dir)
 
+    def _source(self, profile: CoreProfile) -> TraceSource:
+        return sources()[profile.trace]
+
     def _program_path(self, ctx: RunContext) -> Path:
         program = self._param(ctx, "program")
         path = ctx.resolve(program) if program.endswith(".s") else PROGRAMS_DIR / f"{program}.s"
@@ -325,7 +323,7 @@ class Rv32iAdapter(SystemAdapter):
             command,
             cwd=ctx.work_dir,
             timeout_s=ctx.timeout_s,
-            stdout_path=ctx.raw_dir / TRACE_NAME,
+            stdout_path=ctx.raw_dir / TRACE_LOG,
             stderr_path=ctx.raw_dir / STDERR_NAME,
         )
         if result.error is not None:
@@ -343,18 +341,18 @@ class Rv32iAdapter(SystemAdapter):
         )
 
     def collect(self, ctx: RunContext, execution: ExecutionResult | None) -> list[Artifact]:
-        trace = ctx.raw_dir / TRACE_NAME
+        trace = ctx.raw_dir / TRACE_LOG
         if ctx.inputs:
             if len(ctx.inputs) != 1:
                 raise AdapterError("analyze mode expects exactly one trace.log input")
             shutil.copyfile(ctx.inputs[0], trace)
         if not trace.is_file():
-            raise AdapterError(f"no {TRACE_NAME} was produced")
+            raise AdapterError(f"no {TRACE_LOG} was produced")
         if not (ctx.raw_dir / PROGRAM_NAME).is_file():
             self._write_program(ctx, *self._program(ctx))
 
         artifacts = [
-            Artifact(TRACE_NAME, trace, description="RVFI trace printed by the testbench"),
+            Artifact(TRACE_LOG, trace, description="simulator output: testbench markers and trace lines"),
             Artifact(PROGRAM_NAME, ctx.raw_dir / PROGRAM_NAME, description="program source"),
             Artifact(HEX_NAME, ctx.raw_dir / HEX_NAME, description="program image loaded into memory"),
             Artifact(LISTING_NAME, ctx.raw_dir / LISTING_NAME, description="address, word, and source line"),
@@ -378,18 +376,24 @@ class Rv32iAdapter(SystemAdapter):
         return artifacts
 
     def normalize(self, ctx: RunContext, artifacts: Sequence[Artifact]) -> NormalizationResult:
-        by_name = {a.name: a for a in artifacts}
         _, program = self._program(ctx)
-        reference = Model(program.image()).run(max_steps=self._param(ctx, "max_cycles"))
-        parser = _TraceParser(ctx, program, reference, self._profile(ctx).clock_period_ns)
-        with by_name[TRACE_NAME].path.open("r", encoding="utf-8") as fh:
-            for lineno, raw in enumerate(fh, start=1):
-                parser.feed(lineno, raw.rstrip("\r\n"))
+        image = program.image()
+        reference = Model(image).run(max_steps=self._param(ctx, "max_cycles"))
+        profile = self._profile(ctx)
+        source = self._source(profile)
+
+        def fetch(pc: int) -> int:
+            return int.from_bytes(image[pc:pc + 4].ljust(4, b"\0"), "little") if 0 <= pc < len(image) else 0
+
+        parser = _TraceParser(ctx, program, reference, profile.clock_period_ns, source)
+        for item in source.parse(ctx.raw_dir, fetch):
+            parser.feed(item)
         return NormalizationResult(
             events=parser.events,
             diagnostics=parser.diagnostics,
             stats={
-                "trace_lines": parser.lines,
+                "trace_source": source.name,
+                "trace_records": parser.records,
                 "events": len(parser.events),
                 "retired": parser.retired,
                 "reference_retired": len(reference.retires),
@@ -399,81 +403,83 @@ class Rv32iAdapter(SystemAdapter):
         )
 
 
+_RETIRE_ATTRS = {
+    "cyc": "rv.cycle", "ord": "rv.order", "pc": "rv.pc", "insn": "rv.insn",
+    "rs1": "rv.rs1", "rs1v": "rv.rs1_val", "rs2": "rv.rs2", "rs2v": "rv.rs2_val",
+    "rd": "rv.rd", "rdv": "rv.rd_val", "npc": "rv.next_pc",
+    "maddr": "rv.mem_addr", "wmask": "rv.mem_wmask", "wdata": "rv.mem_wdata", "trap": "rv.trap",
+}
+
+
 class _TraceParser:
-    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun, clock_period_ns: int) -> None:
+    """Turns trace records into events, each annotated with the reference model's values."""
+
+    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun, clock_period_ns: int,
+                 source: TraceSource) -> None:
         self.ctx = ctx
-        self.clock_period_ns = clock_period_ns
         self.program = program
         self.reference = reference
+        self.clock_period_ns = clock_period_ns
+        self.source = source
         self.events: list[NormalizedEvent] = []
         self.diagnostics: list[ParseDiagnostic] = []
-        self.lines = 0
+        self.records = 0
         self.retired = 0
         self.outputs = 0
         self.last_cycle = 0
-        self.last_retire: dict[str, int] | None = None
+        self.last_retire: Mapping[str, int] | None = None
 
-    def feed(self, lineno: int, line: str) -> None:
-        if not line.strip() or line.startswith(_IGNORED):
+    def feed(self, item: Record | ParseDiagnostic) -> None:
+        if isinstance(item, ParseDiagnostic):
+            self.diagnostics.append(item)
             return
-        self.lines += 1
-        match = _LINE_RE.match(line)
-        if match is None:
-            self._diag(lineno, f"unrecognized line: {line[:120]!r}")
-            return
-        try:
-            fields = {k: (int(v) if k in _DECIMAL else int(v, 16))
-                      for k, v in (kv.split("=", 1) for kv in match["rest"].split())}
-        except ValueError:
-            self._diag(lineno, f"non-numeric value (X or Z?) in: {line[:120]!r}")
-            return
-        handler = getattr(self, f"_on_{match['tag'].lower()}", None)
-        if handler is None:
-            self._diag(lineno, f"unknown record {match['tag']}")
-            return
-        missing = [k for k in _REQUIRED.get(match["tag"], ()) if k not in fields]
-        if missing:
-            self._diag(lineno, f"{match['tag']} line missing {missing}")
-            return
-        handler(lineno, fields)
+        self.records += 1
+        getattr(self, f"_on_{item.kind}")(item)
 
-    def _diag(self, lineno: int, message: str) -> None:
-        self.diagnostics.append(ParseDiagnostic(TRACE_NAME, lineno, message))
-
-    def _event(self, lineno: int, cycle: int, event_type: str, subsystem: str, attributes: dict[str, Any],
+    def _event(self, record: Record, event_type: str, subsystem: str, attributes: dict[str, Any],
                severity: Severity = Severity.INFO, correlation: dict[str, str] | None = None) -> None:
+        if self.source.timed:
+            timestamp = record.fields.get("cyc", 0) * self.clock_period_ns
+            timing = {"timestamp_source": "rtl_cycle_count", "clock_period_ns": self.clock_period_ns}
+        else:
+            timestamp = self.records
+            timing = {"timestamp_source": "trace_order"}
         self.events.append(
             NormalizedEvent(
                 run_id=self.ctx.run_id,
-                event_id=f"{TRACE_NAME}:{lineno}",
+                event_id=f"{record.artifact}:{record.line}",
                 source_system=SOURCE_SYSTEM,
                 subsystem=subsystem,
-                timestamp_ns=cycle * self.clock_period_ns,
+                timestamp_ns=timestamp,
                 event_type=event_type,
                 severity=severity,
                 correlation_ids=correlation or {},
                 attributes=attributes,
-                raw_artifact_ref=self.ctx.raw_ref(TRACE_NAME, lineno),
-                confidence_metadata={"timestamp_source": "rtl_cycle_count", "clock_period_ns": self.clock_period_ns},
+                raw_artifact_ref=self.ctx.raw_ref(record.artifact, record.line),
+                confidence_metadata=timing,
             )
         )
 
-    def _on_boot(self, lineno: int, f: dict[str, int]) -> None:
-        self._event(lineno, 0, "cpu.boot", "tb", {"rv.max_cycles": f.get("max_cycles"),
-                                                  "rv.wait_states": f.get("wait_states")})
+    def _on_boot(self, record: Record) -> None:
+        f = record.fields
+        self._event(record, "cpu.boot", "tb", {
+            "rv.max_cycles": f.get("max_cycles"), "rv.wait_states": f.get("wait_states"),
+            "rv.trace": self.source.name, "rv.timed": int(self.source.timed),
+            "rv.has_operands": int(self.source.operands),
+        })
 
-    def _on_ret(self, lineno: int, f: dict[str, int]) -> None:
+    def _on_retire(self, record: Record) -> None:
+        f = record.fields
         d = decode(f["insn"])
         order = self.retired
         self.retired += 1
-        attrs: dict[str, Any] = {
-            "rv.cycle": f["cyc"], "rv.order": f["ord"], "rv.pc": f["pc"], "rv.insn": f["insn"],
-            "rv.op": d.mnemonic, "rv.kind": d.kind, "rv.cpi": f["cyc"] - self.last_cycle,
-            "rv.rs1": f["rs1"], "rv.rs1_val": f["rs1v"], "rv.rs2": f["rs2"], "rv.rs2_val": f["rs2v"],
-            "rv.rd": f["rd"], "rv.rd_val": f["rdv"], "rv.next_pc": f["npc"],
-            "rv.mem_addr": f["maddr"], "rv.mem_wmask": f["wmask"], "rv.mem_wdata": f["wdata"] & lanes(f["wmask"]),
-            "rv.trap": f["trap"],
-        }
+        attrs: dict[str, Any] = {name: f[key] for key, name in _RETIRE_ATTRS.items() if key in f}
+        attrs.update({"rv.op": d.mnemonic, "rv.kind": d.kind})
+        if "cyc" in f:
+            attrs["rv.cpi"] = f["cyc"] - self.last_cycle
+            self.last_cycle = f["cyc"]
+        if "wdata" in f and "wmask" in f:
+            attrs["rv.mem_wdata"] = f["wdata"] & lanes(f["wmask"])
         if d.kind in ("branch", "jal"):
             attrs["rv.target"] = (f["pc"] + d.imm) & 0xFFFF_FFFF
         if f["pc"] in self.program.source_lines:
@@ -492,23 +498,25 @@ class _TraceParser:
             "rv.ref_mem_wdata": ref.mem_wdata if ref else _SENTINEL,
             "rv.ref_trap": int(ref.trap) if ref else _SENTINEL,
         })
-        self.last_cycle = f["cyc"]
         self.last_retire = f
-        self._event(lineno, f["cyc"], "cpu.retire", "core", attrs,
-                    Severity.WARNING if f["trap"] else Severity.INFO, {"retire": str(order)})
+        self._event(record, "cpu.retire", "core", attrs,
+                    Severity.WARNING if f.get("trap") else Severity.INFO, {"retire": str(order)})
 
-    def _on_out(self, lineno: int, f: dict[str, int]) -> None:
+    def _on_output(self, record: Record) -> None:
+        f = record.fields
         index = self.outputs
         self.outputs += 1
         expected = self.reference.outputs[index] if index < len(self.reference.outputs) else _SENTINEL
-        self._event(lineno, f["cyc"], "cpu.output", "mmio",
+        self._event(record, "cpu.output", "mmio",
                     {"rv.cycle": f["cyc"], "rv.index": index, "rv.data": f["data"], "rv.ref_data": expected})
 
-    def _on_buserr(self, lineno: int, f: dict[str, int]) -> None:
-        self._event(lineno, f["cyc"], "cpu.bus_error", "memory", {"rv.cycle": f["cyc"], "rv.addr": f["addr"]},
+    def _on_bus_error(self, record: Record) -> None:
+        f = record.fields
+        self._event(record, "cpu.bus_error", "memory", {"rv.cycle": f["cyc"], "rv.addr": f["addr"]},
                     Severity.ERROR)
 
-    def _on_halt(self, lineno: int, f: dict[str, int]) -> None:
+    def _on_halt(self, record: Record) -> None:
+        f = record.fields
         last = self.last_retire
         if last is not None and last["insn"] == EBREAK:
             reason = "ebreak"
@@ -516,20 +524,12 @@ class _TraceParser:
             reason = "ecall"
         else:
             reason = "trap"
-        self._event(lineno, f["cyc"], "cpu.halt", "tb", {
+        self._event(record, "cpu.halt", "tb", {
             "rv.cycle": f["cyc"], "rv.retired": f["retired"], "rv.ref_retired": len(self.reference.retires),
             "rv.halt_reason": reason, "rv.ref_halt_reason": self.reference.halt,
         })
 
-    def _on_timeout(self, lineno: int, f: dict[str, int]) -> None:
-        self._event(lineno, f["cyc"], "cpu.timeout", "tb", {"rv.cycle": f["cyc"], "rv.retired": f["retired"]},
+    def _on_timeout(self, record: Record) -> None:
+        f = record.fields
+        self._event(record, "cpu.timeout", "tb", {"rv.cycle": f["cyc"], "rv.retired": f["retired"]},
                     Severity.ERROR)
-
-
-_REQUIRED: dict[str, tuple[str, ...]] = {
-    "RET": _RET_FIELDS,
-    "OUT": ("cyc", "data"),
-    "BUSERR": ("cyc", "addr"),
-    "HALT": ("cyc", "retired"),
-    "TIMEOUT": ("cyc", "retired"),
-}
