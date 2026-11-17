@@ -73,6 +73,11 @@ jobs:
         run: crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage
       - name: Reference suite (baseline passes, every injected fault is detected)
         run: crosslayer suite experiments/reference/suite.yaml --out runs
+      - name: Log analysis example (textlog, synthetic two-source fixture)
+        run: |
+          crosslayer lint experiments/textlog/suite.yaml --strict
+          crosslayer test-contracts experiments/textlog/contract_tests.yaml --require-coverage
+          crosslayer suite experiments/textlog/suite.yaml --out runs
       - name: Upload run bundles
         if: always()
         uses: actions/upload-artifact@v4
