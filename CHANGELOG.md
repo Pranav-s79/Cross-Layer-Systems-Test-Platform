@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add the `textlog` adapter: YAML log profiles turn line-oriented text logs into events, with one profile per input, per-source UTC offset, year and clock offset, and a synthetic two-source example in `experiments/textlog/`.
 - Add seed sweeps to suites (`seeds: [..]` or `{count, start}`), with per-sweep counts and coverage bins summed across seeds.
 - Add the `coverage` rule kind and a coverage section in `report.md` for adapters that report `stats.coverage` bins.
 - Report RV32I ISA coverage (mnemonics, branch directions, access width and offset); add `coverage_contracts.yaml`, `isa_coverage`, and 20-seed random-program sweeps for both cores.
