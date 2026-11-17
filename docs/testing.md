@@ -28,6 +28,7 @@ CI runs all of them on every push: ruff and mypy in the lint job, a coverage rep
 | Contracts | `test_contracts.py`, `test_loader_errors.py` | Loader errors name the field (one parametrized table); preconditions, evidence gating, verdict rules |
 | Adapters | `test_adapters.py` | Declared capabilities match the code; plugin discovery works |
 | Processes | `test_process.py` | Timeouts kill the whole process tree |
+| Environment | `test_environment.py` | Captured version, Python and platform fields; git revision and dirty flag, only at the repository root |
 | Runner and bundles | `test_runner.py` | Complete bundles, tamper detection, exact replay, config errors leave no bundle |
 | Tooling | `test_contract_testing.py`, `test_lint.py`, `test_schemas.py`, `test_suite.py`, `test_versioning.py` | Each Phase 2 tool; schemas never stricter than the loaders |
 | Architecture | `test_import_boundary.py` | The core never imports an integration or a non-approved library |

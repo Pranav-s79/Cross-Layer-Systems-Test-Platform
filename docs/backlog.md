@@ -132,7 +132,7 @@ with a one-line reason and take the next one.
 - [x] **Extend mypy to the remaining `core` modules.** `core/schemas.py`,
   `core/errors.py` and `core/verdict.py` are outside `[tool.mypy] files`;
   `mypy crosslayer/core` reports no errors today. Add them so they stay clean.
-- [ ] **Test `core/artifacts/environment.py` directly.** No test file
+- [x] **Test `core/artifacts/environment.py` directly.** No test file
   references it; cover the captured fields and their stability.
 - [ ] **Test the adapter registry directly.** No test references
   `core/adapters/registry.py`; cover lookup of an unknown adapter name and
