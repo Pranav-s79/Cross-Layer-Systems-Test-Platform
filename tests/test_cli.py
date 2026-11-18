@@ -160,6 +160,19 @@ def test_suite_command_and_file_kinds(tmp_path, capsys):
     assert main(["lint", str(suite), "--strict"]) == 0
 
 
+@pytest.mark.parametrize("value", ["0", "-2", "many"])
+def test_suite_jobs_must_be_a_positive_integer_or_auto(value, capsys):
+    with pytest.raises(SystemExit) as info:
+        main(["suite", str(EXPERIMENTS / "suite.yaml"), "--jobs", value])
+    assert info.value.code == 2
+    assert "positive integer or 'auto'" in capsys.readouterr().err
+
+
+def test_suite_runs_in_parallel_with_auto_jobs(tmp_path, capsys):
+    assert main(["suite", str(EXPERIMENTS / "suite.yaml"), "--out", str(tmp_path), "-j", "auto"]) == 0
+    assert "result    PASSED" in capsys.readouterr().out
+
+
 def test_diff_contracts_command(tmp_path, capsys):
     old = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contracts.yaml"
     text = old.read_text(encoding="utf-8")

@@ -72,17 +72,17 @@ jobs:
       - name: Contract tests (every contract has a known-good and known-bad case)
         run: crosslayer test-contracts crosslayer/integrations/sensor_pipeline/contract_tests.yaml --require-coverage
       - name: Reference suite (baseline passes, every injected fault is detected)
-        run: crosslayer suite experiments/reference/suite.yaml --out runs
+        run: crosslayer suite experiments/reference/suite.yaml --out runs -j auto
       - name: Log analysis example (textlog, synthetic two-source fixture)
         run: |
           crosslayer lint experiments/textlog/suite.yaml --strict
           crosslayer test-contracts experiments/textlog/contract_tests.yaml --require-coverage
-          crosslayer suite experiments/textlog/suite.yaml --out runs
+          crosslayer suite experiments/textlog/suite.yaml --out runs -j auto
       - name: 5G log analysis (synthetic Open5GS and OCUDU fixtures)
         run: |
           crosslayer lint experiments/5g-logs/suite.yaml --strict
           crosslayer test-contracts experiments/5g-logs/contract_tests.yaml --require-coverage
-          crosslayer suite experiments/5g-logs/suite.yaml --out runs
+          crosslayer suite experiments/5g-logs/suite.yaml --out runs -j auto
       - name: Upload run bundles
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,11 +113,11 @@ jobs:
       - name: RV32I contract tests
         run: crosslayer test-contracts crosslayer/integrations/rv32i/contract_tests.yaml --require-coverage
       - name: RV32I suite (baseline passes, every injected fault is detected)
-        run: crosslayer suite experiments/rv32i/suite.yaml --out runs
+        run: crosslayer suite experiments/rv32i/suite.yaml --out runs -j auto
       - name: Second core without RVFI (FemtoRV32 Quark)
         run: |
           crosslayer lint experiments/rv32i-quark/suite.yaml --strict
-          crosslayer suite experiments/rv32i-quark/suite.yaml --out runs
+          crosslayer suite experiments/rv32i-quark/suite.yaml --out runs -j auto
       - name: Upload RV32I run bundles
         if: always()
         uses: actions/upload-artifact@v4

@@ -5,6 +5,9 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add `crosslayer suite -j N` (`-j auto`): experiments run in worker processes as soon as their dependencies finish, with reports in sequential order. The RV32I suite went from 18.4 s to 5.4 s with `-j 8` (Windows, 8 cores); CI runs suites with `-j auto`.
+- Claim run bundle directories atomically, so parallel runs of one configuration never collide.
+- Guard `python -m crosslayer` so worker processes can import it without running the CLI.
 - Cut per-run overhead: YAML parsed with libyaml when available, core and log profiles cached until they change on disk, one adapter instance and environment record per runner, and bundle files hashed as they are written. Measured on Windows (8 cores, Python 3.11): the RV32I baseline went from 3.45 s to 0.77 s per run and a 5G log run from about 1.1 s to 0.17 s.
 - Cache compiled RV32I simulations by a hash of their exact inputs (`CROSSLAYER_CACHE_DIR`, `off` to disable).
 - Add a two-UE 5G fixture with a 40 ms gNB clock skew, and a variant where only one UE's registration is missing.

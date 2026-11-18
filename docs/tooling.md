@@ -127,6 +127,11 @@ crosslayer suite experiments/reference/suite.yaml --out runs
   bins (`stats.coverage` in `normalization.json`, `{group: {bin: hits}}`
   with zero-hit bins listed), the report sums them per sweep and lists the
   bins no seed hit; `summary.json` has the totals under `sweeps`.
+* `-j N` (`--jobs`, or `-j auto` for every CPU) runs up to N experiments at
+  once, in worker processes, each as soon as everything it depends on has
+  finished. Reports keep the sequential order, so output does not depend on
+  `-j`. With `--fail-fast`, nothing new starts after a miss; runs already
+  going finish.
 * `--fail-fast` stops after the first experiment that misses its expectation.
   The rest are marked `skipped` (not run) in the summary, report and JUnit.
 * Output: `runs/suite-<name>-<time>/` with `summary.json`, `report.md`,

@@ -239,3 +239,60 @@ def test_sweep_without_coverage_says_so(tmp_path):
         {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": [1, 2]}])))
     report = (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
     assert "| `base` | 2 | 2 | 0 | 0 | no coverage reported |" in report
+
+
+# -- parallel execution ------------------------------------------------------------
+
+
+def _statuses(outcome):
+    return [(r.entry.id, r.status, r.verdict) for r in outcome.results]
+
+
+def _parallel(tmp_path: Path, jobs: int, adapter=FakeAdapter) -> SuiteRunner:
+    return SuiteRunner(tmp_path / f"out{jobs}", jobs=jobs,
+                       runner_factory=lambda out: ExperimentRunner(out, adapter_loader=lambda ref: adapter()))
+
+
+def test_parallel_suite_matches_sequential_results_and_order(tmp_path):
+    entries = [
+        {"id": "base", "path": _experiment(tmp_path, "base"), "seeds": [1, 2, 3]},
+        {"id": "fault", "path": _experiment(tmp_path, "fault", ["lose_ack"]), "expect": "fail",
+         "seeds": [1, 2, 3], "depends_on": ["base"]},
+        {"id": "wrong", "path": _experiment(tmp_path, "wrong", ["lose_ack"])},  # unmet: expects pass
+        {"id": "after_wrong", "path": _experiment(tmp_path, "after"), "depends_on": ["wrong"]},
+    ]
+    suite = load_suite(_suite(tmp_path, entries))
+    sequential = _parallel(tmp_path, 1).run(suite)
+    parallel = _parallel(tmp_path, 4).run(suite)
+    assert _statuses(parallel) == _statuses(sequential)
+    assert ("after_wrong", "blocked", None) in _statuses(parallel)
+    assert (parallel.suite_dir / "report.md").read_text(encoding="utf-8").count("|") == \
+        (sequential.suite_dir / "report.md").read_text(encoding="utf-8").count("|")
+
+
+def test_parallel_fail_fast_starts_nothing_new_after_an_unmet_result(tmp_path):
+    entries = [{"id": "wrong", "path": _experiment(tmp_path, "wrong", ["lose_ack"])}]
+    entries += [{"id": f"later{i}", "path": _experiment(tmp_path, f"later{i}"), "depends_on": ["wrong"]}
+                for i in range(3)]
+    outcome = _parallel(tmp_path, 3).run(load_suite(_suite(tmp_path, entries)), fail_fast=True)
+    assert [r.status for r in outcome.results] == ["unmet", "skipped", "skipped", "skipped"]
+
+
+def test_parallel_runs_of_one_configuration_get_their_own_bundles(tmp_path):
+    path = _experiment(tmp_path, "same")
+    entries = [{"id": f"copy{i}", "path": path} for i in range(4)]
+    outcome = _parallel(tmp_path, 4).run(load_suite(_suite(tmp_path, entries)))
+    assert outcome.passed
+    assert len({r.bundle_dir for r in outcome.results}) == 4
+
+
+def test_jobs_must_be_positive(tmp_path):
+    with pytest.raises(ConfigError, match="jobs must be a positive integer"):
+        SuiteRunner(tmp_path, jobs=0)
+
+
+def test_reference_suite_runs_in_worker_processes(tmp_path):
+    suite = load_suite(Path(__file__).resolve().parents[2] / "experiments" / "reference" / "suite.yaml")
+    outcome = SuiteRunner(tmp_path / "out", jobs=2).run(suite)
+    assert outcome.passed
+    assert all(r.bundle_dir and (r.bundle_dir / "manifest.json").is_file() for r in outcome.results)

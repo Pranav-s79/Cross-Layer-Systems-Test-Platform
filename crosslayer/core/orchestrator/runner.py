@@ -187,13 +187,17 @@ class ExperimentRunner:
 
     # -- execution -----------------------------------------------------------
 
-    def _new_run_id(self, started: datetime, config_hash: str) -> str:
+    def _new_bundle(self, started: datetime, config_hash: str) -> tuple[str, RunBundle]:
+        """Claim a fresh bundle directory. Creating it is the claim, so runs in
+        parallel processes can never share one, even with the same config."""
         base = f"{started:%Y%m%dT%H%M%SZ}-{config_hash[:8]}"
         run_id, n = base, 1
-        while (self.output_root / run_id).exists():
-            run_id = f"{base}-{n}"
-            n += 1
-        return run_id
+        while True:
+            try:
+                return run_id, RunBundle.create(self.output_root, run_id)
+            except FileExistsError:
+                run_id = f"{base}-{n}"
+                n += 1
 
     @staticmethod
     def _check_artifacts(bundle: RunBundle, artifacts: list[Artifact]) -> None:
@@ -224,8 +228,7 @@ class ExperimentRunner:
 
         self.output_root.mkdir(parents=True, exist_ok=True)
         started = self._clock()
-        run_id = self._new_run_id(started, config_hash)
-        bundle = RunBundle.create(self.output_root, run_id)
+        run_id, bundle = self._new_bundle(started, config_hash)
 
         ctx = RunContext(
             run_id=run_id,

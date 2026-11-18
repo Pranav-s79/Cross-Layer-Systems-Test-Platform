@@ -1,7 +1,7 @@
 """Command-line entry point.
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
-    crosslayer suite SUITE [--out DIR] [--fail-fast] experiments in dependency order, with expected verdicts
+    crosslayer suite SUITE [--out DIR] [--fail-fast] [-j N] experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR] [--json]   re-run a bundle's configuration and compare hashes
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -326,6 +327,18 @@ def _cmd_lint(args: argparse.Namespace) -> int:
     return worst
 
 
+def _jobs(text: str) -> int:
+    if text == "auto":
+        return os.cpu_count() or 1
+    try:
+        jobs = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a positive integer or 'auto', got {text!r}") from None
+    if jobs < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive integer or 'auto', got {text!r}")
+    return jobs
+
+
 def _cmd_suite(args: argparse.Namespace) -> int:
     suite = load_suite(args.suite)
     print(f"suite     {suite.name} ({len(suite.entries)} experiments)")
@@ -337,7 +350,7 @@ def _cmd_suite(args: argparse.Namespace) -> int:
             detail = "fail-fast"
         print(f"  {r.status.upper():<8} {r.entry.id:<24} expect {r.entry.expect.upper():<12} got {verdict:<12} {detail}")
 
-    outcome = SuiteRunner(args.out).run(suite, on_result=show, fail_fast=args.fail_fast)
+    outcome = SuiteRunner(args.out, jobs=args.jobs).run(suite, on_result=show, fail_fast=args.fail_fast)
     print(f"result    {'PASSED' if outcome.passed else 'FAILED'}")
     print(f"output    {outcome.suite_dir}")
     return 0 if outcome.passed else 1
@@ -434,6 +447,9 @@ def build_parser() -> argparse.ArgumentParser:
     suite_p.add_argument("--out", type=Path, default=Path("runs"), help="output directory (default: runs/)")
     suite_p.add_argument("--fail-fast", action="store_true",
                          help="stop after the first experiment that misses its expectation; skip the rest")
+    suite_p.add_argument("-j", "--jobs", type=_jobs, default=1, metavar="N",
+                         help="run up to N experiments at once once their dependencies are done; "
+                              "'auto' uses every CPU (default: 1)")
     suite_p.set_defaults(func=_cmd_suite)
 
     replay = sub.add_parser("replay", help="re-run a bundle's configuration and compare hashes")
