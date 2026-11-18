@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import re
 import xml.etree.ElementTree as ET
+from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -321,6 +322,18 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "suite"
 
 
+_WORKER_RUNNERS: dict[Path, ExperimentRunner] = {}
+
+
+def _run_in_worker(runs_dir: Path, experiment: ExperimentConfig) -> tuple[Verdict, str, Path]:
+    """Run one experiment in a pool process, reusing that process's runner."""
+    runner = _WORKER_RUNNERS.get(runs_dir)
+    if runner is None:
+        runner = _WORKER_RUNNERS[runs_dir] = ExperimentRunner(runs_dir)
+    run = runner.run(experiment)
+    return run.verdict, run.run_id, run.bundle_dir
+
+
 class SuiteRunner:
     def __init__(
         self,
@@ -328,10 +341,17 @@ class SuiteRunner:
         *,
         runner_factory: Callable[[Path], ExperimentRunner] = ExperimentRunner,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        jobs: int = 1,
     ) -> None:
+        """``jobs`` > 1 runs experiments whose dependencies are done in parallel:
+        in worker processes with the default runner, in threads with a custom
+        ``runner_factory`` (which need not be picklable)."""
+        if isinstance(jobs, bool) or not isinstance(jobs, int) or jobs < 1:
+            raise ConfigError(f"jobs must be a positive integer, got {jobs!r}")
         self.output_root = output_root
         self._runner_factory = runner_factory
         self._clock = clock
+        self.jobs = jobs
 
     def _suite_dir(self, suite: Suite) -> Path:
         base = f"suite-{_slug(suite.name)}-{self._clock():%Y%m%dT%H%M%SZ}"
@@ -351,38 +371,108 @@ class SuiteRunner:
     ) -> SuiteResult:
         # Validate every experiment (adapter, faults, contracts) before running
         # any of them, so a mistake in the last entry cannot leave a half-run suite.
+        planner = self._runner_factory(self.output_root)
         for entry in suite.entries:
             try:
-                self._runner_factory(self.output_root).plan(entry.experiment)
+                planner.plan(entry.experiment)
             except ConfigError as exc:
                 raise ConfigError(f"experiment '{entry.id}': {exc}") from exc
 
         suite_dir = self._suite_dir(suite)
-        runner = self._runner_factory(suite_dir / "runs")
-        status: dict[str, str] = {}
-        results: list[SuiteEntryResult] = []
-        stopped = False
-        for entry in execution_order(suite.entries):
-            blockers = [d for d in entry.depends_on if status.get(d) != "met"]
-            if stopped:
-                result = SuiteEntryResult(entry, "skipped")
-            elif blockers:
-                result = SuiteEntryResult(entry, "blocked", blocked_by=blockers)
-            else:
-                run = runner.run(entry.experiment)
-                met = run.verdict is entry.expect
-                result = SuiteEntryResult(entry, "met" if met else "unmet", run.verdict, run.run_id, run.bundle_dir,
-                                          coverage=_coverage_of(run.bundle_dir))
-            status[entry.id] = result.status
-            if fail_fast and result.status == "unmet":
-                stopped = True
-            results.append(result)
-            if on_result:
-                on_result(result)
-
+        order = execution_order(suite.entries)
+        if self.jobs == 1:
+            results = self._run_sequential(order, suite_dir / "runs", on_result, fail_fast)
+        else:
+            results = self._run_parallel(order, suite_dir / "runs", on_result, fail_fast)
         outcome = SuiteResult(suite, suite_dir, results)
         _write_outputs(outcome)
         return outcome
+
+    @staticmethod
+    def _resolve(entry: SuiteEntry, status: Mapping[str, str], stopped: bool) -> SuiteEntryResult | None:
+        """The result of an entry that will not run, or None if it should run."""
+        if stopped:
+            return SuiteEntryResult(entry, "skipped")
+        blockers = [d for d in entry.depends_on if status.get(d) != "met"]
+        return SuiteEntryResult(entry, "blocked", blocked_by=blockers) if blockers else None
+
+    @staticmethod
+    def _finished(entry: SuiteEntry, verdict: Verdict, run_id: str, bundle_dir: Path) -> SuiteEntryResult:
+        status = "met" if verdict is entry.expect else "unmet"
+        return SuiteEntryResult(entry, status, verdict, run_id, bundle_dir, coverage=_coverage_of(bundle_dir))
+
+    def _run_sequential(
+        self, order: list[SuiteEntry], runs_dir: Path,
+        on_result: Callable[[SuiteEntryResult], None] | None, fail_fast: bool,
+    ) -> list[SuiteEntryResult]:
+        runner = self._runner_factory(runs_dir)
+        status: dict[str, str] = {}
+        results: list[SuiteEntryResult] = []
+        stopped = False
+        for entry in order:
+            result = self._resolve(entry, status, stopped)
+            if result is None:
+                run = runner.run(entry.experiment)
+                result = self._finished(entry, run.verdict, run.run_id, run.bundle_dir)
+            status[entry.id] = result.status
+            stopped = stopped or (fail_fast and result.status == "unmet")
+            results.append(result)
+            if on_result:
+                on_result(result)
+        return results
+
+    def _run_parallel(
+        self, order: list[SuiteEntry], runs_dir: Path,
+        on_result: Callable[[SuiteEntryResult], None] | None, fail_fast: bool,
+    ) -> list[SuiteEntryResult]:
+        """Start each entry once every dependency has finished; report in ``order``."""
+        status: dict[str, str] = {}
+        done: dict[str, SuiteEntryResult] = {}
+        pending = list(order)
+        running: dict[Future[tuple[Verdict, str, Path]], SuiteEntry] = {}
+        stopped = False
+
+        def record(result: SuiteEntryResult) -> None:
+            nonlocal stopped
+            done[result.entry.id] = result
+            status[result.entry.id] = result.status
+            stopped = stopped or (fail_fast and result.status == "unmet")
+            if on_result:
+                on_result(result)
+
+        executor: Executor
+        if self._runner_factory is ExperimentRunner:
+            executor = ProcessPoolExecutor(max_workers=self.jobs)
+            submit = lambda e: executor.submit(_run_in_worker, runs_dir, e.experiment)  # noqa: E731
+        else:
+            local = self._runner_factory(runs_dir)
+
+            def run_local(experiment: ExperimentConfig) -> tuple[Verdict, str, Path]:
+                run = local.run(experiment)
+                return run.verdict, run.run_id, run.bundle_dir
+
+            executor = ThreadPoolExecutor(max_workers=self.jobs)
+            submit = lambda e: executor.submit(run_local, e.experiment)  # noqa: E731
+        with executor:
+            while pending or running:
+                for entry in list(pending):
+                    if any(d not in status for d in entry.depends_on):
+                        continue  # a dependency is still pending or running
+                    if not stopped and len(running) >= self.jobs:
+                        break
+                    pending.remove(entry)
+                    result = self._resolve(entry, status, stopped)
+                    if result is not None:
+                        record(result)
+                    else:
+                        running[submit(entry)] = entry
+                if not running:
+                    continue
+                finished, _ = wait(running, return_when=FIRST_COMPLETED)
+                for future in finished:
+                    entry = running.pop(future)
+                    record(self._finished(entry, *future.result()))
+        return [done[entry.id] for entry in order]
 
 
 def _write_outputs(outcome: SuiteResult) -> None:
