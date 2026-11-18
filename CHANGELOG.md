@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a two-UE 5G fixture with a 40 ms gNB clock skew, and a variant where only one UE's registration is missing.
 - Add upstream-verified log profiles and clearly labeled synthetic fixtures for Open5GS v2.8.0 AMF/SMF and OCUDU release 26.10 gNB logs.
 - Add composite text-log correlation joins with exact id-pair matching, bounded unambiguous time fallback, and per-event confidence metadata.
 - Add a synthetic Open5GS/OCUDU fixture suite with registration, PDU-session, and RRC-state contracts; dropped, delayed, and reordered variants each fail only their target contract.

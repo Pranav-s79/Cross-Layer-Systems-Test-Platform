@@ -76,6 +76,19 @@ count exact, fallback, ambiguous, and unmatched events for each join. Built-in
 profiles list possible derived ids in `derived_correlation`, so contract lint
 can validate `correlate_by` and `group_by` uses.
 
+The 5G example (`experiments/5g-logs/`) checks that joins keep UEs apart:
+`two_ues` registers two UEs one second apart, with the gNB host clock 40 ms
+ahead (`offset_ms: 40`), and passes; in its variant only UE 2's Registration
+complete is missing, and `5g.registration_completes` fails for UE 2 alone.
+The fallback is per window, so UEs that attach within one window of each
+other leave id-less lines unjoined (counted as ambiguous) and the contracts
+that need them INCONCLUSIVE, never joined by guess.
+
+A deadline that runs past the end of the capture is unresolved, not a
+violation: the answer may have come after the log ends. The 5G registration
+contract also requires a later procedure as evidence, so a truncated capture
+is INCONCLUSIVE.
+
 ## Profile
 
 Built-in profiles live in `crosslayer/integrations/textlog/profiles/<name>.yaml`.
