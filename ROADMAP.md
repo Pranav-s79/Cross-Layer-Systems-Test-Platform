@@ -12,8 +12,8 @@ built hardware and software.
 | **I. Foundation** | 1 | Verification core | ✅ |
 | | 2 | Contract tooling | ✅ |
 | **II. Real integrations** | 3 | RTL processor verification (RV32I) | ✅ |
-| | 4 | Wireless log analysis (5G RAN + core) | 🔜 |
-| | 5 | Live 5G virtual radio | 📋 |
+| | 4 | Wireless log analysis (5G RAN + core) | ✅ |
+| | 5 | Live 5G virtual radio | 🔜 |
 | | 6 | Firmware and hardware-in-the-loop | 📋 |
 | **III. Diagnosis** | 7 | Fault localization | 📋 |
 | | 8 | Guided follow-up experiments | 📋 |
@@ -109,15 +109,19 @@ fails at exactly the instruction where an independent model of the same bug
 first diverges; `crosslayer/core` is unchanged. See
 [docs/rtl-verification.md](docs/rtl-verification.md).
 
-### Phase 4 · Wireless log analysis (5G RAN + core) 🔜
+### Phase 4 · Wireless log analysis (5G RAN + core) ✅
 * Parsers for OCUDU RAN and Open5GS core logs, with fixture source and version recorded.
 * Join RAN and core events on explicit ids (NGAP UE id pairs), with a recorded time-window fallback.
 * Per-source clock metadata; contracts for registration, session setup, and RRC states.
 
-**Exit:** RTL and wireless run on the same unmodified core; fixture results
-are labeled as fixtures.
+**Exit (met):** the unmodified core runs both RTL and wireless analysis. The
+Open5GS/OCUDU inputs are labeled synthetic fixtures in their source README,
+experiment descriptions, manifests, and reports. Exact NGAP id-pair joins are
+distinguished from low-confidence time-window joins. Clean fixtures pass all
+three contracts; dropped, delayed, and reordered messages each fail only their
+target contract. See [docs/log-analysis.md](docs/log-analysis.md).
 
-### Phase 5 · Live 5G virtual radio 📋
+### Phase 5 · Live 5G virtual radio 🔜
 * Containerized gNB, core, and UE over a virtual radio link, with traffic and KPIs.
 * Labeled impairments: channel degradation, core delay, CPU contention.
 

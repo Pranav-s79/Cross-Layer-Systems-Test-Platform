@@ -7,4 +7,5 @@
 2026-11-17T09:00:00.160000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Reconfiguration Procedure" started...
 2026-11-17T09:00:00.200000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Reconfiguration Procedure" finished successfully
 2026-11-17T09:00:00.205000 [NGAP    ] [I] ue=7 ran_ue=11 amf_ue=42: "PDU Session Resource Setup Procedure" finished successfully
+2026-11-17T09:00:00.400000 [NGAP    ] [I] Rx PDU ue=7 ran_ue=11 amf_ue=42: DownlinkNASTransport
 

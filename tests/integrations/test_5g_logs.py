@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from crosslayer.core.adapters import RunContext
+from crosslayer.core.orchestrator import ExperimentRunner, load_experiment
+from crosslayer.core.telemetry import read_events_jsonl
+from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.textlog import TextLogAdapter
 from crosslayer.integrations.textlog.profile import ParsedLine, load_profile
 
@@ -17,6 +22,11 @@ SOURCES = [
 ]
 JOIN = {"name": "ngap_ue", "keys": ["ran_ue_ngap_id", "amf_ue_ngap_id"],
         "fallback_window_ms": 250}
+CONTRACTS = {
+    "5g.registration_completes",
+    "5g.pdu_session_setup_completes",
+    "5g.rrc_state_transitions_legal",
+}
 
 
 def _parsed(profile_name: str, log_name: str) -> list[ParsedLine]:
@@ -44,6 +54,13 @@ def _normalize(tmp_path: Path, sources: list[dict[str, Any]] = SOURCES, joins: l
     adapter.validate_parameters(parameters)
     assert adapter.faults_for(parameters, EXPERIMENT) == []
     return adapter.normalize(context, adapter.collect(context, None))
+
+
+@pytest.fixture(scope="module")
+def runs(tmp_path_factory: pytest.TempPathFactory):
+    runner = ExperimentRunner(tmp_path_factory.mktemp("5g-runs"))
+    names = ["baseline", "fault_dropped_registration", "fault_delayed_pdu_session", "fault_reordered_rrc"]
+    return {name: runner.run(load_experiment(EXPERIMENT / f"{name}.yaml")) for name in names}
 
 
 def test_open5gs_amf_profile_parses_registration_and_ngap_ids() -> None:
@@ -78,6 +95,7 @@ def test_ocudu_profile_parses_ngap_and_rrc_procedures() -> None:
         "rrc.reconfiguration_started",
         "rrc.connected",
         "pdu_session.setup_complete",
+        "ngap.downlink_nas_transport",
     ]
     assert events[3].correlation == {
         "ue": "7",
@@ -114,7 +132,7 @@ def test_ngap_pair_join_records_exact_and_time_window_confidence(tmp_path: Path)
         "name": "ngap_ue",
         "keys": ["ran_ue_ngap_id", "amf_ue_ngap_id"],
         "fallback_window_ms": 250,
-        "exact": 5,
+        "exact": 6,
         "fallback": 9,
         "ambiguous": 0,
         "unmatched": 0,
@@ -141,4 +159,51 @@ def test_5g_catalog_declares_the_derived_join() -> None:
     catalog = TextLogAdapter().event_catalog()
     relevant = [spec for spec in catalog if spec.event_type in {"registration.requested", "pdu_session.allocated"}]
     assert relevant and all("ngap_ue" in spec.correlation_ids for spec in relevant)
+
+
+def test_synthetic_baseline_passes_with_complete_raw_evidence(runs) -> None:
+    baseline = runs["baseline"]
+    assert baseline.verdict is Verdict.PASS
+    assert baseline.manifest["events"]["count"] == 15
+    assert baseline.manifest["events"]["parse_diagnostics"] == 0
+    assert {result.contract.id: result.verdict for result in baseline.results} == dict.fromkeys(CONTRACTS, Verdict.PASS)
+    assert "SYNTHETIC FIXTURE" in baseline.manifest["experiment"]["description"]
+
+    events = read_events_jsonl(baseline.bundle_dir / "normalized_events.jsonl")
+    assert {event.source_system for event in events} == {"open5gs", "ocudu"}
+    for event in events:
+        assert event.raw_artifact_ref is not None
+        path, _, line = event.raw_artifact_ref.partition("#L")
+        assert (baseline.bundle_dir / path).read_text(encoding="utf-8").splitlines()[int(line) - 1]
+
+
+@pytest.mark.parametrize(
+    "experiment, target",
+    [
+        ("fault_dropped_registration", "5g.registration_completes"),
+        ("fault_delayed_pdu_session", "5g.pdu_session_setup_completes"),
+        ("fault_reordered_rrc", "5g.rrc_state_transitions_legal"),
+    ],
+)
+def test_each_fixture_fault_fails_only_its_target_contract(runs, experiment: str, target: str) -> None:
+    result = runs[experiment]
+    assert result.verdict is Verdict.FAIL
+    assert {item.contract.id for item in result.results if item.verdict is Verdict.FAIL} == {target}
+    assert all(item.verdict in {Verdict.PASS, Verdict.FAIL} for item in result.results)
+    assert "SYNTHETIC FIXTURE" in result.manifest["experiment"]["description"]
+
+
+def test_5g_contract_tests_pass_with_full_coverage() -> None:
+    from crosslayer.core.contracts.testing import run_contract_tests
+
+    report = run_contract_tests(EXPERIMENT / "contract_tests.yaml")
+    assert report.passed, [result.problems for result in report.results if not result.passed]
+    assert report.uncovered() == []
+
+
+def test_5g_experiments_have_no_lint_findings() -> None:
+    from crosslayer.core.orchestrator.lint import lint_experiment
+
+    for name in ("baseline", "fault_dropped_registration", "fault_delayed_pdu_session", "fault_reordered_rrc"):
+        assert lint_experiment(load_experiment(EXPERIMENT / f"{name}.yaml")) == []
 

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../schemas/contract-tests.schema.json
+schema_version: 1
+contracts: [contracts.yaml]
+cases:
+  - name: registration completes for the same NGAP UE
+    contract: 5g.registration_completes
+    expect: pass
+    events:
+      - {t_ms: 10, type: registration.requested, subsystem: amf, ids: {ngap_ue: ue-1}}
+      - {t_ms: 80, type: registration.complete, subsystem: amf, ids: {ngap_ue: ue-1}}
+      - {t_ms: 300, type: pdu_session.setup_complete, subsystem: ngap, ids: {ngap_ue: ue-1}}
+
+  - name: dropped registration completion fails after evidence continues
+    contract: 5g.registration_completes
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 10, type: registration.requested, subsystem: amf, ids: {ngap_ue: ue-1}}
+      - {t_ms: 300, type: pdu_session.setup_complete, subsystem: ngap, ids: {ngap_ue: ue-1}}
+
+  - name: session allocation completes in the RAN
+    contract: 5g.pdu_session_setup_completes
+    expect: pass
+    events:
+      - {t_ms: 100, type: pdu_session.allocated, subsystem: smf, ids: {ngap_ue: ue-1}}
+      - {t_ms: 155, type: pdu_session.setup_complete, subsystem: ngap, ids: {ngap_ue: ue-1}}
+
+  - name: delayed RAN session setup fails
+    contract: 5g.pdu_session_setup_completes
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_ms: 100, type: pdu_session.allocated, subsystem: smf, ids: {ngap_ue: ue-1}}
+      - {t_ms: 250, type: pdu_session.setup_complete, subsystem: ngap, ids: {ngap_ue: ue-1}}
+
+  - name: RRC setup and reconfiguration follow the state machine
+    contract: 5g.rrc_state_transitions_legal
+    expect: pass
+    events:
+      - {t_ms: 0, type: rrc.setup_started, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 30, type: rrc.connected, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 100, type: rrc.reconfiguration_started, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 140, type: rrc.connected, subsystem: rrc, ids: {ue: 7}}
+
+  - name: reordered RRC completion fails
+    contract: 5g.rrc_state_transitions_legal
+    expect: fail
+    expect_violations: 2
+    events:
+      - {t_ms: 0, type: rrc.setup_started, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 30, type: rrc.connected, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 100, type: rrc.connected, subsystem: rrc, ids: {ue: 7}}
+      - {t_ms: 140, type: rrc.reconfiguration_started, subsystem: rrc, ids: {ue: 7}}
+

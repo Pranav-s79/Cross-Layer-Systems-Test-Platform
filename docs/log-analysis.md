@@ -20,6 +20,17 @@ three contracts join the logs by request id.
 | `baseline.yaml` | PASS | 24 events (12 per log), 0 parse diagnostics, 3/3 contracts PASS |
 | `slow_reply.yaml` | FAIL | `demo.request_answered` FAIL: `request=1003: response 'response.sent' after 182 ms, limit 100 ms` |
 
+The 5G example is also explicitly **synthetic**. Its formats and provenance
+are recorded in [`experiments/5g-logs/README.md`](../experiments/5g-logs/README.md).
+It reads Open5GS AMF/SMF and OCUDU gNB logs, joins NGAP UE id pairs, and checks
+registration, PDU-session setup, and RRC state order. The suite includes one
+dropped, delayed, and reordered message variant; each fails only its target
+contract.
+
+```sh
+crosslayer suite experiments/5g-logs/suite.yaml --out runs
+```
+
 ## Experiment
 
 List every log in `inputs`, then give exactly one source per input:

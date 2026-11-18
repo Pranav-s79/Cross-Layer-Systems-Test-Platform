@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../schemas/contracts.schema.json
+schema_version: 1
+contracts:
+  - id: 5g.registration_completes
+    title: Every registration request completes within 200 ms
+    owner: 5g-core
+    source: amf
+    destination: ngap
+    evidence: [{event_type: pdu_session.setup_complete}]
+    rule:
+      kind: response
+      trigger: {event_type: registration.requested, subsystem: amf}
+      response: {event_type: registration.complete, subsystem: amf}
+      correlate_by: ngap_ue
+      within_ms: 200
+
+  - id: 5g.pdu_session_setup_completes
+    title: Every allocated PDU session is installed by the RAN within 100 ms
+    owner: 5g-session
+    source: smf
+    destination: ngap
+    rule:
+      kind: response
+      trigger: {event_type: pdu_session.allocated, subsystem: smf}
+      response: {event_type: pdu_session.setup_complete, subsystem: ngap}
+      correlate_by: ngap_ue
+      within_ms: 100
+
+  - id: 5g.rrc_state_transitions_legal
+    title: RRC setup and reconfiguration states occur in legal order
+    owner: ran-rrc
+    source: rrc
+    destination: gnb
+    rule:
+      kind: transitions
+      select: {event_type: [rrc.setup_started, rrc.connected, rrc.reconfiguration_started], subsystem: rrc}
+      state: event_type
+      group_by: ue
+      initial: [rrc.setup_started]
+      final: [rrc.connected]
+      allowed:
+        rrc.setup_started: [rrc.connected]
+        rrc.connected: [rrc.reconfiguration_started]
+        rrc.reconfiguration_started: [rrc.connected]
+
