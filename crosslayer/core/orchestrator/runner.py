@@ -106,8 +106,27 @@ class ExperimentRunner:
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         self.output_root = output_root
-        self._load_adapter = adapter_loader
+        self._loader = adapter_loader
         self._clock = clock
+        self._adapters: dict[str, SystemAdapter] = {}
+        self._environment: dict[str, Any] | None = None
+
+    def _load_adapter(self, reference: str) -> SystemAdapter:
+        """One adapter instance per reference for this runner's lifetime.
+
+        Adapters receive all run state through ``RunContext``, so a runner (and
+        the suite that owns it) reuses them instead of rediscovering and
+        re-instantiating one per plan and run.
+        """
+        if reference not in self._adapters:
+            self._adapters[reference] = self._loader(reference)
+        return self._adapters[reference]
+
+    def _environment_record(self) -> dict[str, Any]:
+        """Environment for versions.json, captured once per runner (a suite shares one)."""
+        if self._environment is None:
+            self._environment = capture_environment()
+        return self._environment
 
     # -- validation ----------------------------------------------------------
 
@@ -224,7 +243,7 @@ class ExperimentRunner:
         bundle.write_json(
             "versions.json",
             {
-                "environment": capture_environment(),
+                "environment": self._environment_record(),
                 "adapter": description.to_dict(),
                 "capabilities": sorted(plan.capabilities),
             },

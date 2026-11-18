@@ -15,9 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Collection, Mapping
 
-import yaml
-
 from crosslayer.core.errors import ConfigError
+from crosslayer.core.yamlio import YAMLError, load_yaml
 from crosslayer.integrations.rv32i.traces import RETIRE_FIELDS, TRACE_FORMATS
 
 CORES_DIR = Path(__file__).resolve().parent / "cores"
@@ -85,13 +84,21 @@ class CoreProfile:
     def file(self, name: str) -> Path:
         return self.root / name
 
+    def files(self) -> tuple[Path, ...]:
+        """The profile file, testbench, and sources, in digest order."""
+        return (self.path, self.file(self.testbench), *(self.file(s) for s in self.sources))
+
     def digest(self) -> str:
         """Short SHA-256 over the profile, testbench, and sources, in order."""
-        h = hashlib.sha256()
-        for name in (PROFILE_NAME, self.testbench, *self.sources):
-            h.update(name.encode() + b"\0")
-            h.update(self.file(name).read_bytes())
-        return h.hexdigest()[:12]
+        stamps = _stamps(self.files())
+        cached = _DIGESTS.get(stamps)
+        if cached is None:
+            h = hashlib.sha256()
+            for name in (PROFILE_NAME, self.testbench, *self.sources):
+                h.update(name.encode() + b"\0")
+                h.update(self.file(name).read_bytes())
+            cached = _DIGESTS[stamps] = h.hexdigest()[:12]
+        return cached
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -119,6 +126,20 @@ def profile_path(core: str, base_dir: Path | None = None) -> Path:
     return path.resolve()
 
 
+_Stamps = tuple[tuple[str, int, int], ...]
+_PROFILES: dict[tuple[Any, ...], tuple[CoreProfile, _Stamps]] = {}
+_DIGESTS: dict[_Stamps, str] = {}
+
+
+def _stamps(paths: Collection[Path]) -> _Stamps:
+    """(path, mtime_ns, size) of each file: a cheap check that none changed."""
+    out = []
+    for p in paths:
+        st = p.stat()
+        out.append((str(p), st.st_mtime_ns, st.st_size))
+    return tuple(out)
+
+
 def load_profile(
     core: str,
     base_dir: Path | None = None,
@@ -128,12 +149,33 @@ def load_profile(
     model_faults: Collection[str] = (),
 ) -> CoreProfile:
     """Load and validate a profile. Empty ``subsystems`` / ``interfaces`` /
-    ``model_faults`` skip the corresponding cross-checks."""
+    ``model_faults`` skip the corresponding cross-checks.
+
+    Results are cached per process and reused while the profile, testbench,
+    and sources are unchanged on disk (same mtime and size); a run plans,
+    builds, and normalizes with the same profile several times.
+    """
     path = profile_path(core, base_dir)
+    key = (path, frozenset(subsystems), frozenset(interfaces), frozenset(model_faults))
+    hit = _PROFILES.get(key)
+    if hit is not None:
+        try:
+            if _stamps(hit[0].files()) == hit[1]:
+                return hit[0]
+        except OSError:
+            pass
+    profile = _load_profile(path, subsystems, interfaces, model_faults)
+    _PROFILES[key] = (profile, _stamps(profile.files()))
+    return profile
+
+
+def _load_profile(
+    path: Path, subsystems: Collection[str], interfaces: Collection[str], model_faults: Collection[str],
+) -> CoreProfile:
     where = str(path)
     try:
-        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
+        doc = load_yaml(path.read_text(encoding="utf-8"))
+    except YAMLError as exc:
         raise ConfigError(f"invalid YAML: {exc}", location=where) from None
     if not isinstance(doc, dict):
         raise ConfigError("must be a mapping", location=where)

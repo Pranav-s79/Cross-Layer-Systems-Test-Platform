@@ -53,6 +53,14 @@ crosslayer suite experiments/rv32i/suite.yaml --out runs
 crosslayer suite experiments/rv32i-quark/suite.yaml --out runs   # second core
 ```
 
+Compiled simulations are cached by a SHA-256 of everything `iverilog`
+compiles (source text after mutants, defines, flags) and the identity of the
+`iverilog` and `vvp` binaries, so runs that share RTL skip compilation; the
+manifest's `build.compile_cache` records the key and whether it hit. The
+cache lives in `%LOCALAPPDATA%/crosslayer/rv32i-sim` (Windows) or
+`~/.cache/crosslayer/rv32i-sim`; set `CROSSLAYER_CACHE_DIR` to move it, or to
+`off` to disable it.
+
 The baseline must pass all 10 contracts. Each mutant experiment declares
 `expect: fail` and depends on the baseline, so a broken clean run blocks mutant
 claims instead of producing misleading fault-detection results.

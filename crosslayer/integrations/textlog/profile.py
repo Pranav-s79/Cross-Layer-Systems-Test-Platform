@@ -21,9 +21,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Collection, Mapping
 
-import yaml
 
 from crosslayer.core.errors import ConfigError
+from crosslayer.core.yamlio import YAMLError, load_yaml
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
 from crosslayer.core.units import NS_PER_S
 
@@ -206,18 +206,37 @@ def profile_path(profile: str, base_dir: Path | None = None, loc: str | None = N
     return path.resolve(), False
 
 
+_PROFILES: dict[tuple[Path, frozenset[str]], tuple["LogProfile", tuple[int, int]]] = {}
+
+
 def load_profile(
     profile: str, base_dir: Path | None = None, *, subsystems: Collection[str] = (), loc: str | None = None,
 ) -> LogProfile:
     """Load and validate a profile. A non-empty ``subsystems`` restricts the
     subsystems a profile from a path may use (built-in profiles define them).
-    ``loc`` names the setting that selected the profile, for errors."""
+    ``loc`` names the setting that selected the profile, for errors.
+
+    Successful loads are cached per process and reused while the file is
+    unchanged (same mtime and size); planning, cataloging, and normalizing a
+    run consult the built-in profiles many times.
+    """
     path, builtin = profile_path(profile, base_dir, loc)
+    key = (path, frozenset(subsystems))
+    st = path.stat()
+    hit = _PROFILES.get(key)
+    if hit is not None and hit[1] == (st.st_mtime_ns, st.st_size):
+        return hit[0]
+    loaded = _load_profile(path, builtin, subsystems)
+    _PROFILES[key] = (loaded, (st.st_mtime_ns, st.st_size))
+    return loaded
+
+
+def _load_profile(path: Path, builtin: bool, subsystems: Collection[str]) -> LogProfile:
     where = str(path)
     data = path.read_bytes()
     try:
-        doc = yaml.safe_load(data.decode("utf-8"))
-    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        doc = load_yaml(data.decode("utf-8"))
+    except (YAMLError, UnicodeDecodeError) as exc:
         raise ConfigError(f"invalid YAML: {exc}", location=where) from None
     if not isinstance(doc, dict):
         raise ConfigError("must be a mapping", location=where)

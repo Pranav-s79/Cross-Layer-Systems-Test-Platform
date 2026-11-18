@@ -46,6 +46,9 @@ class RunBundle:
         self.root = root
         self.raw_dir = root / "raw_artifacts"
         self.work_dir = root / "work"
+        self._written: dict[Path, tuple[int, int, str]] = {}
+        """(size, mtime_ns, sha256) of files this bundle wrote, so file_index
+        need not reopen them; a file changed since is hashed again."""
 
     @classmethod
     def create(cls, output_root: Path, run_id: str) -> "RunBundle":
@@ -62,8 +65,10 @@ class RunBundle:
     def write_text(self, name: str, text: str) -> Path:
         path = self.path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
+        data = text.encode("utf-8")
+        path.write_bytes(data)
+        st = path.stat()
+        self._written[path] = (st.st_size, st.st_mtime_ns, hashlib.sha256(data).hexdigest())
         return path
 
     def write_json(self, name: str, obj: Any) -> Path:
@@ -81,7 +86,10 @@ class RunBundle:
             rel = path.relative_to(self.root)
             if rel.as_posix() == MANIFEST or rel.parts[0] == "work":
                 continue
-            entries.append({"path": rel.as_posix(), "bytes": path.stat().st_size, "sha256": sha256_file(path)})
+            st = path.stat()
+            known = self._written.get(path)
+            digest = known[2] if known and known[:2] == (st.st_size, st.st_mtime_ns) else sha256_file(path)
+            entries.append({"path": rel.as_posix(), "bytes": st.st_size, "sha256": digest})
         return entries
 
 

@@ -31,6 +31,8 @@ from typing import Any, Iterable, Mapping
 
 import yaml
 
+from crosslayer.core.yamlio import load_yaml
+
 from crosslayer.core.contracts.model import BoundaryContract, Criticality, FailurePolicy
 from crosslayer.core.contracts.rules import parse_rule
 from crosslayer.core.contracts.selectors import parse_selector
@@ -147,7 +149,7 @@ def read_document(path: Path) -> Any:
         text = path.read_text(encoding="utf-8")
         if path.suffix.lower() == ".json":
             return json.loads(text)
-        return yaml.safe_load(text)
+        return load_yaml(text)
     except (OSError, UnicodeDecodeError, yaml.YAMLError, json.JSONDecodeError) as exc:
         raise ConfigError(f"cannot read file: {exc}", location=str(path)) from exc
 
