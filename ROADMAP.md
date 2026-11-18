@@ -119,7 +119,8 @@ Open5GS/OCUDU inputs are labeled synthetic fixtures in their source README,
 experiment descriptions, manifests, and reports. Exact NGAP id-pair joins are
 distinguished from low-confidence time-window joins. Clean fixtures pass all
 three contracts; dropped, delayed, and reordered messages each fail only their
-target contract. See [docs/log-analysis.md](docs/log-analysis.md).
+target contract. With two UEs and a skewed gNB clock, a registration missing
+for one UE fails for that UE alone. See [docs/log-analysis.md](docs/log-analysis.md).
 
 ### Phase 5 · Live 5G virtual radio 🔜
 * Containerized gNB, core, and UE over a virtual radio link, with traffic and KPIs.

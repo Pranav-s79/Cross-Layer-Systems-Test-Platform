@@ -1,0 +1,20 @@
+2026-11-17T09:00:00.040000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Setup Procedure" started...
+2026-11-17T09:00:00.070000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Setup Procedure" finished successfully
+2026-11-17T09:00:00.075000 [NGAP    ] [I] Tx PDU ue=7 ran_ue=11: InitialUEMessage
+2026-11-17T09:00:00.170000 [NGAP    ] [I] Rx PDU ue=7 ran_ue=11 amf_ue=42: DownlinkNASTransport
+2026-11-17T09:00:00.195000 [NGAP    ] [I] Rx PDU ue=7 ran_ue=11 amf_ue=42: PDUSessionResourceSetupRequest
+2026-11-17T09:00:00.196000 [NGAP    ] [I] ue=7 ran_ue=11 amf_ue=42: "PDU Session Resource Setup Procedure" started...
+2026-11-17T09:00:00.200000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Reconfiguration Procedure" started...
+2026-11-17T09:00:00.240000 [RRC     ] [I] ue=7 c-rnti=0x4601: "RRC Reconfiguration Procedure" finished successfully
+2026-11-17T09:00:00.245000 [NGAP    ] [I] ue=7 ran_ue=11 amf_ue=42: "PDU Session Resource Setup Procedure" finished successfully
+2026-11-17T09:00:00.440000 [NGAP    ] [I] Rx PDU ue=7 ran_ue=11 amf_ue=42: DownlinkNASTransport
+2026-11-17T09:00:01.040000 [RRC     ] [I] ue=8 c-rnti=0x4602: "RRC Setup Procedure" started...
+2026-11-17T09:00:01.070000 [RRC     ] [I] ue=8 c-rnti=0x4602: "RRC Setup Procedure" finished successfully
+2026-11-17T09:00:01.075000 [NGAP    ] [I] Tx PDU ue=8 ran_ue=12: InitialUEMessage
+2026-11-17T09:00:01.170000 [NGAP    ] [I] Rx PDU ue=8 ran_ue=12 amf_ue=43: DownlinkNASTransport
+2026-11-17T09:00:01.195000 [NGAP    ] [I] Rx PDU ue=8 ran_ue=12 amf_ue=43: PDUSessionResourceSetupRequest
+2026-11-17T09:00:01.196000 [NGAP    ] [I] ue=8 ran_ue=12 amf_ue=43: "PDU Session Resource Setup Procedure" started...
+2026-11-17T09:00:01.200000 [RRC     ] [I] ue=8 c-rnti=0x4602: "RRC Reconfiguration Procedure" started...
+2026-11-17T09:00:01.240000 [RRC     ] [I] ue=8 c-rnti=0x4602: "RRC Reconfiguration Procedure" finished successfully
+2026-11-17T09:00:01.245000 [NGAP    ] [I] ue=8 ran_ue=12 amf_ue=43: "PDU Session Resource Setup Procedure" finished successfully
+2026-11-17T09:00:01.440000 [NGAP    ] [I] Rx PDU ue=8 ran_ue=12 amf_ue=43: DownlinkNASTransport

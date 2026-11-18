@@ -7,4 +7,5 @@ experiments:
   - {id: dropped_registration, path: fault_dropped_registration.yaml, expect: fail, depends_on: [baseline]}
   - {id: delayed_pdu_session, path: fault_delayed_pdu_session.yaml, expect: fail, depends_on: [baseline]}
   - {id: reordered_rrc, path: fault_reordered_rrc.yaml, expect: fail, depends_on: [baseline]}
-
+  - {id: two_ues, path: two_ues.yaml, depends_on: [baseline]}
+  - {id: two_ues_dropped_registration, path: fault_two_ues_dropped_registration.yaml, expect: fail, depends_on: [two_ues]}

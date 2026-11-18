@@ -25,6 +25,8 @@ to one unambiguous pair, and are labeled low confidence.
 | `fault_dropped_registration.yaml` | FAIL | `5g.registration_completes` |
 | `fault_delayed_pdu_session.yaml` | FAIL | `5g.pdu_session_setup_completes` |
 | `fault_reordered_rrc.yaml` | FAIL | `5g.rrc_state_transitions_legal` |
+| `two_ues.yaml` | PASS | two UEs one second apart; gNB clock 40 ms ahead, corrected with `offset_ms` |
+| `fault_two_ues_dropped_registration.yaml` | FAIL | `5g.registration_completes`, for UE 2 only: UE 1's completion must not answer UE 2's request |
 
 ```sh
 crosslayer lint experiments/5g-logs/suite.yaml --strict

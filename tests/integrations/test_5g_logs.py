@@ -59,7 +59,8 @@ def _normalize(tmp_path: Path, sources: list[dict[str, Any]] = SOURCES, joins: l
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory: pytest.TempPathFactory):
     runner = ExperimentRunner(tmp_path_factory.mktemp("5g-runs"))
-    names = ["baseline", "fault_dropped_registration", "fault_delayed_pdu_session", "fault_reordered_rrc"]
+    names = ["baseline", "fault_dropped_registration", "fault_delayed_pdu_session", "fault_reordered_rrc",
+             "two_ues", "fault_two_ues_dropped_registration"]
     return {name: runner.run(load_experiment(EXPERIMENT / f"{name}.yaml")) for name in names}
 
 
@@ -206,4 +207,30 @@ def test_5g_experiments_have_no_lint_findings() -> None:
 
     for name in ("baseline", "fault_dropped_registration", "fault_delayed_pdu_session", "fault_reordered_rrc"):
         assert lint_experiment(load_experiment(EXPERIMENT / f"{name}.yaml")) == []
+
+
+def test_two_ues_are_joined_to_their_own_ngap_pair_after_clock_correction(runs) -> None:
+    result = runs["two_ues"]
+    assert result.verdict is Verdict.PASS
+    events = read_events_jsonl(result.bundle_dir / "normalized_events.jsonl")
+    pairs = {e.correlation_ids.get("ngap_ue") for e in events if e.event_type == "registration.requested"}
+    assert pairs == {'["11","42"]', '["12","43"]'}
+    first_gnb = min(e.timestamp_ns for e in events if e.source_system == "ocudu")
+    assert first_gnb == 1_794_906_000_000_000_000  # 09:00:00.000 UTC: the 40 ms host skew is removed
+    joins = json_stats(result)["joins"][0]
+    assert joins["ambiguous"] == 0 and joins["unmatched"] == 0
+
+
+def test_one_ues_missing_registration_is_not_hidden_by_the_other(runs) -> None:
+    result = runs["fault_two_ues_dropped_registration"]
+    failing = [r for r in result.results if r.verdict is Verdict.FAIL]
+    assert [r.contract.id for r in failing] == ["5g.registration_completes"]
+    [violation] = [f for f in failing[0].findings if f.kind.value == "violation"]
+    assert violation.evidence[0].event_id == "two_ues_amf_ue2_registration_dropped.log:7"  # UE 2 request
+
+
+def json_stats(result) -> dict[str, Any]:
+    import json
+
+    return json.loads((result.bundle_dir / "normalization.json").read_text(encoding="utf-8"))["stats"]
 

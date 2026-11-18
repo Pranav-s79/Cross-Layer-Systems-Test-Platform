@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: 5g-logs-synthetic-fixture-two-ues
+description: >
+  SYNTHETIC FIXTURE: two UEs register one second apart, and the gNB host
+  clock runs 40 ms ahead (corrected with offset_ms). Every contract must
+  pass, each UE's procedures joined to its own NGAP id pair.
+adapter: textlog
+seed: 1
+timeout_s: 60
+inputs: [logs/two_ues_amf.log, logs/two_ues_smf.log, logs/two_ues_gnb.log]
+parameters:
+  sources:
+    - {input: logs/two_ues_amf.log, profile: open5gs_amf, year: 2026, utc_offset: "+00:00"}
+    - {input: logs/two_ues_smf.log, profile: open5gs_smf, year: 2026, utc_offset: "+00:00"}
+    - {input: logs/two_ues_gnb.log, profile: ocudu_gnb, utc_offset: "+00:00", offset_ms: 40}
+  joins:
+    - {name: ngap_ue, keys: [ran_ue_ngap_id, amf_ue_ngap_id], fallback_window_ms: 250}
+contracts: [contracts.yaml]

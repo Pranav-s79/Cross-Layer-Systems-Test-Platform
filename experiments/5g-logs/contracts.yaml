@@ -6,6 +6,10 @@ contracts:
     owner: 5g-core
     source: amf
     destination: ngap
+    description: >
+      The capture must reach a later procedure (a PDU session setup) before
+      a missing completion can count as a violation; a log that simply ends
+      after the request is INCONCLUSIVE, not a failure.
     evidence: [{event_type: pdu_session.setup_complete}]
     rule:
       kind: response
