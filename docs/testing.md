@@ -91,6 +91,11 @@ re-parses to the same event, one clock across sources, baseline PASS,
 slow-reply FAIL, FAIL without the clock offset, replay, lint, and the
 example's contract tests.
 
+`tests/test_performance_caches.py` checks that every cache added for speed
+invalidates: edited core and log profiles reload, files changed after a
+bundle wrote them are rehashed, the compile key changes with any compiled
+input or tool, and a second build of the same RTL hits the cache.
+
 ## 4. CLI and scaffold (`tests/test_cli.py`, `tests/test_scaffold.py`)
 
 Every command's exit codes and output, plus `--help` for every subcommand.

@@ -5,6 +5,8 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Cut per-run overhead: YAML parsed with libyaml when available, core and log profiles cached until they change on disk, one adapter instance and environment record per runner, and bundle files hashed as they are written. Measured on Windows (8 cores, Python 3.11): the RV32I baseline went from 3.45 s to 0.77 s per run and a 5G log run from about 1.1 s to 0.17 s.
+- Cache compiled RV32I simulations by a hash of their exact inputs (`CROSSLAYER_CACHE_DIR`, `off` to disable).
 - Add a two-UE 5G fixture with a 40 ms gNB clock skew, and a variant where only one UE's registration is missing.
 - Add upstream-verified log profiles and clearly labeled synthetic fixtures for Open5GS v2.8.0 AMF/SMF and OCUDU release 26.10 gNB logs.
 - Add composite text-log correlation joins with exact id-pair matching, bounded unambiguous time fallback, and per-event confidence metadata.

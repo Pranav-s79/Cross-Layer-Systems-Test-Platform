@@ -38,6 +38,9 @@ capabilities you don't declare; the base class raises `UnsupportedOperation`.
   pass `ctx.seed` to anything random.
 * `collect(ctx, execution)` returns `Artifact`s under `ctx.raw_dir`. In
   log-only mode, copy `ctx.inputs` there.
+* Keep per-run state in `ctx` or in locals, never on `self`: a runner (and
+  every run of a suite) reuses one adapter instance. Caching derived,
+  immutable data on the instance or in the module is fine.
 
 ## 3. Normalize
 

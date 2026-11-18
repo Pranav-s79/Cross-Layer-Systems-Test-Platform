@@ -46,6 +46,7 @@ from crosslayer.core.errors import AdapterError, ConfigError
 from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
 from crosslayer.core.telemetry.store import order_events
+from crosslayer.integrations.rv32i import simcache
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
 from crosslayer.integrations.rv32i.iss import (
     ACCESS_BYTES,
@@ -297,12 +298,14 @@ class Rv32iAdapter(SystemAdapter):
         except ConfigError as exc:
             raise AdapterError(str(exc)) from None
         diff_lines: list[str] = []
+        compiled: list[tuple[str, str]] = []
         for name in (profile.testbench, *profile.sources):
             original = profile.file(name).read_text(encoding="utf-8")
             text = texts.get(name, original)
             target = ctx.work_dir / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8", newline="\n")
+            compiled.append((name, text))
             if text != original:
                 diff_lines += difflib.unified_diff(
                     original.splitlines(keepends=True), text.splitlines(keepends=True),
@@ -314,8 +317,15 @@ class Rv32iAdapter(SystemAdapter):
             (ctx.raw_dir / DIFF_NAME).write_text(f"# core: {profile.name}\n# mutants: {', '.join(applied)}\n{text}",
                                                  encoding="utf-8", newline="\n")
 
-        command = [iverilog, "-g2005", *(f"-D{d}" for d in defines), "-o", "sim.vvp",
-                   profile.testbench, *profile.sources]
+        flags = ["-g2005", *(f"-D{d}" for d in defines)]
+        command = [iverilog, *flags, "-o", "sim.vvp", profile.testbench, *profile.sources]
+        details: dict[str, Any] = {"command": command, "core": profile.summary(), "mutants": applied,
+                                   "program_words": len(program.words)}
+        key = simcache.compile_key([iverilog, shutil.which("vvp")], flags, compiled)
+        details["compile_cache"] = {"key": key[:16], "hit": False}
+        if simcache.fetch(key, ctx.work_dir / "sim.vvp"):
+            details["compile_cache"]["hit"] = True
+            return BuildResult(ok=True, details=details)
         stdout_log = ctx.work_dir / "iverilog.stdout.log"
         stderr_log = ctx.work_dir / "iverilog.stderr.log"
         result = run_process(
@@ -325,8 +335,6 @@ class Rv32iAdapter(SystemAdapter):
             stdout_path=stdout_log,
             stderr_path=stderr_log,
         )
-        details: dict[str, Any] = {"command": command, "core": profile.summary(), "mutants": applied,
-                                   "program_words": len(program.words)}
         if result.error is not None or result.timed_out or result.exit_code != 0:
             details["error"] = result.error or ("timeout" if result.timed_out else f"exit code {result.exit_code}")
             logs = [
@@ -336,6 +344,7 @@ class Rv32iAdapter(SystemAdapter):
             ]
             details["log"] = "\n".join(logs)
             return BuildResult(ok=False, details=details)
+        simcache.store(key, ctx.work_dir / "sim.vvp")
         return BuildResult(ok=True, details=details)
 
     def execute(self, ctx: RunContext) -> ExecutionResult:
