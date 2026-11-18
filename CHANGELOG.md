@@ -7,6 +7,7 @@ All notable changes are recorded here, in the
 
 - Add upstream-verified log profiles and clearly labeled synthetic fixtures for Open5GS v2.8.0 AMF/SMF and OCUDU release 26.10 gNB logs.
 - Add composite text-log correlation joins with exact id-pair matching, bounded unambiguous time fallback, and per-event confidence metadata.
+- Add a synthetic Open5GS/OCUDU fixture suite with registration, PDU-session, and RRC-state contracts; dropped, delayed, and reordered variants each fail only their target contract.
 - Add the `textlog` adapter: YAML log profiles turn line-oriented text logs into events, with one profile per input, per-source UTC offset, year and clock offset, and a synthetic two-source example in `experiments/textlog/`.
 - Add seed sweeps to suites (`seeds: [..]` or `{count, start}`), with per-sweep counts and coverage bins summed across seeds.
 - Add the `coverage` rule kind and a coverage section in `report.md` for adapters that report `stats.coverage` bins.

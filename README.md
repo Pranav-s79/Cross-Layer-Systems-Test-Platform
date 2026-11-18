@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Status](https://img.shields.io/badge/status-Phase%203%20of%2015-green)
+![Status](https://img.shields.io/badge/status-Phase%204%20of%2015-green)
 
 **Cross-stack verification for systems built by many teams.**
 
@@ -82,18 +82,23 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   profiles (RTL, testbench, mutants in YAML); RVFI, Spike commit-log, and
   waveform (VCD) trace sources; structural and lockstep contracts; seven
   injected faults per core; seeded random programs.
+- **Wireless log analysis:** declarative profiles for Open5GS AMF/SMF and
+  OCUDU gNB logs; exact NGAP UE id-pair joins with labeled time fallbacks;
+  registration, PDU-session, and RRC-state contracts over synthetic fixtures.
 - **Fault injection:** five faults in the reference pipeline and seven per RV32I
-  core, with clean baselines and explicit target labels.
+  core, plus three faulty 5G log fixtures, with clean baselines and explicit
+  target labels.
 
-> The sensor pipeline is a deterministic simulation. The RV32I integration
-> runs a real processor RTL core in a simulator; it is not hardware-in-the-loop.
+> The sensor pipeline is a deterministic simulation. The 5G logs are labeled
+> synthetic fixtures. The RV32I integration runs a real processor RTL core in
+> a simulator; it is not hardware-in-the-loop.
 
 ## Roadmap
 
 | Stage | Phases | Status |
 |---|---|---|
 | Foundation | Verification core · contract tooling | ✅ done |
-| Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | RV32I done; 5G next |
+| Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | RV32I and 5G log analysis done; live 5G next |
 | Diagnosis | Fault localization · guided experiments · learning-assisted triage | 📋 planned |
 | Scale | Streaming engine · results store · distributed execution | 📋 planned |
 | Production | Platform service · OpenTelemetry · security and governance | 📋 planned |

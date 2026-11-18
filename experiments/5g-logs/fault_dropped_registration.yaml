@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: 5g-logs-synthetic-fixture-dropped-registration
+description: SYNTHETIC FIXTURE fault with the AMF Registration complete message dropped.
+adapter: textlog
+seed: 1
+timeout_s: 60
+inputs: [logs/amf_dropped_registration.log, logs/smf.log, logs/gnb.log]
+parameters:
+  sources:
+    - {input: logs/amf_dropped_registration.log, profile: open5gs_amf, year: 2026, utc_offset: "+00:00"}
+    - {input: logs/smf.log, profile: open5gs_smf, year: 2026, utc_offset: "+00:00"}
+    - {input: logs/gnb.log, profile: ocudu_gnb, utc_offset: "+00:00"}
+  joins:
+    - {name: ngap_ue, keys: [ran_ue_ngap_id, amf_ue_ngap_id], fallback_window_ms: 250}
+contracts: [contracts.yaml]
+

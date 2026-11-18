@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schemas/suite.schema.json
+schema_version: 1
+name: 5g-log-analysis-synthetic-fixtures
+description: SYNTHETIC FIXTURES; the baseline passes and each dropped, delayed, or reordered message is detected.
+experiments:
+  - {id: baseline, path: baseline.yaml}
+  - {id: dropped_registration, path: fault_dropped_registration.yaml, expect: fail, depends_on: [baseline]}
+  - {id: delayed_pdu_session, path: fault_delayed_pdu_session.yaml, expect: fail, depends_on: [baseline]}
+  - {id: reordered_rrc, path: fault_reordered_rrc.yaml, expect: fail, depends_on: [baseline]}
+

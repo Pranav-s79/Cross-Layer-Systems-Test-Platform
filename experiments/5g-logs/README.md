@@ -19,3 +19,16 @@ The experiment derives `ngap_ue` from the `RAN_UE_NGAP_ID` and
 lines that omit it use the configured time window only when that window points
 to one unambiguous pair, and are labeled low confidence.
 
+| Experiment | Expected | Target contract |
+|---|---|---|
+| `baseline.yaml` | PASS | all three contracts pass |
+| `fault_dropped_registration.yaml` | FAIL | `5g.registration_completes` |
+| `fault_delayed_pdu_session.yaml` | FAIL | `5g.pdu_session_setup_completes` |
+| `fault_reordered_rrc.yaml` | FAIL | `5g.rrc_state_transitions_legal` |
+
+```sh
+crosslayer lint experiments/5g-logs/suite.yaml --strict
+crosslayer test-contracts experiments/5g-logs/contract_tests.yaml --require-coverage
+crosslayer suite experiments/5g-logs/suite.yaml --out runs
+```
+
