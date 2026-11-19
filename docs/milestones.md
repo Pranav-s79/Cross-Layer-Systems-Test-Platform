@@ -62,7 +62,7 @@ sources (RVFI text, a commit log derived from it, and its VCD).
 lists any RV32I mnemonic the sweep never retired.
 
 ### 3.6 · RV32I hardening · `routine` · `feature/rtl-hardening`
-- [ ] A JSON Schema for core profiles (`schemas/rv32i-core-profile.schema.json`)
+- [x] A JSON Schema for core profiles (`schemas/rv32i-core-profile.schema.json`)
   that is never stricter than `profile.py`: every built-in profile validates,
   and a test checks the schema against the loader's accepted keys. Reference it
   from the `yaml-language-server` comment in each `core.yaml`.

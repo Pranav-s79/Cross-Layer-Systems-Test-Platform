@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../../../schemas/rv32i-core-profile.schema.json
 # Core profile for FemtoRV32 Quark. See ../picorv32/core.yaml and
 # docs/rtl-verification.md. Quark has no RVFI port: the retirement monitor in
 # tb.v reads its internal state and the waveform is the trace.

@@ -26,7 +26,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Callable, Sequence
 
 from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
@@ -450,20 +450,27 @@ def _cmd_new(args: argparse.Namespace) -> int:
     return 0
 
 
+def _schemas() -> dict[str, Callable[[], dict[str, Any]]]:
+    """Core schemas plus those that integrations ship."""
+    from crosslayer.integrations.rv32i.profile_schema import core_profile_schema
+
+    return {**SCHEMAS, "rv32i-core-profile": core_profile_schema}
+
+
 def _schema_text(name: str) -> str:
-    return json.dumps(SCHEMAS[name](), indent=2) + "\n"
+    return json.dumps(_schemas()[name](), indent=2) + "\n"
 
 
 def _cmd_schema(args: argparse.Namespace) -> int:
     if args.write:
         args.write.mkdir(parents=True, exist_ok=True)
-        for name in SCHEMAS:
+        for name in _schemas():
             path = args.write / f"{name}.schema.json"
             path.write_text(_schema_text(name), encoding="utf-8", newline="\n")
             print(f"wrote {path}")
         return 0
     if args.name is None:
-        print("available schemas: " + ", ".join(SCHEMAS))
+        print("available schemas: " + ", ".join(_schemas()))
         return 0
     print(_schema_text(args.name), end="")
     return 0
@@ -579,7 +586,7 @@ def build_parser() -> argparse.ArgumentParser:
     new.set_defaults(func=_cmd_new)
 
     schema = sub.add_parser("schema", help="print or write JSON Schemas for editor validation")
-    schema.add_argument("name", nargs="?", choices=sorted(SCHEMAS))
+    schema.add_argument("name", nargs="?", choices=sorted(_schemas()))
     schema.add_argument("--write", type=Path, metavar="DIR", help="write every schema into DIR")
     schema.set_defaults(func=_cmd_schema)
 

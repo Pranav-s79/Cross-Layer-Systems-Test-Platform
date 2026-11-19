@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../../../schemas/rv32i-core-profile.schema.json
 # Core profile: everything the rv32i adapter needs to simulate one CPU core.
 # Adding a core means adding a directory like this one; no Python changes.
 # Paths are relative to this file. See docs/rtl-verification.md.

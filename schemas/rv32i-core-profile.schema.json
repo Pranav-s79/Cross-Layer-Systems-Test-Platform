@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/rv32i-core-profile.schema.json",
+  "title": "CrossLayer RV32I core profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "isa",
+    "trace",
+    "testbench",
+    "sources"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "trace": {
+            "anyOf": [
+              {
+                "const": "vcd-signals"
+              },
+              {
+                "type": "array",
+                "contains": {
+                  "const": "vcd-signals"
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "trace"
+        ]
+      },
+      "then": {
+        "required": [
+          "signals"
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "isa": {
+      "enum": [
+        "rv32i"
+      ]
+    },
+    "trace": {
+      "oneOf": [
+        {
+          "enum": [
+            "commit-log",
+            "rvfi",
+            "vcd-signals"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "enum": [
+              "commit-log",
+              "rvfi",
+              "vcd-signals"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      ],
+      "description": "Trace formats the testbench produces; the first is the default"
+    },
+    "testbench": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path, separate from the sources"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "defines": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*(=[^\\s]*)?$"
+      },
+      "description": "NAME or NAME=VALUE, passed to the simulator compile"
+    },
+    "clock_period_ns": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Upstream URL, commit, license, modifications"
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock",
+        "valid",
+        "fields"
+      ],
+      "description": "Waveform signals for trace: vcd-signals, sampled before each rising clock edge where valid is 1",
+      "properties": {
+        "clock": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+        },
+        "valid": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+        },
+        "fields": {
+          "type": "object",
+          "minProperties": 1,
+          "required": [
+            "pc",
+            "insn"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cyc": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "ord": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "pc": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "insn": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rs1": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rs1v": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rs2": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rs2v": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rd": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "rdv": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "npc": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "maddr": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "wmask": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "wdata": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            },
+            "trap": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][\\w$]*(\\.[A-Za-z_][\\w$]*)*$"
+            }
+          }
+        }
+      }
+    },
+    "mutants": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_subsystem"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "edits"
+            ],
+            "properties": {
+              "edits": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "required": [
+              "defines"
+            ],
+            "properties": {
+              "defines": {
+                "minItems": 1
+              }
+            }
+          }
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "target_subsystem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_interface": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_fault": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reference-model fault matching this mutant"
+          },
+          "edits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "find",
+                "replace"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "One of the profile's sources"
+                },
+                "find": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Text that must match exactly once"
+                },
+                "replace": {
+                  "type": "string",
+                  "description": "Replacement; must differ from find"
+                }
+              }
+            }
+          },
+          "defines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(=[^\\s]*)?$"
+            },
+            "description": "NAME or NAME=VALUE, passed to the simulator compile"
+          }
+        }
+      }
+    }
+  }
+}

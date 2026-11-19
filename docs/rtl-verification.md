@@ -173,7 +173,10 @@ Each core is a directory with a `core.yaml`, its RTL, and a testbench. The
 built-in profile is [`cores/picorv32/core.yaml`](../crosslayer/integrations/rv32i/cores/picorv32/core.yaml).
 Select a core with `parameters.core`: a built-in name, or a path (relative to
 the experiment) to a `core.yaml` or its directory. A new core or mutant needs
-no Python changes.
+no Python changes. Each `core.yaml` starts with a `yaml-language-server` comment
+pointing at [`schemas/rv32i-core-profile.schema.json`](../schemas/rv32i-core-profile.schema.json)
+(`crosslayer schema rv32i-core-profile`), so editors validate and complete it;
+the loader stays authoritative (it also checks files, mutant targets and edits).
 
 | Key | Meaning |
 |---|---|

@@ -148,7 +148,8 @@ def test_schema_command(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["title"] == "CrossLayer contracts"
     assert main(["schema", "--write", str(tmp_path)]) == 0
     assert sorted(p.name for p in tmp_path.iterdir()) == [
-        "contract-tests.schema.json", "contracts.schema.json", "experiment.schema.json", "suite.schema.json"]
+        "contract-tests.schema.json", "contracts.schema.json", "experiment.schema.json",
+        "rv32i-core-profile.schema.json", "suite.schema.json"]
 
 
 def test_suite_command_and_file_kinds(tmp_path, capsys):
