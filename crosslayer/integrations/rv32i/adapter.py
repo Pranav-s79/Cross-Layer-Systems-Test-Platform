@@ -113,6 +113,10 @@ INTERFACES = (
     InterfaceSpec("writeback", "alu", "regfile", "results written to the register file"),
     InterfaceSpec("data_bus", "lsu", "memory", "loads and stores on the memory bus"),
     InterfaceSpec("output_port", "lsu", "mmio", "stores to the memory-mapped output port"),
+    InterfaceSpec("instruction", "fetch", "decoder", "fetched instruction words are decoded"),
+    InterfaceSpec("decode", "decoder", "alu", "decoded operation and immediates drive the ALU"),
+    InterfaceSpec("store_data", "regfile", "lsu", "register values give store data and address bases"),
+    InterfaceSpec("load_data", "lsu", "regfile", "loaded values are written to the register file"),
 )
 WAIT_STATES_FAULT = FaultSpec(
     "mem_wait_states", "Testbench memory answers `cycles` clock cycles late (timing only).",
