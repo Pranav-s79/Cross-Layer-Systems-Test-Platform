@@ -15,8 +15,8 @@ built hardware and software.
 | | 4 | Wireless log analysis (5G RAN + core) | ✅ |
 | | 5 | Live 5G virtual radio | 🔜 |
 | | 6 | Firmware and hardware-in-the-loop | 📋 |
-| **III. Diagnosis** | 7 | Fault localization | 📋 |
-| | 8 | Guided follow-up experiments | 📋 |
+| **III. Diagnosis** | 7 | Fault localization | ✅ |
+| | 8 | Guided follow-up experiments | 🔜 |
 | | 9 | Learning-assisted triage | 📋 |
 | **IV. Scale** | 10 | Streaming evaluation engine | 📋 |
 | | 11 | Results store and regression analytics | 📋 |
@@ -140,16 +140,20 @@ faults are detected.
 
 ## Stage III — Diagnosis
 
-### Phase 7 · Fault localization 📋
+### Phase 7 · Fault localization ✅
 * A graph of subsystems, interfaces, and contract boundaries.
 * Start at the earliest violation and trace back along dependencies,
   including to components that log nothing.
 * Ranked hypotheses with evidence, **counter-evidence**, and uncertainty.
 
-**Exit:** top-1 and top-3 accuracy measured against fault labels, including
-faults whose symptoms appear downstream of their cause.
+**Exit (met):** measured over all 26 labeled fault experiments: top-1 19/26,
+top-3 26/26, with every miss explained, including faults whose symptoms
+appear downstream of their cause (RV32I `regfile_wrong_rd` through a commit
+log). CI gates on these rates. See
+[docs/fault-localization.md](docs/fault-localization.md); the HTML view is
+milestone 7.2.
 
-### Phase 8 · Guided follow-up experiments 📋
+### Phase 8 · Guided follow-up experiments 🔜
 * Recommend the experiment that best separates competing hypotheses; later
   pick by expected information gain and run it automatically.
 

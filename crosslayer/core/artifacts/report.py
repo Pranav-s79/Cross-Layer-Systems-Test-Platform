@@ -37,11 +37,31 @@ def coverage_bins(stats: Any) -> dict[str, dict[str, int]] | None:
     return {str(g): {str(b): int(n) for b, n in bins.items()} for g, bins in coverage.items()}
 
 
+def _localization_section(loc: dict[str, Any]) -> list[str]:
+    out = ["## Fault localization\n",
+           f"Where the failure most likely started: a ranking, not a proof. Status **{loc['status']}**"
+           + (f": {loc['reason']}" if loc.get("reason") else "") + f". Method `{loc['method']}`.\n",
+           "| Rank | Subsystem | Interface | Probability | Evidence (failing) | Counter-evidence (passing) |",
+           "|---|---|---|---|---|---|"]
+    for rank, h in enumerate(loc["hypotheses"][:5], start=1):
+        evidence = ", ".join(f"`{e['contract']}` ({e['role']})" for e in h["evidence"][:3])
+        if len(h["evidence"]) > 3:
+            evidence += f", +{len(h['evidence']) - 3} more"
+        counter = f"{len(h['counter_evidence'])} contracts" if h["counter_evidence"] else "-"
+        out.append(f"| {rank} | `{h['subsystem']}` | {h['interface'] or '-'} | {h['probability']:.2f} | "
+                   f"{_cell(evidence)} | {counter} |")
+    if loc.get("unresolved_contracts"):
+        out.append(f"\nNot weighed (inconclusive): {', '.join(f'`{c}`' for c in loc['unresolved_contracts'])}.")
+    out.append("")
+    return out
+
+
 def render_markdown(
     manifest: dict[str, Any],
     results: Sequence[ContractResult],
     timings: dict[str, float] | None = None,
     coverage: dict[str, dict[str, int]] | None = None,
+    localization: dict[str, Any] | None = None,
 ) -> str:
     exp = manifest["experiment"]
     adapter = manifest["adapter"]
@@ -127,6 +147,9 @@ def render_markdown(
             if isinstance(total, int) and total > len(shown):
                 out.append(f"- ... {total - len(shown)} more violations in contracts.json")
             out.append("")
+
+    if localization and localization.get("hypotheses"):
+        out.extend(_localization_section(localization))
 
     inconclusive = [r for r in results if r.verdict is Verdict.INCONCLUSIVE]
     if inconclusive:

@@ -4,6 +4,8 @@
     crosslayer suite SUITE [--out DIR] [--fail-fast] [-j N] experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR] [--json]   re-run a bundle's configuration and compare hashes
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
+    crosslayer localize BUNDLE|DIR... [--score] [--min-top1 R] [--min-top3 R] [--json]
+                                      ranked fault hypotheses; --score: accuracy against fault labels
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
@@ -39,6 +41,7 @@ from crosslayer.core.orchestrator.compare import compare_bundles, render_compari
 from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
 from crosslayer.core.orchestrator.suite import SuiteEntryResult, SuiteRunner, load_suite
+from crosslayer.core.diagnosis.scoring import score_paths, summarize
 from crosslayer.core.schemas import SCHEMAS
 from crosslayer.scaffold import create_adapter_project
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
@@ -105,6 +108,63 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     print(f"event fingerprint  {'match' if same_events else 'DIFFERENT'}")
     print(f"bundle    {result.bundle_dir}")
     return 0 if same_config and same_events else 1
+
+
+def _rate(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number between 0 and 1, got {text!r}") from None
+    if not 0 <= value <= 1:
+        raise argparse.ArgumentTypeError(f"expected a number between 0 and 1, got {text!r}")
+    return value
+
+
+def _cmd_localize(args: argparse.Namespace) -> int:
+    if not args.score:
+        if len(args.paths) != 1:
+            raise ConfigError("give one bundle, or --score to score directories of bundles")
+        bundle = args.paths[0]
+        load_manifest(bundle)  # a clear error if this is not a bundle
+        path = bundle / "localization.json"
+        if not path.is_file():
+            raise ConfigError("bundle has no localization.json (made before fault localization)", location=str(bundle))
+        loc = json.loads(path.read_text(encoding="utf-8"))
+        if args.json:
+            print(json.dumps(loc, indent=2))
+            return 0
+        print(f"status    {loc['status']}: {loc.get('reason', '')}")
+        for rank, h in enumerate(loc["hypotheses"][: args.limit], start=1):
+            print(f"  {rank}. {h['subsystem']:<14} {h['interface'] or '-':<18} p={h['probability']:.2f}  "
+                  f"evidence {len(h['evidence'])}, counter-evidence {len(h['counter_evidence'])}")
+        return 0
+
+    runs = score_paths(args.paths)
+    if not runs:
+        raise ConfigError("no bundles with fault labels or ground_truth and a localization.json were found")
+    summary = summarize(runs)
+    gates = [(name, summary[name]["rate"], limit) for name, limit in (("top1", args.min_top1), ("top3", args.min_top3))
+             if limit is not None]
+    failed = [(name, rate, limit) for name, rate, limit in gates if rate is None or rate < limit]
+    if args.json:
+        print(json.dumps({"summary": summary, "runs": [r.to_dict() for r in runs],
+                          "gates": [{"metric": n, "rate": r, "min": m} for n, r, m in gates]}, indent=2))
+    else:
+        for r in runs:
+            top = ", ".join(f"{h['subsystem']} {h['probability']:.2f}" for h in r.top)
+            print(f"  {'hit ' if r.rank == 1 else 'top3' if r.rank and r.rank <= 3 else 'miss'} "
+                  f"{r.experiment:<44} truth {r.subsystem:<12} rank {r.rank or '-':<3} {r.status:<9} {top}")
+        s = summary
+        print(f"scored    {s['scored']} labeled runs")
+        print(f"top-1     {s['top1']['hits']}/{s['scored']} ({s['top1']['rate']:.0%})")
+        print(f"top-3     {s['top3']['hits']}/{s['scored']} ({s['top3']['rate']:.0%})")
+        if s["interface_top1"]["of"]:
+            print(f"interface {s['interface_top1']['hits']}/{s['interface_top1']['of']} top-1 with the right interface")
+        if s["confident"]["calls"]:
+            print(f"confident {s['confident']['correct']}/{s['confident']['calls']} confident calls were right")
+        for name, rate, limit in failed:
+            print(f"GATE      {name} {rate} is below the minimum {limit}")
+    return 1 if failed else 0
 
 
 def _cmd_show(args: argparse.Namespace) -> int:
@@ -463,6 +523,18 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--limit", type=int, default=5, help="violations to list (default: 5)")
     show.add_argument("--json", action="store_true", help="print one JSON document")
     show.set_defaults(func=_cmd_show)
+
+    loc_p = sub.add_parser("localize", help="ranked fault hypotheses of a bundle, or accuracy over many (--score)")
+    loc_p.add_argument("paths", type=Path, nargs="+", metavar="BUNDLE_OR_DIR")
+    loc_p.add_argument("--score", action="store_true",
+                       help="score every labeled bundle under the paths against its fault labels or ground_truth")
+    loc_p.add_argument("--min-top1", type=_rate, default=None, metavar="R",
+                       help="with --score: exit 1 if top-1 accuracy is below R (0-1)")
+    loc_p.add_argument("--min-top3", type=_rate, default=None, metavar="R",
+                       help="with --score: exit 1 if top-3 accuracy is below R (0-1)")
+    loc_p.add_argument("--limit", type=int, default=5, help="hypotheses to show for one bundle (default 5)")
+    loc_p.add_argument("--json", action="store_true")
+    loc_p.set_defaults(func=_cmd_localize)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
     compare.add_argument("baseline", type=Path)

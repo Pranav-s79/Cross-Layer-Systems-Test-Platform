@@ -45,7 +45,9 @@ _OPTIONAL = {
     "include_adapter_contracts",
     "inputs",
     "base_dir",
+    "ground_truth",
 }
+_GROUND_TRUTH_KEYS = {"subsystem", "interface", "note"}
 DEFAULT_TIMEOUT_S = 300.0
 
 
@@ -64,6 +66,10 @@ class ExperimentConfig:
     include_adapter_contracts: bool = True
     inputs: tuple[Path, ...] = ()
     source_path: Path | None = None
+    ground_truth: Mapping[str, str] | None = None
+    """Where the fault really is, for experiments whose fault is in the inputs
+    (no injected FaultSpec to label it). Used only to score localization;
+    excluded from the config hash."""
 
     def with_seed(self, seed: int) -> "ExperimentConfig":
         if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
@@ -103,6 +109,7 @@ class ExperimentConfig:
             "include_adapter_contracts": False,
             "inputs": [str(p) for p in self.inputs],
             "base_dir": str(self.base_dir),
+            **({"ground_truth": dict(self.ground_truth)} if self.ground_truth else {}),
         }
 
     def config_hash(self, adapter_contracts: Sequence[BoundaryContract] = ()) -> str:
@@ -116,6 +123,7 @@ class ExperimentConfig:
         doc = self.resolved_document(adapter_contracts)
         doc.pop("base_dir")
         doc.pop("include_adapter_contracts")
+        doc.pop("ground_truth", None)  # a label, not configuration
         doc["inputs"] = [_file_sha256(p) for p in self.inputs]
         return hashlib.sha256(canonical_json(doc).encode("utf-8")).hexdigest()
 
@@ -209,6 +217,8 @@ def parse_experiment(doc: Any, *, base_dir: Path, source: str, source_path: Path
             raise ConfigError(f"input file not found: {path}", location=f"{source}: inputs")
         inputs.append(path)
 
+    ground_truth = _parse_ground_truth(doc.get("ground_truth"), f"{source}: ground_truth")
+
     config = ExperimentConfig(
         name=doc["name"].strip(),
         adapter=doc["adapter"].strip(),
@@ -223,9 +233,26 @@ def parse_experiment(doc: Any, *, base_dir: Path, source: str, source_path: Path
         include_adapter_contracts=include,
         inputs=tuple(inputs),
         source_path=source_path,
+        ground_truth=ground_truth,
     )
     config.load_contracts()  # fail fast on invalid contracts
     return config
+
+
+def _parse_ground_truth(raw: Any, where: str) -> dict[str, str] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ConfigError("must be a mapping with subsystem and optional interface and note", location=where)
+    unknown = set(raw) - _GROUND_TRUTH_KEYS
+    if unknown:
+        raise ConfigError(f"unknown keys {sorted(map(str, unknown))} (allowed: {sorted(_GROUND_TRUTH_KEYS)})",
+                          location=where)
+    for key in _GROUND_TRUTH_KEYS:
+        value = raw.get(key)
+        if (value is not None or key == "subsystem") and (not isinstance(value, str) or not value.strip()):
+            raise ConfigError("must be a non-empty string", location=f"{where}.{key}")
+    return {k: raw[k].strip() for k in ("subsystem", "interface", "note") if raw.get(k) is not None}
 
 
 def load_experiment(path: Path) -> ExperimentConfig:

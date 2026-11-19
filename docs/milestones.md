@@ -101,3 +101,32 @@ and every event links to its raw line.
 
 **Exit:** RTL and wireless run on the same unmodified core, and fixture
 results are labeled as fixtures.
+
+## Phase 7 · Fault localization
+
+### 7.1 · Ranked hypotheses in every bundle · `lead` · done
+- [x] A system graph from the adapter description (subsystems, interfaces)
+  and contract boundaries; a deterministic localizer that ranks subsystems
+  (with the most likely interface) from failing contracts, weighted by
+  severity and by how early each first failed, including components that log
+  nothing; counter-evidence from passing contracts; probabilities, the
+  top-two margin, and an explicit ambiguous status. Written to
+  `localization.json` and summarized in `report.md`. The localizer never
+  reads fault labels.
+- [x] `ground_truth: {subsystem, interface}` for experiments whose fault is in
+  the inputs (analyze mode), recorded in the manifest next to fault labels.
+- [x] `crosslayer localize` prints a bundle's hypotheses; `--score` computes
+  top-1 and top-3 accuracy (subsystem and interface) over suite outputs
+  against fault labels and ground truth.
+
+**Exit:** top-1 and top-3 accuracy measured over every labeled fault
+experiment (reference, RV32I on both cores, textlog, 5G), with each miss
+explained, including faults whose symptoms appear downstream of their cause.
+
+### 7.2 · Localization in the HTML report · `routine` · `feature/localization-report`
+- [ ] A step in `report.html` that shows the ranked hypotheses with their
+  evidence and counter-evidence, linking evidence to contract results;
+  `crosslayer show` prints the top three. Generic: driven only by
+  `localization.json`.
+
+**Exit:** a bundle without `localization.json` (older bundles) still renders.

@@ -40,6 +40,7 @@ from crosslayer.core.artifacts.junit import render_junit
 from crosslayer.core.artifacts.report import coverage_bins, render_markdown
 from crosslayer.core.artifacts.report_html import render_html
 from crosslayer.core.contracts.evaluator import aggregate_verdict, evaluate_contracts, warnings
+from crosslayer.core.diagnosis.localize import localize
 from crosslayer.core.contracts.loader import ensure_unique_ids
 from crosslayer.core.contracts.model import BoundaryContract, ContractResult
 from crosslayer.core.errors import AdapterError, ConfigError
@@ -169,6 +170,16 @@ class ExperimentRunner:
             )
         if mode == "analyze" and experiment.faults:
             raise ConfigError("faults cannot be injected when analyzing existing artifacts")
+        truth = experiment.ground_truth
+        if truth:
+            described = adapter.describe()
+            if truth["subsystem"] not in described.subsystems:
+                raise ConfigError(f"ground_truth.subsystem {truth['subsystem']!r} is not a subsystem of adapter "
+                                  f"{experiment.adapter!r} ({sorted(described.subsystems)})")
+            names = {i.name for i in described.interfaces}
+            if "interface" in truth and truth["interface"] not in names:
+                raise ConfigError(f"ground_truth.interface {truth['interface']!r} is not an interface of adapter "
+                                  f"{experiment.adapter!r} ({sorted(names)})")
 
         adapter_contracts = adapter.contracts() if experiment.include_adapter_contracts else []
         contracts = experiment.load_contracts() + adapter_contracts
@@ -303,6 +314,7 @@ class ExperimentRunner:
         # nothing, which produces misleading failures. Skip evaluation instead.
         with timer.stage("evaluate"):
             results = evaluate_contracts(plan.contracts, events) if have_events else []
+            localization = localize(description, results).to_dict()
         verdict = Verdict.ERROR if errors else aggregate_verdict(results)
 
         with timer.stage("write"):
@@ -319,6 +331,7 @@ class ExperimentRunner:
                 "violations.json",
                 {"violations": [r.to_dict() for r in results if r.verdict is Verdict.FAIL]},
             )
+            bundle.write_json("localization.json", localization)
 
         finished = self._clock()
         counts = Counter(str(r.verdict) for r in results)
@@ -346,6 +359,12 @@ class ExperimentRunner:
             "execution": execution.to_dict() if execution else None,
             "inputs": [{"path": str(p), "sha256": sha256_file(p)} for p in experiment.inputs],
             "faults": plan.fault_labels,
+            "ground_truth": (
+                {"target_subsystem": experiment.ground_truth["subsystem"],
+                 "target_interface": experiment.ground_truth.get("interface"),
+                 "note": experiment.ground_truth.get("note")}
+                if experiment.ground_truth else None
+            ),
             "events": {
                 "count": len(events),
                 "fingerprint": functional_fingerprint(events),
@@ -355,11 +374,18 @@ class ExperimentRunner:
             "contracts": {"total": len(results), **{v.value: counts.get(v.value, 0) for v in Verdict}},
             "warnings": [r.contract.id for r in warnings(results)],
             "errors": errors,
+            "localization": {
+                "method": localization["method"],
+                "status": localization["status"],
+                "top": [{k: h[k] for k in ("subsystem", "interface", "probability")}
+                        for h in localization["hypotheses"][:3]],
+            },
         }
 
         timings = timer.to_dict()
         bundle.write_json("timings.json", {"unit": "seconds", "stages": timings})
-        bundle.write_text("report.md", render_markdown(manifest, results, timings, coverage_bins(normalization_stats)))
+        bundle.write_text("report.md", render_markdown(manifest, results, timings, coverage_bins(normalization_stats),
+                                                       localization))
         bundle.write_text("report.html", render_html(manifest, results, timings))
         bundle.write_text("junit.xml", render_junit(manifest, results))
         bundle.write_text("replay.sh", self._replay_script(manifest, description.external_dependencies))
