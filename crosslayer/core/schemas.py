@@ -155,6 +155,15 @@ def contracts_schema() -> dict[str, Any]:
     })
 
 
+_GROUND_TRUTH = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["subsystem"],
+    "description": "Where the fault in the inputs really is; scores localization only",
+    "properties": {"subsystem": _STR, "interface": _STR, "note": _STR},
+}
+
+
 def experiment_schema() -> dict[str, Any]:
     fault = {"oneOf": [_STR, {"type": "object", "additionalProperties": False, "required": ["name"],
                               "properties": {"name": _STR, "params": {"type": "object"}}}]}
@@ -176,6 +185,7 @@ def experiment_schema() -> dict[str, Any]:
             "include_adapter_contracts": {"type": "boolean"},
             "inputs": {"type": ["array", "null"], "items": {"type": "string"}},
             "base_dir": {"type": "string"},
+            "ground_truth": _GROUND_TRUTH,
         },
     })
 

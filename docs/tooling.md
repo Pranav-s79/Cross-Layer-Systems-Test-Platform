@@ -166,6 +166,19 @@ jobs:
 `runs/suite-<name>-<time>/junit.xml` holds the per-contract results. Point a
 test-report action at `runs/*/junit.xml` to show them in the pull request.
 
+## Fault localization
+
+```sh
+crosslayer localize runs/<bundle> [--limit N] [--json]
+crosslayer localize runs [more dirs] --score [--min-top1 R] [--min-top3 R] [--json]
+```
+
+The first prints a bundle's ranked hypotheses. `--score` finds every bundle
+with fault labels or `ground_truth` below the paths and reports top-1 and
+top-3 accuracy, interface accuracy, and how many confident calls were right;
+`--min-top1` / `--min-top3` exit 1 below a rate (0-1). See
+[fault-localization.md](fault-localization.md).
+
 ## Dry runs
 
 `crosslayer run EXPERIMENT --dry-run` validates the experiment (adapter,

@@ -105,6 +105,28 @@
     },
     "base_dir": {
       "type": "string"
+    },
+    "ground_truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subsystem"
+      ],
+      "description": "Where the fault in the inputs really is; scores localization only",
+      "properties": {
+        "subsystem": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interface": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "$defs": {

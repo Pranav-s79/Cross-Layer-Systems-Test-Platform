@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Status](https://img.shields.io/badge/status-Phase%204%20of%2015-green)
+![Status](https://img.shields.io/badge/phases%20done-1--4%2C%207%20of%2015-green)
 
 **Cross-stack verification for systems built by many teams.**
 
@@ -85,6 +85,9 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 - **Wireless log analysis:** declarative profiles for Open5GS AMF/SMF and
   OCUDU gNB logs; exact NGAP UE id-pair joins with labeled time fallbacks;
   registration, PDU-session, and RRC-state contracts over synthetic fixtures.
+- **Fault localization:** every failing run ranks where the fault most likely
+  started, with evidence, counter-evidence, and a stated confidence; top-1
+  19/26 and top-3 26/26 over all labeled fault experiments.
 - **Fault injection:** five faults in the reference pipeline and seven per RV32I
   core, plus three faulty 5G log fixtures, with clean baselines and explicit
   target labels.
@@ -99,7 +102,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 |---|---|---|
 | Foundation | Verification core · contract tooling | ✅ done |
 | Real integrations | RV32I RTL · 5G RAN/core logs · live 5G · firmware HIL | RV32I and 5G log analysis done; live 5G next |
-| Diagnosis | Fault localization · guided experiments · learning-assisted triage | 📋 planned |
+| Diagnosis | Fault localization · guided experiments · learning-assisted triage | localization done; guided experiments next |
 | Scale | Streaming engine · results store · distributed execution | 📋 planned |
 | Production | Platform service · OpenTelemetry · security and governance | 📋 planned |
 
@@ -116,6 +119,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 | [Writing an adapter](docs/writing-an-adapter.md) | Connect a new system |
 | [RTL verification](docs/rtl-verification.md) | Run PicoRV32, inject mutants, and inspect lockstep evidence |
 | [Log analysis](docs/log-analysis.md) | Turn text logs into events with YAML log profiles |
+| [Fault localization](docs/fault-localization.md) | Ranked hypotheses for where a failure started, and their measured accuracy |
 | [Run bundle format](docs/run-bundle.md) | What every run records |
 | [Testing](docs/testing.md) | How CrossLayer is tested, and where to add tests |
 | [Extending](docs/extending.md) | Extension points and where the project is going |

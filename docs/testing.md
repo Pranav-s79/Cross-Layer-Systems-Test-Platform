@@ -91,6 +91,12 @@ re-parses to the same event, one clock across sources, baseline PASS,
 slow-reply FAIL, FAIL without the clock offset, replay, lint, and the
 example's contract tests.
 
+`tests/core/test_localize.py` checks the localizer on hand-built results
+(source before destination, earliest violation first, silent upstream
+components, counter-evidence, interface direction, ambiguity), ground truth
+validation, and `--score` gates. CI scores every suite's bundles and fails
+if top-3 accuracy drops below 100% or top-1 below 50%.
+
 `tests/test_performance_caches.py` checks that every cache added for speed
 invalidates: edited core and log profiles reload, files changed after a
 bundle wrote them are rehashed, the compile key changes with any compiled

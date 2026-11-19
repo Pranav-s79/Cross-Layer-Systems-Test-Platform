@@ -83,6 +83,8 @@ jobs:
           crosslayer lint experiments/5g-logs/suite.yaml --strict
           crosslayer test-contracts experiments/5g-logs/contract_tests.yaml --require-coverage
           crosslayer suite experiments/5g-logs/suite.yaml --out runs -j auto
+      - name: Fault localization accuracy (reference, textlog, 5G)
+        run: crosslayer localize runs --score --min-top1 0.5 --min-top3 1.0
       - name: Upload run bundles
         if: always()
         uses: actions/upload-artifact@v4
@@ -118,6 +120,8 @@ jobs:
         run: |
           crosslayer lint experiments/rv32i-quark/suite.yaml --strict
           crosslayer suite experiments/rv32i-quark/suite.yaml --out runs -j auto
+      - name: Fault localization accuracy (both RV32I cores)
+        run: crosslayer localize runs --score --min-top1 0.5 --min-top3 1.0
       - name: Upload RV32I run bundles
         if: always()
         uses: actions/upload-artifact@v4

@@ -17,3 +17,4 @@ parameters:
   joins:
     - {name: ngap_ue, keys: [ran_ue_ngap_id, amf_ue_ngap_id], fallback_window_ms: 250}
 contracts: [contracts.yaml]
+ground_truth: {subsystem: amf, note: "the AMF never logs UE 2's Registration complete"}

@@ -36,5 +36,5 @@ in the [roadmap](../ROADMAP.md):
 |---|---|---|
 | Phase 3 · More cores | Trace formats beyond RVFI (commit logs, waveform signal maps) and a second core | Core profiles + trace-source plugins |
 | Phase 4 · 5G logs | Join RAN and core logs by UE ids; registration and session contracts | A new adapter in analyze mode |
-| Phase 7 · Localization | Rank where a fault started, not just where it showed up | Contract boundaries + fault labels already recorded |
+| Phase 8 · Guided experiments | Pick the experiment that separates the top hypotheses (most localization misses are a bad producer vs a bad consumer on one boundary) | `localization.json` + suites |
 | Phase 10 · Streaming | Traces too large for memory | Rules rewritten as incremental state machines |

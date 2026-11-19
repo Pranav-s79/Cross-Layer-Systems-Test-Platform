@@ -13,3 +13,4 @@ parameters:
     - {input: logs/client_slow_reply.log, profile: synthetic_client}
     - {input: logs/server_slow_reply.log, profile: synthetic_server, utc_offset: "+01:00", year: 2026, offset_ms: 250}
 contracts: [contracts.yaml]
+ground_truth: {subsystem: server, note: "the server answers request 1003 after 180 ms"}

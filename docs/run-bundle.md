@@ -5,7 +5,7 @@ Every run writes `<output>/<run_id>/`, where
 
 | File | Contents |
 |---|---|
-| `manifest.json` | Verdict, timings, config hash, adapter, faults (with true targets), event count and fingerprint, contract tallies, errors, and SHA-256 of every other file. Written last. |
+| `manifest.json` | Verdict, timings, config hash, adapter, faults (with true targets), `ground_truth` if declared, the top three localization hypotheses, event count and fingerprint, contract tallies, errors, and SHA-256 of every other file. Written last. |
 | `configuration.yaml` | The resolved experiment with **every contract inlined**, so a replay checks exactly the same contracts. |
 | `versions.json` | CrossLayer version and git revision, Python, OS, adapter description, capabilities. |
 | `raw_artifacts/` | Untouched output of the system. Evidence points here (`raw_artifacts/sim.log#L315`). |
@@ -13,6 +13,7 @@ Every run writes `<output>/<run_id>/`, where
 | `normalization.json` | Adapter stats and lines that could not be parsed. Coverage bins, if the adapter reports them, are under `stats.coverage` as `{group: {bin: hits}}`. |
 | `contracts.json` | Each contract's definition and full result, with findings and evidence. |
 | `violations.json` | FAIL results only. |
+| `localization.json` | Ranked fault hypotheses: subsystem, interface, probability, evidence, counter-evidence, status and its reason ([fault localization](fault-localization.md)). |
 | `timings.json` | Seconds per runner stage: plan, build, execute, collect, normalize, evaluate, write (`write` covers events, normalization, contracts, violations). Stages that did not run are 0. Not part of the fingerprint. |
 | `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts, and coverage bins hit and never hit. |
 | `report.html` | Self-contained interactive report: five-step run walkthrough, pipeline timings, searchable contract results, expandable evidence, and replay instructions. It loads no network resources. |
