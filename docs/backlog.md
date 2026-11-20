@@ -141,7 +141,7 @@ with a one-line reason and take the next one.
   in `sim.py` (`crc8` called with a `bytearray`, `sys.stdout.reconfigure`).
   Fix them without changing simulator output; update the `sim.py` hash in
   `fixtures/README.md` and add the package to `[tool.mypy] files`.
-- [ ] **Direct tests for `core/contracts/selectors.py`.** Only two test files
+- [x] **Direct tests for `core/contracts/selectors.py`.** Only two test files
   mention it; add parametrized cases for each selector form and its error
   messages.
 
