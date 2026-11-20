@@ -8,6 +8,8 @@ All notable changes are recorded here, in the
 - Add the first failing event to `crosslayer show`: its raw line and observed vs reference values side by side, paired by `ref_` / `_ref` attribute names (`first_failure` in `--json`).
 - Add assembler and decoder round-trip tests: seeded random RV32I instructions decode back to their operands, and reserved encodings decode as illegal.
 - Add a JSON Schema for RV32I core profiles (`crosslayer schema rv32i-core-profile`); the built-in `core.yaml` files reference it for editor validation.
+- Add direct tests for event selectors (each filter form, matching rules, error locations).
+- Type-check the sensor-pipeline integration with mypy (two `sim.py` fixes, simulator output unchanged).
 - Add fault localization: every bundle ranks subsystems (with the likely interface) from failing contracts, earliest first, with counter-evidence from passing contracts and an ambiguous/confident status with its reason (`localization.json`, `report.md`). Top-1 19/26 and top-3 26/26 over all labeled fault experiments.
 - Add `ground_truth` to experiments whose fault is in their inputs, and `crosslayer localize` (one bundle, or `--score` with `--min-top1` / `--min-top3` gates).
 - Describe RV32I's instruction, decode, store-data, and load-data paths in its system graph.
