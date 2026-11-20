@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Type-check the sensor-pipeline integration with mypy (two `sim.py` fixes, simulator output unchanged).
 - Add fault localization: every bundle ranks subsystems (with the likely interface) from failing contracts, earliest first, with counter-evidence from passing contracts and an ambiguous/confident status with its reason (`localization.json`, `report.md`). Top-1 19/26 and top-3 26/26 over all labeled fault experiments.
 - Add `ground_truth` to experiments whose fault is in their inputs, and `crosslayer localize` (one bundle, or `--score` with `--min-top1` / `--min-top3` gates).
 - Describe RV32I's instruction, decode, store-data, and load-data paths in its system graph.

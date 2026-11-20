@@ -45,7 +45,8 @@ import random
 import sys
 from collections import deque
 from dataclasses import dataclass
-from typing import TextIO
+from io import TextIOWrapper
+from typing import TextIO, cast
 
 FIRMWARE = "refpipe-1.0"
 PAYLOAD_BYTES = 8
@@ -95,7 +96,7 @@ def simulate(args: argparse.Namespace, out: TextIO) -> None:
     for seq in range(1, args.packets + 1):
         t += max(1, round(arrivals.expovariate(1 / args.mean_interarrival_us)))
         payload = bytearray(payloads.randrange(256) for _ in range(PAYLOAD_BYTES))
-        heapq.heappush(heap, (t, next(order), "rx", Packet(seq, t, payload, crc8(payload))))
+        heapq.heappush(heap, (t, next(order), "rx", Packet(seq, t, payload, crc8(bytes(payload)))))
 
     scale = args.slow_factor if "slow_consumer" in faults else 1
     buffer: deque[Packet] = deque()
@@ -169,8 +170,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    sys.stdout.reconfigure(newline="\n")  # identical bytes on Windows and Linux
-    simulate(args, sys.stdout)
+    out = cast(TextIOWrapper, sys.stdout)
+    out.reconfigure(newline="\n")  # identical bytes on Windows and Linux
+    simulate(args, out)
     return 0
 
 

@@ -45,7 +45,7 @@ select = ["F", "E9"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["crosslayer/core", "crosslayer/cli.py"]
+files = ["crosslayer/core", "crosslayer/cli.py", "crosslayer/integrations/sensor_pipeline"]
 disallow_untyped_defs = true
 warn_unused_ignores = true
 ignore_missing_imports = true
