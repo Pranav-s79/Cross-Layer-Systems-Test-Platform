@@ -66,7 +66,7 @@ lists any RV32I mnemonic the sweep never retired.
   that is never stricter than `profile.py`: every built-in profile validates,
   and a test checks the schema against the loader's accepted keys. Reference it
   from the `yaml-language-server` comment in each `core.yaml`.
-- [ ] Assembler and decoder round-trip tests: for seeded random valid RV32I
+- [x] Assembler and decoder round-trip tests: for seeded random valid RV32I
   instructions, `decode(assemble(text))` gives back the mnemonic and operands,
   and every reserved or unsupported encoding decodes as illegal in `iss.py`.
 - [ ] `crosslayer show` (or the report) prints, for an RV32I bundle, the first

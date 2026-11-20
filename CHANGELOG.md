@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add assembler and decoder round-trip tests: seeded random RV32I instructions decode back to their operands, and reserved encodings decode as illegal.
 - Add a JSON Schema for RV32I core profiles (`crosslayer schema rv32i-core-profile`); the built-in `core.yaml` files reference it for editor validation.
 - Add fault localization: every bundle ranks subsystems (with the likely interface) from failing contracts, earliest first, with counter-evidence from passing contracts and an ambiguous/confident status with its reason (`localization.json`, `report.md`). Top-1 19/26 and top-3 26/26 over all labeled fault experiments.
 - Add `ground_truth` to experiments whose fault is in their inputs, and `crosslayer localize` (one bundle, or `--score` with `--min-top1` / `--min-top3` gates).
