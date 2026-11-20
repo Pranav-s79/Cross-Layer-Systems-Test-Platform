@@ -137,7 +137,7 @@ with a one-line reason and take the next one.
 - [x] **Test the adapter registry directly.** No test references
   `core/adapters/registry.py`; cover lookup of an unknown adapter name and
   duplicate registration.
-- [ ] **Type-check the sensor-pipeline integration.** `mypy` reports two errors
+- [x] **Type-check the sensor-pipeline integration.** `mypy` reports two errors
   in `sim.py` (`crc8` called with a `bytearray`, `sys.stdout.reconfigure`).
   Fix them without changing simulator output; update the `sim.py` hash in
   `fixtures/README.md` and add the package to `[tool.mypy] files`.
