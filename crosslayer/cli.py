@@ -31,6 +31,7 @@ from typing import Any, Callable, Sequence
 from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import load_json, load_manifest, verify_bundle
+from crosslayer.core.artifacts.first_failure import first_failure, render_first_failure
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
@@ -171,7 +172,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
     manifest = load_manifest(args.bundle)
     doc = load_json(args.bundle, "contracts.json")
     if args.json:
-        return _show_json(manifest, doc, args.limit)
+        return _show_json(args.bundle, manifest, doc, args.limit)
     print(f"run       {manifest['run_id']}")
     print(f"verdict   {manifest['verdict'].upper()}")
     print(f"events    {manifest['events']['count']} (fingerprint {manifest['events']['fingerprint'][:16]})")
@@ -192,10 +193,14 @@ def _cmd_show(args: argparse.Namespace) -> int:
         print(f"first violations ({min(args.limit, len(violations))} of {len(violations)}):")
         for cid, f in sorted(violations, key=lambda v: v[1].get("timestamp_ns") or 0)[: args.limit]:
             print(f"  {cid}  t={f.get('timestamp_ns')} ns  {f['message']}")
+    failure = first_failure(args.bundle)
+    if failure:
+        print()
+        print(render_first_failure(failure))
     return 0
 
 
-def _show_json(manifest: dict, doc: dict, limit: int) -> int:
+def _show_json(bundle: Path, manifest: dict, doc: dict, limit: int) -> int:
     results = [item["result"] for item in doc["contracts"]]
     violations = [
         {"contract_id": r["contract_id"], "timestamp_ns": f.get("timestamp_ns"), "message": f["message"]}
@@ -216,6 +221,7 @@ def _show_json(manifest: dict, doc: dict, limit: int) -> int:
         ],
         "violation_count": len(violations),
         "violations": violations[:limit],
+        "first_failure": first_failure(bundle),
     }
     print(json.dumps(payload, indent=2))
     return 0
