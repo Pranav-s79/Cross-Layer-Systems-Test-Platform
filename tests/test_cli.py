@@ -148,7 +148,8 @@ def test_schema_command(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["title"] == "CrossLayer contracts"
     assert main(["schema", "--write", str(tmp_path)]) == 0
     assert sorted(p.name for p in tmp_path.iterdir()) == [
-        "contract-tests.schema.json", "contracts.schema.json", "experiment.schema.json", "suite.schema.json"]
+        "contract-tests.schema.json", "contracts.schema.json", "experiment.schema.json",
+        "rv32i-core-profile.schema.json", "suite.schema.json"]
 
 
 def test_suite_command_and_file_kinds(tmp_path, capsys):
@@ -273,6 +274,7 @@ def test_show_summarizes_bundle_without_running(tmp_path, capsys):
     assert "verdict   FAIL" in out and "pipeline.rx_accounted" in out
     assert "first violations (2 of" in out and "no response within" in out
     assert sorted(p.name for p in bundle.iterdir()) == before
+    assert "first failure  pipeline." in out and "raw    raw_artifacts/" in out
 
 
 def test_show_rejects_non_bundle(tmp_path):
@@ -288,6 +290,7 @@ def test_show_json(tmp_path, capsys):
     assert doc["verdict"] == "fail" and doc["violation_count"] >= 2
     assert len(doc["violations"]) == 2
     assert any(c["contract_id"] == "pipeline.rx_accounted" for c in doc["contracts"])
+    assert doc["first_failure"]["contract_id"] and doc["first_failure"]["raw_line"]
 
 
 def test_verify_json(tmp_path, capsys):

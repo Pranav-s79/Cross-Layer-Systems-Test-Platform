@@ -88,6 +88,7 @@ first line for validation and autocomplete:
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Pranav-s79/Cross-Layer-Systems-Test-Platform/main/schemas/contracts.schema.json
 ```
 
+`rv32i-core-profile` covers `core.yaml` files ([profiles](rtl-verification.md#core-profiles)).
 The Python loaders stay authoritative and check more than a schema can.
 Tests keep the schemas **no stricter** than the loaders, so the editor never
 flags a file CrossLayer accepts.

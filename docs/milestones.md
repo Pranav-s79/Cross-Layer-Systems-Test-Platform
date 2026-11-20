@@ -62,14 +62,14 @@ sources (RVFI text, a commit log derived from it, and its VCD).
 lists any RV32I mnemonic the sweep never retired.
 
 ### 3.6 · RV32I hardening · `routine` · `feature/rtl-hardening`
-- [ ] A JSON Schema for core profiles (`schemas/rv32i-core-profile.schema.json`)
+- [x] A JSON Schema for core profiles (`schemas/rv32i-core-profile.schema.json`)
   that is never stricter than `profile.py`: every built-in profile validates,
   and a test checks the schema against the loader's accepted keys. Reference it
   from the `yaml-language-server` comment in each `core.yaml`.
-- [ ] Assembler and decoder round-trip tests: for seeded random valid RV32I
+- [x] Assembler and decoder round-trip tests: for seeded random valid RV32I
   instructions, `decode(assemble(text))` gives back the mnemonic and operands,
   and every reserved or unsupported encoding decodes as illegal in `iss.py`.
-- [ ] `crosslayer show` (or the report) prints, for an RV32I bundle, the first
+- [x] `crosslayer show` (or the report) prints, for an RV32I bundle, the first
   failing retirement with its source line, PC, and observed vs reference
   fields side by side. Generic in the core: driven by the contract's first
   finding and the event's `*_ref`-style attribute pairs, not by RV32I names.
