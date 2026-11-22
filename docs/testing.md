@@ -126,7 +126,7 @@ committed (for example, `test_added_files_are_detected_by_verify`).
 | A file format | `tests/core/test_schemas.py`, then `crosslayer schema --write schemas` |
 | A CLI command | `tests/test_cli.py` |
 | The reference system or its contracts | `tests/integrations/test_sensor_pipeline.py` and `contract_tests.yaml` |
-| The RV32I adapter, contracts, or core profiles | `tests/integrations/test_rv32i.py`, `test_rv32i_profiles.py`, and `integrations/rv32i/contract_tests.yaml` |
+| The RV32I adapter, contracts, or core profiles | `tests/integrations/test_rv32i.py`, `test_rv32i_profiles.py`, `test_rv32i_roundtrip.py` (assembler/decoder round trip, reserved encodings), and `integrations/rv32i/contract_tests.yaml` |
 | The textlog adapter or a log profile | `tests/integrations/test_textlog.py` and `experiments/textlog/contract_tests.yaml` |
 
 Performance is measured separately with `python benchmarks/bench_core.py`

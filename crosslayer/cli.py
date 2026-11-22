@@ -26,11 +26,12 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Callable, Sequence
 
 from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
 from crosslayer.core.artifacts.bundle import load_json, load_manifest, verify_bundle
+from crosslayer.core.artifacts.first_failure import first_failure, render_first_failure
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
 from crosslayer.core.contracts.testing import load_contract_tests, run_contract_tests
@@ -171,7 +172,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
     manifest = load_manifest(args.bundle)
     doc = load_json(args.bundle, "contracts.json")
     if args.json:
-        return _show_json(manifest, doc, args.limit)
+        return _show_json(args.bundle, manifest, doc, args.limit)
     print(f"run       {manifest['run_id']}")
     print(f"verdict   {manifest['verdict'].upper()}")
     print(f"events    {manifest['events']['count']} (fingerprint {manifest['events']['fingerprint'][:16]})")
@@ -192,10 +193,14 @@ def _cmd_show(args: argparse.Namespace) -> int:
         print(f"first violations ({min(args.limit, len(violations))} of {len(violations)}):")
         for cid, f in sorted(violations, key=lambda v: v[1].get("timestamp_ns") or 0)[: args.limit]:
             print(f"  {cid}  t={f.get('timestamp_ns')} ns  {f['message']}")
+    failure = first_failure(args.bundle)
+    if failure:
+        print()
+        print(render_first_failure(failure))
     return 0
 
 
-def _show_json(manifest: dict, doc: dict, limit: int) -> int:
+def _show_json(bundle: Path, manifest: dict, doc: dict, limit: int) -> int:
     results = [item["result"] for item in doc["contracts"]]
     violations = [
         {"contract_id": r["contract_id"], "timestamp_ns": f.get("timestamp_ns"), "message": f["message"]}
@@ -216,6 +221,7 @@ def _show_json(manifest: dict, doc: dict, limit: int) -> int:
         ],
         "violation_count": len(violations),
         "violations": violations[:limit],
+        "first_failure": first_failure(bundle),
     }
     print(json.dumps(payload, indent=2))
     return 0
@@ -450,20 +456,27 @@ def _cmd_new(args: argparse.Namespace) -> int:
     return 0
 
 
+def _schemas() -> dict[str, Callable[[], dict[str, Any]]]:
+    """Core schemas plus those that integrations ship."""
+    from crosslayer.integrations.rv32i.profile_schema import core_profile_schema
+
+    return {**SCHEMAS, "rv32i-core-profile": core_profile_schema}
+
+
 def _schema_text(name: str) -> str:
-    return json.dumps(SCHEMAS[name](), indent=2) + "\n"
+    return json.dumps(_schemas()[name](), indent=2) + "\n"
 
 
 def _cmd_schema(args: argparse.Namespace) -> int:
     if args.write:
         args.write.mkdir(parents=True, exist_ok=True)
-        for name in SCHEMAS:
+        for name in _schemas():
             path = args.write / f"{name}.schema.json"
             path.write_text(_schema_text(name), encoding="utf-8", newline="\n")
             print(f"wrote {path}")
         return 0
     if args.name is None:
-        print("available schemas: " + ", ".join(SCHEMAS))
+        print("available schemas: " + ", ".join(_schemas()))
         return 0
     print(_schema_text(args.name), end="")
     return 0
@@ -579,7 +592,7 @@ def build_parser() -> argparse.ArgumentParser:
     new.set_defaults(func=_cmd_new)
 
     schema = sub.add_parser("schema", help="print or write JSON Schemas for editor validation")
-    schema.add_argument("name", nargs="?", choices=sorted(SCHEMAS))
+    schema.add_argument("name", nargs="?", choices=sorted(_schemas()))
     schema.add_argument("--write", type=Path, metavar="DIR", help="write every schema into DIR")
     schema.set_defaults(func=_cmd_schema)
 

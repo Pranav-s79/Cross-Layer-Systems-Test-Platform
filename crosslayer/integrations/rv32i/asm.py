@@ -374,7 +374,7 @@ def _emit(ctx: _Ctx, op: str, a: list[str]) -> list[int]:  # noqa: C901 - one br
     if op == "li":
         _nargs(ctx, op, a, 2)
         rd = ctx.reg(a[0])
-        out = []
+        out: list[int] = []
         for name, imm in _li_parts(ctx.imm(a[1])):
             out.append(_u(imm, rd, 0x37) if name == "lui" else _i(imm, rd if out else 0, 0, rd, 0x13))
         return out
