@@ -16,7 +16,7 @@ Every run writes `<output>/<run_id>/`, where
 | `localization.json` | Ranked fault hypotheses: subsystem, interface, probability, evidence, counter-evidence, status and its reason ([fault localization](fault-localization.md)). |
 | `timings.json` | Seconds per runner stage: plan, build, execute, collect, normalize, evaluate, write (`write` covers events, normalization, contracts, violations). Stages that did not run are 0. Not part of the fingerprint. |
 | `report.md` | Summary: contract table, stage timings, owners needing attention, violations in order, inconclusive contracts, and coverage bins hit and never hit. |
-| `report.html` | Self-contained interactive report: five-step run walkthrough, pipeline timings, searchable contract results, expandable evidence, and replay instructions. It loads no network resources. |
+| `report.html` | Self-contained interactive report: run walkthrough (a sixth step ranks fault hypotheses when `localization.json` exists), pipeline timings, searchable contract results, expandable evidence, and replay instructions. It loads no network resources. |
 | `junit.xml` | One test case per contract. FAIL → `failure`, ERROR → `error`, INCONCLUSIVE, SKIPPED, and warn-only FAIL → `skipped`. Each case has `severity`, `boundary` (`source -> destination`) and `version` properties. |
 | `replay.sh` | POSIX shell version of `crosslayer replay`; its header lists the expected verdict, fingerprint, and unbundled dependencies. |
 | `work/` | Scratch space. Not indexed. |

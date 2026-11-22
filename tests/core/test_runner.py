@@ -139,7 +139,7 @@ def test_html_report_is_interactive_and_escapes_run_content(tmp_path):
 
     assert name not in report
     assert "&lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;" in report
-    assert report.count("data-step-panel=") == 5
+    assert report.count("data-step-panel=") == 6
     assert 'aria-label="Report steps"' in report
     assert "data-previous" in report and "data-next" in report
     assert "data-contract-search" in report and "data-contract-filter" in report
