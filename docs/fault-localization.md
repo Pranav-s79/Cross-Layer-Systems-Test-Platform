@@ -28,7 +28,11 @@ plus every contract boundary (`source -> destination`) as edges.
 | Status | **ambiguous** if the top two are direct endpoints of exactly the same failing contracts (only priors separate them) or their margin is below 0.25; else **confident**; **no_failures** if nothing failed. The reason is stated. |
 
 Output: `localization.json` in every bundle, a top-three summary in the
-manifest (`localization`), and a section in `report.md`.
+manifest (`localization`), a section in `report.md`, a "Locate the fault" step in
+`report.html` (ranked hypotheses; each evidence and counter-evidence contract
+links to its row in the contracts step), and the top three in `crosslayer show`
+(`localization` in `--json`). Bundles without `localization.json` render the
+report with five steps and `show` omits the section.
 
 ## Ground truth
 

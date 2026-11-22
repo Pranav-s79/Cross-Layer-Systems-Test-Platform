@@ -29,7 +29,7 @@ _STYLE = """
   text-transform:uppercase; font-size:.75rem; font-weight:800; } h1 { margin:.35rem 0; font-size:clamp(2rem,5vw,3.7rem); line-height:1; }
 .lede,.muted { color:var(--muted); } .panel { background:color-mix(in srgb,var(--panel) 94%,transparent); border:1px solid var(--line);
   border-radius:20px; padding:clamp(20px,4vw,38px); box-shadow:0 24px 80px #0005; }
-.step-nav { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:28px 0 14px; } .step-button,.filter-button,
+.step-nav { display:grid; grid-template-columns:repeat(var(--steps,5),1fr); gap:8px; margin:28px 0 14px; } .step-button,.filter-button,
 .control { border:1px solid var(--line); background:#0a1727; color:var(--muted); border-radius:12px; padding:10px 12px; cursor:pointer; }
 .step-button:hover,.step-button:focus-visible,.filter-button:hover,.filter-button:focus-visible,.control:hover,.control:focus-visible { border-color:var(--accent); color:var(--text); outline:none; }
 .step-button[aria-current="step"],.filter-button[aria-pressed="true"] { background:#12344a; border-color:var(--accent); color:var(--text); }
@@ -49,8 +49,9 @@ th,td { text-align:left; padding:12px; border-bottom:1px solid var(--line); vert
 .tools { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; } input[type="search"] { flex:1 1 240px; min-width:0; border:1px solid var(--line);
   background:#081524; color:var(--text); border-radius:12px; padding:11px 13px; } details { border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:12px 0; background:#091625; }
 summary { cursor:pointer; font-weight:800; } .evidence { padding-left:20px; } .evidence code { overflow-wrap:anywhere; } .controls { display:flex; justify-content:space-between; gap:12px; margin-top:26px; }
+.hyp-bar { display:block; height:6px; border-radius:99px; background:#14263a; margin-top:6px; overflow:hidden; } .hyp-bar > span { display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
 .control:disabled { opacity:.4; cursor:not-allowed; } .callout { border-left:4px solid var(--accent); background:#0a2131; padding:14px 16px; border-radius:0 12px 12px 0; }
-.error-callout { border-left-color:var(--fail); } .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.error-callout { border-left-color:var(--fail); } .flash { outline:2px solid var(--accent); outline-offset:-2px; } .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (max-width:720px) { .step-nav { grid-template-columns:1fr; } .step-button { text-align:left; } .step-number { display:inline; margin-right:8px; } .shell { padding-top:20px; } }
 @media print { body { background:#fff; color:#111; } .shell { max-width:none; } .step-nav,.progress,.controls,.tools { display:none; } .panel { box-shadow:none; border:0; padding:0; } .js .step-panel { display:block !important; page-break-inside:avoid; } }
 """
@@ -87,6 +88,7 @@ document.documentElement.classList.add('js');
     if (event.key === 'ArrowLeft') show(current - 1, true);
   });
   const rows = [...document.querySelectorAll('[data-contract-row]')];
+  const contractStep = panels.findIndex(panel => panel.querySelector('[data-contract-row]'));
   const search = document.querySelector('[data-contract-search]');
   const filters = [...document.querySelectorAll('[data-contract-filter]')];
   let verdict = 'all';
@@ -99,6 +101,15 @@ document.documentElement.classList.add('js');
     verdict = button.dataset.contractFilter;
     filters.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
     filterContracts();
+  }));
+  document.querySelectorAll('[data-contract-link]').forEach(link => link.addEventListener('click', event => {
+    const row = document.getElementById(link.dataset.contractLink);
+    if (!row || contractStep < 0) return;
+    event.preventDefault();
+    verdict = 'all'; search.value = '';
+    filters.forEach(item => item.setAttribute('aria-pressed', String(item.dataset.contractFilter === 'all')));
+    filterContracts(); show(contractStep, false);
+    row.scrollIntoView({block: 'center'}); row.classList.add('flash'); row.focus();
   }));
   show(0);
 })();
@@ -118,10 +129,54 @@ def _card(label: str, value: Any) -> str:
     return f'<div class="card"><span class="muted">{_h(label)}</span><strong>{_h(value)}</strong></div>'
 
 
-def _panel(number: int, title: str, lead: str, body: str) -> str:
+def _contract_anchor(contract_id: str) -> str:
+    return "contract-" + "".join(c if c.isalnum() or c in "-_" else f"_{ord(c):x}_" for c in contract_id)
+
+
+def _contract_link(contract_id: str) -> str:
+    anchor = _contract_anchor(contract_id)
+    return f'<a href="#{_h(anchor)}" data-contract-link="{_h(anchor)}"><code>{_h(contract_id)}</code></a>'
+
+
+def _localization_body(loc: dict[str, Any]) -> str:
+    status = str(loc.get("status", "unknown"))
+    reason = f": {_h(loc['reason'])}" if loc.get("reason") else ""
+    body = (
+        f'<p class="callout"><strong>Status: {_h(status)}</strong>{reason}. A ranking to act on, not a proof. '
+        f'Method <code>{_h(loc.get("method", "unknown"))}</code>.</p>'
+    )
+    hypotheses = loc.get("hypotheses") or []
+    if not hypotheses:
+        return body + "<p>No contract failed, so there is nothing to rank.</p>"
+    for rank, h in enumerate(hypotheses[:5], start=1):
+        prob = float(h.get("probability", 0.0))
+        evidence = "".join(
+            f'<li>{_contract_link(str(e["contract"]))} ({_h(e.get("role", ""))}), boundary {_h(e.get("boundary", ""))}'
+            + (f', first violation {_h(format_timestamp(e["first_violation_ns"]))}' if e.get("first_violation_ns") is not None else "")
+            + "</li>"
+            for e in h.get("evidence") or []
+        )
+        counter = "".join(
+            f'<li>{_contract_link(str(e["contract"]))} passed ({_h(e.get("role", ""))}), boundary {_h(e.get("boundary", ""))}</li>'
+            for e in h.get("counter_evidence") or []
+        )
+        iface = f' via <code>{_h(h["interface"])}</code>' if h.get("interface") else ""
+        body += (
+            f'<details{" open" if rank == 1 else ""}><summary>#{rank} <code>{_h(h.get("subsystem", "?"))}</code>{iface} '
+            f'— probability {prob:.2f}</summary><span class="hyp-bar"><span style="width:{max(0.0, min(prob, 1.0)) * 100:.0f}%"></span></span>'
+            f'<h3>Evidence (failing)</h3><ul class="evidence">{evidence or "<li>none</li>"}</ul>'
+            f'<h3>Counter-evidence (passing)</h3><ul class="evidence">{counter or "<li>none</li>"}</ul></details>'
+        )
+    if loc.get("unresolved_contracts"):
+        body += '<p class="muted">Not weighed (inconclusive): ' + ", ".join(
+            _contract_link(str(c)) for c in loc["unresolved_contracts"]) + ".</p>"
+    return body
+
+
+def _panel(number: int, total: int, title: str, lead: str, body: str) -> str:
     return (
         f'<section class="step-panel" data-step-panel="{number}" tabindex="-1" aria-labelledby="step-{number}-title">'
-        f'<p class="eyebrow">Step {number} of 5</p><h2 id="step-{number}-title">{_h(title)}</h2>'
+        f'<p class="eyebrow">Step {number} of {total}</p><h2 id="step-{number}-title">{_h(title)}</h2>'
         f'<p class="lede">{_h(lead)}</p>{body}</section>'
     )
 
@@ -130,8 +185,13 @@ def render_html(
     manifest: dict[str, Any],
     results: Sequence[ContractResult],
     timings: dict[str, float] | None = None,
+    localization: dict[str, Any] | None = None,
 ) -> str:
-    """Render an offline report whose dynamic content is HTML-escaped."""
+    """Render an offline report whose dynamic content is HTML-escaped.
+
+    ``localization`` is the bundle's ``localization.json``; without it (older
+    bundles) the report has five steps, with it a sixth ranks the hypotheses.
+    """
     experiment = manifest["experiment"]
     adapter = manifest["adapter"]
     execution = manifest.get("execution") or {}
@@ -197,7 +257,7 @@ def render_html(
         contract = result.contract
         search_value = " ".join((contract.id, contract.title, contract.owner, contract.source, contract.destination)).lower()
         rows.append(
-            f'<tr data-contract-row data-verdict="{_h(result.verdict)}" data-search="{_h(search_value)}">'
+            f'<tr id="{_h(_contract_anchor(contract.id))}" tabindex="-1" data-contract-row data-verdict="{_h(result.verdict)}" data-search="{_h(search_value)}">'
             f'<td><code>{_h(contract.id)}</code><br><span class="muted">{_h(contract.title)}</span></td>'
             f'<td>{_h(contract.source)} → {_h(contract.destination)}</td><td>{_h(contract.owner)}</td>'
             f'<td>{_badge(result.verdict)}</td><td>{_h(result.summary)}</td></tr>'
@@ -238,17 +298,23 @@ def render_html(
         '<p class="muted">The configuration hash, normalized-event fingerprint, raw evidence, and dependency versions are stored beside this report.</p>'
     )
 
-    panels = "".join(
-        (
-            _panel(1, "Orient", "Start with the outcome and the scope of this run.", overview),
-            _panel(2, "Confirm the inputs", "Check the exact system, seed, configuration, and injected faults.", config),
-            _panel(3, "Follow the pipeline", "See each lifecycle stage in execution order and how long it took.", pipeline),
-            _panel(4, "Inspect the contracts", "Search and filter the checks that produced the run verdict.", contracts),
-            _panel(5, "Review evidence and reproduce", "Open failures in chronological context, then replay the bundle.", "".join(attention)),
-        )
-    )
-    nav_titles = ("Orient", "Inputs", "Pipeline", "Contracts", "Evidence")
-    nav = '<nav class="step-nav" aria-label="Report steps">' + "".join(
+    sections = [
+        ("Orient", "Start with the outcome and the scope of this run.", overview),
+        ("Confirm the inputs", "Check the exact system, seed, configuration, and injected faults.", config),
+        ("Follow the pipeline", "See each lifecycle stage in execution order and how long it took.", pipeline),
+        ("Inspect the contracts", "Search and filter the checks that produced the run verdict.", contracts),
+    ]
+    nav_titles = ["Orient", "Inputs", "Pipeline", "Contracts"]
+    if localization is not None:
+        sections.append(("Locate the fault", "See which subsystem most likely started the failure, and why.",
+                         _localization_body(localization)))
+        nav_titles.append("Localize")
+    sections.append(("Review evidence and reproduce", "Open failures in chronological context, then replay the bundle.",
+                     "".join(attention)))
+    nav_titles.append("Evidence")
+    total = len(sections)
+    panels = "".join(_panel(i, total, *section) for i, section in enumerate(sections, start=1))
+    nav = f'<nav class="step-nav" style="--steps:{total}" aria-label="Report steps">' + "".join(
         f'<button class="step-button" type="button" data-step-target="{index}" data-title="{_h(title)}">'
         f'<span class="step-number">0{index}</span>{_h(title)}</button>'
         for index, title in enumerate(nav_titles, start=1)
@@ -260,7 +326,7 @@ def render_html(
         f'<title>CrossLayer run {_h(manifest["run_id"])}</title><style>{_STYLE}</style></head><body>'
         '<main class="shell"><p class="eyebrow">CrossLayer interactive run report</p>'
         f'<h1>{_h(experiment["name"])}</h1><p class="lede">Run <code>{_h(manifest["run_id"])}</code> · {_badge(manifest["verdict"])}</p>'
-        f'{nav}<div class="progress" role="progressbar" aria-label="Report progress" aria-valuemin="1" aria-valuemax="5"><span data-progress></span></div>'
+        f'{nav}<div class="progress" role="progressbar" aria-label="Report progress" aria-valuemin="1" aria-valuemax="{total}"><span data-progress></span></div>'
         '<p class="sr-only" aria-live="polite" data-step-status></p><noscript><p class="callout">JavaScript is disabled; all report steps remain visible below.</p></noscript>'
         f'<div class="panel">{panels}<div class="controls"><button class="control" type="button" data-previous>← Previous</button>'
         f'<button class="control" type="button" data-next>Next →</button></div></div></main><script>{_SCRIPT}</script></body></html>\n'

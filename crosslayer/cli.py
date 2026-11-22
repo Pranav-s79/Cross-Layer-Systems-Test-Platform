@@ -193,11 +193,36 @@ def _cmd_show(args: argparse.Namespace) -> int:
         print(f"first violations ({min(args.limit, len(violations))} of {len(violations)}):")
         for cid, f in sorted(violations, key=lambda v: v[1].get("timestamp_ns") or 0)[: args.limit]:
             print(f"  {cid}  t={f.get('timestamp_ns')} ns  {f['message']}")
+    loc = _read_localization(args.bundle)
+    if loc and loc.get("hypotheses"):
+        print()
+        print(f"likely origin ({loc['status']}):")
+        for rank, h in enumerate(loc["hypotheses"][:3], start=1):
+            print(f"  {rank}. {h['subsystem']:<14} {h['interface'] or '-':<18} p={h['probability']:.2f}")
     failure = first_failure(args.bundle)
     if failure:
         print()
         print(render_first_failure(failure))
     return 0
+
+
+def _read_localization(bundle: Path) -> dict | None:
+    """The bundle's ``localization.json``, or None for bundles made before it existed."""
+    path = bundle / "localization.json"
+    if not path.is_file():
+        return None
+    try:
+        loc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return loc if isinstance(loc, dict) else None
+
+
+def _localization_top(loc: dict | None) -> dict | None:
+    if not loc or not loc.get("hypotheses"):
+        return None
+    return {"status": loc["status"],
+            "top": [{k: h[k] for k in ("subsystem", "interface", "probability")} for h in loc["hypotheses"][:3]]}
 
 
 def _show_json(bundle: Path, manifest: dict, doc: dict, limit: int) -> int:
@@ -222,6 +247,7 @@ def _show_json(bundle: Path, manifest: dict, doc: dict, limit: int) -> int:
         "violation_count": len(violations),
         "violations": violations[:limit],
         "first_failure": first_failure(bundle),
+        "localization": _localization_top(_read_localization(bundle)),
     }
     print(json.dumps(payload, indent=2))
     return 0

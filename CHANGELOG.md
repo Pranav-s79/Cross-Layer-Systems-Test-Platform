@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a "Locate the fault" step to `report.html` (ranked hypotheses with evidence and counter-evidence linked to contract rows) and the top three hypotheses to `crosslayer show`; older bundles render as before.
 - Add the first failing event to `crosslayer show`: its raw line and observed vs reference values side by side, paired by `ref_` / `_ref` attribute names (`first_failure` in `--json`).
 - Add assembler and decoder round-trip tests: seeded random RV32I instructions decode back to their operands, and reserved encodings decode as illegal.
 - Add a JSON Schema for RV32I core profiles (`crosslayer schema rv32i-core-profile`); the built-in `core.yaml` files reference it for editor validation.

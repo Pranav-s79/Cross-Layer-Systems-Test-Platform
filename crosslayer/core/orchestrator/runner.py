@@ -386,7 +386,7 @@ class ExperimentRunner:
         bundle.write_json("timings.json", {"unit": "seconds", "stages": timings})
         bundle.write_text("report.md", render_markdown(manifest, results, timings, coverage_bins(normalization_stats),
                                                        localization))
-        bundle.write_text("report.html", render_html(manifest, results, timings))
+        bundle.write_text("report.html", render_html(manifest, results, timings, localization))
         bundle.write_text("junit.xml", render_junit(manifest, results))
         bundle.write_text("replay.sh", self._replay_script(manifest, description.external_dependencies))
         manifest["files"] = bundle.file_index()

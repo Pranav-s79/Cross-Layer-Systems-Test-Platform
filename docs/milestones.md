@@ -124,7 +124,7 @@ experiment (reference, RV32I on both cores, textlog, 5G), with each miss
 explained, including faults whose symptoms appear downstream of their cause.
 
 ### 7.2 · Localization in the HTML report · `routine` · `feature/localization-report`
-- [ ] A step in `report.html` that shows the ranked hypotheses with their
+- [x] A step in `report.html` that shows the ranked hypotheses with their
   evidence and counter-evidence, linking evidence to contract results;
   `crosslayer show` prints the top three. Generic: driven only by
   `localization.json`.
