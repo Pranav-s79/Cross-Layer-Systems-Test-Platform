@@ -144,6 +144,18 @@ with a one-line reason and take the next one.
 - [x] **Direct tests for `core/contracts/selectors.py`.** Only two test files
   mention it; add parametrized cases for each selector form and its error
   messages.
+- [ ] **Direct tests for `core/adapters/conformance.py`.** Coverage is 84%
+  (`pytest --cov=crosslayer`, Icarus not installed); the failure branches of
+  `check_adapter_conformance` (lines 40-125) have no test that feeds it a broken adapter.
+- [ ] **Test `core/orchestrator/experiment.py` config errors.** Coverage is 87%;
+  add parametrized cases for the uncovered `ConfigError` paths, asserting each
+  message names the offending key.
+- [ ] **Test `core/orchestrator/process.py` failure paths.** Coverage is 90%;
+  cover a command that exits non-zero, times out, or is missing.
+- [ ] **Test `python -m crosslayer`.** `crosslayer/__main__.py` is at 0%
+  coverage; add a subprocess test that `python -m crosslayer --version` exits 0.
+- [ ] **Test `rv32i/simcache.py` misses.** Coverage is 87%; cover a corrupt or
+  unreadable cache entry and `CROSSLAYER_CACHE_DIR=off`, without needing Icarus.
 
 When the list runs out, review the code for bugs, missing tests, unclear
 error messages, or documentation gaps, and add five new items here with a
