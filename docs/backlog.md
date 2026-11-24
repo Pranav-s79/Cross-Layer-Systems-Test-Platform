@@ -147,6 +147,28 @@ with a one-line reason and take the next one.
 - [x] **Direct tests for `core/adapters/conformance.py`.** Coverage is 84%
   (`pytest --cov=crosslayer`, Icarus not installed); the failure branches of
   `check_adapter_conformance` (lines 40-125) have no test that feeds it a broken adapter.
+- [ ] **`crosslayer run --set key=value`.** Override experiment `parameters`
+  from the command line (repeatable; values parsed as YAML scalars, dotted keys
+  for nesting). The override is recorded in the bundle's `configuration.yaml`
+  and config hash, so `replay` reproduces it. Unknown keys still fail plan.
+- [ ] **`crosslayer suite --only ID[,ID...]`.** Run a subset of a suite plus
+  the experiments they depend on (transitively), reporting the rest as
+  `skipped`; sweep ids accept the base id (`random_programs`) or one seed
+  (`random_programs@3`).
+- [ ] **Compressed log inputs for textlog.** Accept `.gz` inputs (stdlib
+  `gzip`): decompress into `raw_artifacts/` under the uncompressed name so
+  evidence line references stay valid; record both SHA-256 values.
+- [ ] **Multi-line log records for textlog.** An optional profile key
+  `continuation: <regex>` appends matching lines to the previous record
+  (stack traces, wrapped messages); the event keeps the first line's number
+  and records how many lines it spans. Document it in `log-analysis.md`.
+- [ ] **`crosslayer export BUNDLE`.** Write one `.zip` with the bundle and a
+  short README (verdict, top hypotheses, how to verify and replay);
+  `crosslayer verify` accepts the zip directly.
+
+Coverage-only items below are lower priority: take them only when no
+capability item above is open, and prefer folding such tests into a feature.
+
 - [ ] **Test `core/orchestrator/experiment.py` config errors.** Coverage is 87%;
   add parametrized cases for the uncovered `ConfigError` paths, asserting each
   message names the offending key.

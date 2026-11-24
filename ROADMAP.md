@@ -19,7 +19,7 @@ built hardware and software.
 | | 8 | Guided follow-up experiments | 🔜 |
 | | 9 | Learning-assisted triage | 📋 |
 | **IV. Scale** | 10 | Streaming evaluation engine | 📋 |
-| | 11 | Results store and regression analytics | 📋 |
+| | 11 | Results store and regression analytics | 🔜 |
 | | 12 | Distributed execution | 📋 |
 | **V. Production** | 13 | Platform service | 📋 |
 | | 14 | Observability interoperability | 📋 |
@@ -176,7 +176,7 @@ milestone 7.2.
 
 **Entry:** traces too large for in-memory evaluation, measured.
 
-### Phase 11 · Results store and regression analytics 📋
+### Phase 11 · Results store and regression analytics 🔜
 * Run index (SQLite, then PostgreSQL); bundles in object storage.
 * Statistically tested KPI regressions across builds; per-owner history.
 
