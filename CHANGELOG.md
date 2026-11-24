@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add direct tests for adapter conformance checks: every failure branch of `check_adapter_conformance` and `check_events_against_catalog`.
 - Add five backlog items (adapter conformance, experiment config errors, process failures, `python -m crosslayer`, simcache misses) found from coverage gaps.
 - Add a "Locate the fault" step to `report.html` (ranked hypotheses with evidence and counter-evidence linked to contract rows) and the top three hypotheses to `crosslayer show`; older bundles render as before.
 - Add the first failing event to `crosslayer show`: its raw line and observed vs reference values side by side, paired by `ref_` / `_ref` attribute names (`first_failure` in `--json`).

@@ -144,7 +144,7 @@ with a one-line reason and take the next one.
 - [x] **Direct tests for `core/contracts/selectors.py`.** Only two test files
   mention it; add parametrized cases for each selector form and its error
   messages.
-- [ ] **Direct tests for `core/adapters/conformance.py`.** Coverage is 84%
+- [x] **Direct tests for `core/adapters/conformance.py`.** Coverage is 84%
   (`pytest --cov=crosslayer`, Icarus not installed); the failure branches of
   `check_adapter_conformance` (lines 40-125) have no test that feeds it a broken adapter.
 - [ ] **Test `core/orchestrator/experiment.py` config errors.** Coverage is 87%;
