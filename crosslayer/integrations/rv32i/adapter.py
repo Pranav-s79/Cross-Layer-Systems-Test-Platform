@@ -42,6 +42,7 @@ from crosslayer.core.adapters.base import (
     SystemAdapter,
 )
 from crosslayer.core.contracts.loader import load_contracts_file
+from crosslayer.core.diagnosis.planner import DiagnosticAction
 from crosslayer.core.contracts.model import BoundaryContract
 from crosslayer.core.errors import AdapterError, ConfigError
 from crosslayer.core.orchestrator.process import run_process
@@ -92,7 +93,18 @@ _DEFAULTS: dict[str, Any] = {
     "waveform": False,
     "random_instructions": 300,
     "random_mix": "uniform",
+    "nop_spacing": 0,
 }
+MAX_NOP_SPACING = 8
+SPACING_CLEARS = {"hazard/bypass": 1.0, "hazard/pipeline_control": 0.0, "hazard": 0.75}
+"""With no two instructions inside the hazard window, nothing is forwarded and
+nothing stalls, but taken branches still flush. A hazard fault blamed on the
+bypass (a stale or wrong operand) stops showing; one blamed on pipeline
+control (a wrong-path retirement) does not; with no interface, three of the
+four hazard mechanisms are removed."""
+OBSERVE_ACCURACY = 0.8
+"""How often the top suspect is right on RV32I traces with operand values
+(26 of 31 fault experiments when measured, rounded down)."""
 RANDOM_PROGRAM = "random"
 """``program: random`` generates a program from the experiment seed (``randprog.py``)."""
 _SENTINEL = -1
@@ -179,6 +191,34 @@ class Rv32iAdapter(SystemAdapter):
         return replace(full, subsystems=tuple(s for s in full.subsystems if s != "hazard"),
                        interfaces=tuple(i for i in full.interfaces if "hazard" not in (i.source, i.destination)))
 
+    def diagnostic_actions(self, parameters: Mapping[str, Any], base_dir: Path) -> list[DiagnosticAction]:
+        """Follow-ups that separate RV32I suspects:
+
+        * ``space_instructions`` (pipelined cores): NOPs after every
+          instruction, so the hazard logic has nothing to forward or stall; a
+          fault there mostly stops showing, one anywhere else does not.
+        * ``observe_operands`` (traces without operand values): the same run
+          traced with operand values, whose own ranking is the outcome.
+        """
+        profile = _load(parameters.get("core", DEFAULT_CORE), base_dir)
+        actions = []
+        if profile.pipeline is not None and not parameters.get("nop_spacing"):
+            spacing = min(profile.pipeline["stages"] - 1, MAX_NOP_SPACING)
+            actions.append(DiagnosticAction(
+                "space_instructions",
+                f"Re-run with {spacing} NOPs after every instruction: nothing is forwarded or stalled.",
+                parameters={"nop_spacing": spacing}, clears=SPACING_CLEARS,
+                ignores=("rv32i.cpi_budget",)))  # NOPs change the instruction mix, so the CPI profile
+        current = sources()[_trace_name(profile, parameters.get("trace"))].for_profile(profile.signals)
+        if not current.operands:
+            richer = [t for t in profile.traces if sources()[t].for_profile(profile.signals).operands]
+            if richer:
+                actions.append(DiagnosticAction(
+                    "observe_operands",
+                    f"Re-run traced as {richer[0]}, which records the operand values each instruction read.",
+                    parameters={"trace": richer[0]}, observes=OBSERVE_ACCURACY))
+        return actions
+
     def capabilities(self) -> frozenset[Capability]:
         return frozenset(
             {Capability.BUILD, Capability.EXECUTE, Capability.COLLECT, Capability.NORMALIZE, Capability.FAULT_INJECTION}
@@ -248,6 +288,9 @@ class Rv32iAdapter(SystemAdapter):
         for key in ("max_cycles", "random_instructions"):
             if key in parameters:
                 _positive_int(parameters[key], f"parameters.{key}")
+        spacing = parameters.get("nop_spacing", 0)
+        if isinstance(spacing, bool) or not isinstance(spacing, int) or not 0 <= spacing <= MAX_NOP_SPACING:
+            raise ConfigError(f"must be an integer from 0 to {MAX_NOP_SPACING}", location="parameters.nop_spacing")
         from crosslayer.integrations.rv32i.randprog import MIXES
 
         if parameters.get("random_mix", "uniform") not in MIXES:
@@ -287,7 +330,7 @@ class Rv32iAdapter(SystemAdapter):
         else:
             source = self._program_path(ctx).read_text(encoding="utf-8")
         try:
-            return source, assemble(source)
+            return source, assemble(source, spacing=self._param(ctx, "nop_spacing"))
         except AsmError as exc:
             raise AdapterError(f"cannot assemble {PROGRAM_NAME}: {exc}") from None
 

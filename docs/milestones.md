@@ -150,15 +150,16 @@ bins never hit are listed by the sweep report.
 
 ## Phase 8 · Guided follow-up experiments
 
-### 8.1 · Diagnostic actions and the planner · `lead` · `feature/guided-experiments`
-- [ ] Adapters may declare diagnostic actions: experiment variants
+### 8.1 · Diagnostic actions and the planner · `lead` · done
+- [x] Adapters may declare diagnostic actions: experiment variants
   (parameter or fault overrides, a component swapped for a reference) with
   the outcome each hypothesis predicts. The sensor pipeline and RV32I
   declare actions that separate producer from consumer faults.
-- [ ] A planner picks the action with the highest expected information gain
+- [x] A planner picks the action with the highest expected information gain
   under the current localization probabilities, runs it, updates the
   probabilities, and stops when confident or out of budget;
-  `crosslayer diagnose BUNDLE [--budget N]` writes the trail to the bundle.
+  `crosslayer diagnose BUNDLE [--budget N]` writes the trail next to the
+  bundle (`<bundle>.diagnosis/`; bundles stay immutable).
 
 **Exit:** over every labeled fault experiment, the diagnosis is right after
 fewer experiments than running every action, measured; the Phase 7 misses

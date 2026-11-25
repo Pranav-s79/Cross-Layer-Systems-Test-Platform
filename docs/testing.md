@@ -96,6 +96,12 @@ re-parses to the same event, one clock across sources, baseline PASS,
 slow-reply FAIL, FAIL without the clock offset, replay, lint, and the
 example's contract tests.
 
+`tests/core/test_planner.py` checks the outcome models, expected
+information gain, the Bayes update, and the diagnosis loop end to end on a
+fake adapter whose consumer fault localization blames on the producer;
+`test_rv32i_diagnose.py` and `test_sensor_pipeline.py` check each adapter's
+actions and diagnose real Phase 7 misses.
+
 `tests/core/test_localize.py` checks the localizer on hand-built results
 (source before destination, earliest violation first, silent upstream
 components, counter-evidence, interface direction, ambiguity), ground truth

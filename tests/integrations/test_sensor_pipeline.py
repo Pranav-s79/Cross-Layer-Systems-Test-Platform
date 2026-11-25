@@ -4,6 +4,7 @@ fault-injection evidence that the core detects what it claims to detect."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -166,6 +167,8 @@ def test_unparseable_lines_become_diagnostics(tmp_path):
         ({"colour": 3}, []),
         ({}, [{"name": "slow_consumer", "params": {"speed": 2}}]),
         ({}, [{"name": "slow_consumer", "params": {"factor": 0}}]),
+        ({"reference_components": ["gpu"]}, []),
+        ({"reference_components": "proc"}, []),
     ],
 )
 def test_bad_parameters_rejected(tmp_path, parameters, faults):
@@ -322,3 +325,40 @@ def test_reorder_fault_changes_completion_order_only_when_enabled():
     reordered = _done_sequence("--fault", "reorder", "--reorder-every", "2")
     assert reordered != sorted(reordered)
     assert sorted(reordered) == sorted(plain)
+
+
+# -- guided follow-up experiments (Phase 8) ---------------------------------------
+
+
+@pytest.mark.parametrize("fault, component", sorted(sim.FAULT_COMPONENT.items()))
+def test_a_reference_component_removes_only_its_own_faults(tmp_path, fault, component):
+    base = load_experiment(EXPERIMENTS / f"fault_{fault}.yaml")  # its workload makes the fault visible
+
+    def run(reference):
+        variant = replace(base, parameters={**base.parameters, "reference_components": reference})
+        return ExperimentRunner(tmp_path / "runs").run(variant)
+
+    assert run([component]).verdict is Verdict.PASS
+    others = [c for c in ("sensor_rx", "ring_buffer", "proc") if c != component]
+    assert run(others).verdict is Verdict.FAIL
+
+
+def test_reference_swaps_are_offered_for_components_not_already_swapped():
+    adapter = SensorPipelineAdapter()
+    names = [a.name for a in adapter.diagnostic_actions({}, Path("."))]
+    assert names == ["reference_sensor_rx", "reference_ring_buffer", "reference_proc"]
+    later = adapter.diagnostic_actions({"reference_components": ["proc"]}, Path("."))
+    assert [a.name for a in later] == ["reference_sensor_rx", "reference_ring_buffer"]
+    assert later[0].parameters == {"reference_components": ["proc", "sensor_rx"]}
+
+
+@pytest.mark.parametrize("experiment", ["fault_duplicate_completion", "fault_slow_consumer"])
+def test_diagnosis_finds_the_consumer_that_localization_misses(runs, experiment):
+    from crosslayer.core.diagnosis import diagnose
+
+    bundle = runs[experiment].bundle_dir
+    assert runs[experiment].manifest["localization"]["top"][0]["subsystem"] != "proc"  # the Phase 7 miss
+    diag = diagnose(bundle, runner_for=lambda d: ExperimentRunner(d))
+    assert diag.status == "confident" and diag.top == "proc"
+    assert len(diag.steps) < len(diag.actions)  # fewer runs than trying every swap
+

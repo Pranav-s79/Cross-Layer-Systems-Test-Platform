@@ -180,6 +180,20 @@ top-3 accuracy, interface accuracy, and how many confident calls were right;
 `--min-top1` / `--min-top3` exit 1 below a rate (0-1). See
 [fault-localization.md](fault-localization.md).
 
+## Guided follow-up experiments
+
+```sh
+crosslayer diagnose runs/<bundle> [--budget N] [--threshold P] [--all] [--json]
+crosslayer diagnose runs [more dirs] [--min-top1 R] [--json]
+```
+
+The first runs the follow-up experiments that best separate a failing run's
+suspects (by expected information gain) and writes the trail to
+`<bundle>.diagnosis/`. Given directories, it diagnoses every failing labeled
+run below them and reports top-1 accuracy before and after, and how many
+follow-up runs it took against running every action; `--min-top1` exits 1
+below a rate. See [guided-experiments.md](guided-experiments.md).
+
 ## Dry runs
 
 `crosslayer run EXPERIMENT --dry-run` validates the experiment (adapter,

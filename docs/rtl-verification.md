@@ -298,6 +298,7 @@ and provenance in the manifest, and `rtl.diff` names the core.
 | `waveform` | `false` | Write `waveform.vcd` when true |
 | `random_instructions` | `300` | Body length for `program: random` |
 | `random_mix` | `uniform` | `hazards`: operands favor the last three results, plus load-use, compute-then-branch, compute-then-store, and dependent-chain patterns |
+| `nop_spacing` | `0` | Assemble with this many NOPs after every instruction (0-8), so no two instructions are within a pipeline's hazard window; used by the `space_instructions` [follow-up](guided-experiments.md) |
 
 Random programs use the experiment seed and initialize every working
 register. They mix ALU and shift instructions, LUI and AUIPC, loads and
