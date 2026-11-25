@@ -66,25 +66,59 @@ class Program:
         return "".join(f"{w:08x}\n" for w in self.words)
 
 
-def assemble(source: str) -> Program:
+NOP = 0x0000_0013
+"""``addi x0, x0, 0``."""
+_JALR_MEM = re.compile(r"^\s*(-?\w+)\s*\(\s*(\w+)\s*\)\s*$")
+
+
+def assemble(source: str, *, spacing: int = 0) -> Program:
+    """Assemble ``source``. With ``spacing``, every instruction word is followed
+    by that many NOPs (data directives are not), so no two instructions are
+    closer than ``spacing + 1`` words. Labels account for the padding; a
+    literal ``jalr rd, imm(rs)`` right after ``auipc rs, 0`` is PC-relative, so
+    its offset is scaled by ``spacing + 1`` (exact when the instructions it
+    spans are single words, as in generated programs)."""
+    if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
+        raise ValueError("spacing must be a non-negative integer")
     statements = _parse(source)
-    labels, equs, local_labels = _layout(statements)
+    labels, equs, local_labels = _layout(statements, spacing)
     words: list[int] = []
     source_lines: dict[int, int] = {}
+    previous: tuple[str | None, list[str]] = (None, [])
     for index, (lineno, op, args, addr) in enumerate(statements):
         if op is None:
             continue
         ctx = _Ctx(lineno, addr, labels, equs, local_labels, index)
+        if spacing and op == "jalr" and previous[0] == "auipc":
+            args = _scaled_jalr(args, previous[1], spacing)
+        previous = (op, args)
         try:
             emitted = _emit(ctx, op, args)
         except AsmError:
             raise
         except (ValueError, KeyError, IndexError) as exc:
             raise AsmError(f"{op}: {exc}", lineno) from None
+        stride = 1 + spacing if _is_instruction(op) else 1
         for i, word in enumerate(emitted):
-            source_lines[addr + 4 * i] = lineno
-        words.extend(emitted)
+            source_lines[addr + 4 * stride * i] = lineno
+            words.append(word)
+            if stride > 1:
+                words.extend([NOP] * spacing)
     return Program(words, labels, source_lines)
+
+
+def _is_instruction(op: str) -> bool:
+    return not op.startswith(".")
+
+
+def _scaled_jalr(args: list[str], auipc: list[str], spacing: int) -> list[str]:
+    """``jalr rd, imm(rs)`` after ``auipc rs, 0``: scale the PC-relative offset."""
+    if len(args) != 2 or len(auipc) != 2 or auipc[1].strip() not in ("0", "0x0"):
+        return args
+    match = _JALR_MEM.match(args[1])
+    if match is None or match[2] != auipc[0].strip() or not match[1].lstrip("-").isdigit():
+        return args
+    return [args[0], f"{int(match[1]) * (1 + spacing)}({match[2]})"]
 
 
 # -- pass 1: parse and lay out -------------------------------------------------------
@@ -111,7 +145,7 @@ def _parse(source: str) -> list[tuple[int, str | None, list[str], int]]:
 
 
 def _layout(
-    statements: list[tuple[int, str | None, list[str], int]],
+    statements: list[tuple[int, str | None, list[str], int]], spacing: int = 0,
 ) -> tuple[dict[str, int], dict[str, int], _Locals]:
     labels: dict[str, int] = {}
     equs: dict[str, int] = {}
@@ -133,7 +167,7 @@ def _layout(
                 raise AsmError(".equ expects NAME, VALUE", lineno)
             equs[args[0]] = _int(args[1], equs, lineno)
             continue
-        addr += _size(op, args, equs, addr, lineno)
+        addr += _size(op, args, equs, addr, lineno) * (1 + spacing if _is_instruction(op) else 1)
     return labels, equs, local_labels
 
 

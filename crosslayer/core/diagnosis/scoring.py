@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from crosslayer.core.artifacts.bundle import MANIFEST
+from crosslayer.core.diagnosis.planner import in_diagnosis
 
 
 @dataclass(frozen=True)
@@ -69,7 +70,7 @@ def score_paths(paths: Iterable[Path]) -> list[ScoredRun]:
         manifests = [path / MANIFEST] if (path / MANIFEST).is_file() else sorted(path.rglob(MANIFEST))
         for manifest in manifests:
             bundle = manifest.parent.resolve()
-            if bundle in seen:
+            if bundle in seen or in_diagnosis(bundle):  # follow-up runs belong to their diagnosis
                 continue
             seen.add(bundle)
             scored = score_bundle(bundle)

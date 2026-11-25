@@ -5,6 +5,9 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add guided follow-up experiments (Phase 8): `SystemAdapter.diagnostic_actions` declares experiment variants with a `clears` or `observes` outcome model, and `crosslayer diagnose` runs them by expected information gain, updating the suspects by Bayes' rule, and writes the trail to `<bundle>.diagnosis/`. Over 76 failing labeled runs, top-1 goes from 69 to 73 with 46 follow-up runs (65 to run every action).
+- Add reference components to the sensor-pipeline simulator (`reference_components`, `sim.py --reference`) and the actions that swap each one in.
+- Add `nop_spacing` to the RV32I adapter (`asm.assemble(spacing=N)`) and the `space_instructions` and `observe_operands` actions.
 - Add a third RV32I core, a five-stage pipeline with forwarding, a load-use stall, and branch flushes (learn-fpga `pipeline6.v`, BSD-3-Clause, unmodified), verified through a testbench pipeline monitor in all three trace formats, with `experiments/rv32i-pipeline/`.
 - Add four hazard mutants (`no_mem_forwarding`, `no_wb_forwarding`, `no_load_use_stall`, `no_branch_flush`), each predicted by an independent pipeline model in `iss.py` (`PIPELINE_FAULTS`) and caught at the predicted instruction in every trace format and on every seed of a hazard sweep.
 - Add hazard contracts for pipelined cores: `rv32i.forwarded_operands` (operands within the bypass window) and `rv32i.redirect_followed` (no wrong-path retirement); SKIPPED on cores that are not pipelined.

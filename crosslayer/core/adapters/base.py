@@ -25,11 +25,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from crosslayer.core.contracts.model import BoundaryContract
 from crosslayer.core.errors import UnsupportedOperation
 from crosslayer.core.telemetry.events import NormalizedEvent
+
+if TYPE_CHECKING:
+    from crosslayer.core.diagnosis.planner import DiagnosticAction
 
 
 class Capability(StrEnum):
@@ -277,6 +280,17 @@ class SystemAdapter(ABC):
         validate contracts against ``describe()``, the full catalog.
         """
         return self.describe()
+
+    def diagnostic_actions(self, parameters: Mapping[str, Any], base_dir: Path) -> list[DiagnosticAction]:
+        """Follow-up experiment variants for one configuration; none by default.
+
+        Each action overrides some parameters (swap a component for a
+        reference, remove the condition a fault needs, record more) and says
+        what each suspect subsystem predicts it will show.
+        ``crosslayer diagnose`` runs the most informative ones after a failure
+        (``crosslayer.core.diagnosis.planner``).
+        """
+        return []
 
     def event_catalog(self) -> list[EventSpec] | None:
         """Event types this adapter can emit, or None if unknown.

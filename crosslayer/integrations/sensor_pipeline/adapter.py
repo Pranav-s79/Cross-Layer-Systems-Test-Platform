@@ -39,6 +39,7 @@ from crosslayer.core.adapters.base import (
 )
 from crosslayer.core.contracts.loader import load_contracts_file
 from crosslayer.core.contracts.model import BoundaryContract
+from crosslayer.core.diagnosis.planner import DiagnosticAction
 from crosslayer.core.errors import AdapterError, ConfigError
 from crosslayer.core.orchestrator.process import run_process
 from crosslayer.core.telemetry.events import NormalizedEvent, Severity
@@ -96,6 +97,9 @@ _PARAMETERS: dict[str, tuple[str, int]] = {
     "service_us_min": ("--service-us-min", 100),
     "service_us_max": ("--service-us-max", 300),
 }
+
+REFERENCE_COMPONENTS = ("sensor_rx", "ring_buffer", "proc")
+"""Components the simulator can run as a reference implementation (``--reference``)."""
 
 _FAULT_PARAMS: dict[str, dict[str, tuple[str, int]]] = {
     # fault -> param -> (simulator flag, default)
@@ -172,6 +176,16 @@ class SensorPipelineAdapter(SystemAdapter):
             ),
         ]
 
+    def diagnostic_actions(self, parameters: Mapping[str, Any], base_dir: Path) -> list[DiagnosticAction]:
+        """Swap one component for its reference implementation: if the fault
+        is in that component, the failure goes away."""
+        already = set(parameters.get("reference_components", []))
+        return [
+            DiagnosticAction(f"reference_{c}", f"Re-run with `{c}` swapped for its reference implementation.",
+                             parameters={"reference_components": sorted(already | {c})}, clears={c: 1.0})
+            for c in REFERENCE_COMPONENTS if c not in already
+        ]
+
     def contracts(self) -> list[BoundaryContract]:
         return load_contracts_file(CONTRACTS_PATH)
 
@@ -194,10 +208,17 @@ class SensorPipelineAdapter(SystemAdapter):
         ]
 
     def validate_parameters(self, parameters: Mapping[str, Any]) -> None:
-        unknown = set(parameters) - set(_PARAMETERS)
+        allowed = {*_PARAMETERS, "reference_components"}
+        unknown = set(parameters) - allowed
         if unknown:
-            raise ConfigError(f"unknown parameters {sorted(unknown)} (allowed: {sorted(_PARAMETERS)})")
+            raise ConfigError(f"unknown parameters {sorted(unknown)} (allowed: {sorted(allowed)})")
         for key, value in parameters.items():
+            if key == "reference_components":
+                if not isinstance(value, list) or not set(value) <= set(REFERENCE_COMPONENTS) or not all(
+                        isinstance(v, str) for v in value):
+                    raise ConfigError(f"must be a list drawn from {list(REFERENCE_COMPONENTS)}",
+                                      location="parameters.reference_components")
+                continue
             _positive_int(value, f"parameters.{key}")
         lo = parameters.get("service_us_min", _PARAMETERS["service_us_min"][1])
         hi = parameters.get("service_us_max", _PARAMETERS["service_us_max"][1])
@@ -213,6 +234,8 @@ class SensorPipelineAdapter(SystemAdapter):
         cmd = [sys.executable, str(SIM_PATH), "--seed", str(ctx.seed)]
         for key, (flag, default) in _PARAMETERS.items():
             cmd += [flag, str(ctx.parameters.get(key, default))]
+        for component in ctx.parameters.get("reference_components", []):
+            cmd += ["--reference", component]
         for fault in ctx.faults:
             cmd += ["--fault", fault.name]
             for param, (flag, default) in _FAULT_PARAMS[fault.name].items():

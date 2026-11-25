@@ -6,6 +6,8 @@
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer localize BUNDLE|DIR... [--score] [--min-top1 R] [--min-top3 R] [--json]
                                       ranked fault hypotheses; --score: accuracy against fault labels
+    crosslayer diagnose BUNDLE|DIR... [--budget N] [--threshold P] [--all] [--min-top1 R] [--json]
+                                      run the follow-up experiments that best separate the suspects
     crosslayer compare BASELINE_BUNDLE CANDIDATE_BUNDLE [--json]
     crosslayer adapters [--json] [--check]
     crosslayer check FILE...          validate contract or experiment files
@@ -30,7 +32,7 @@ from typing import Any, Callable, Sequence
 
 from crosslayer.core.adapters.conformance import check_adapter_conformance
 from crosslayer.core.adapters.registry import available_adapters, load_adapter
-from crosslayer.core.artifacts.bundle import load_json, load_manifest, verify_bundle
+from crosslayer.core.artifacts.bundle import MANIFEST, load_json, load_manifest, verify_bundle
 from crosslayer.core.artifacts.first_failure import first_failure, render_first_failure
 from crosslayer.core.contracts.loader import load_contracts_file, read_document
 from crosslayer.core.contracts.lint import LintLevel
@@ -165,6 +167,75 @@ def _cmd_localize(args: argparse.Namespace) -> int:
             print(f"confident {s['confident']['correct']}/{s['confident']['calls']} confident calls were right")
         for name, rate, limit in failed:
             print(f"GATE      {name} {rate} is below the minimum {limit}")
+    return 1 if failed else 0
+
+
+def _cmd_diagnose(args: argparse.Namespace) -> int:
+    from crosslayer.core.diagnosis.planner import Diagnosis, diagnose, in_diagnosis
+    from crosslayer.core.diagnosis.scoring import score_bundle
+
+    def runner_for(runs_dir: Path) -> ExperimentRunner:
+        return ExperimentRunner(runs_dir)
+
+    def run_one(bundle: Path) -> Diagnosis:
+        return diagnose(bundle, runner_for=runner_for, budget=args.budget, threshold=args.threshold,
+                        run_all=args.all)
+
+    if len(args.paths) == 1 and (args.paths[0] / MANIFEST).is_file():
+        diag = run_one(args.paths[0])
+        if args.json:
+            print(json.dumps(diag.to_dict(), indent=2))
+            return 0
+        print(f"status    {diag.status}: {diag.reason}")
+        before = ", ".join(f"{s} {p:.2f}" for s, p in sorted(diag.prior.items(), key=lambda kv: -kv[1])[:3])
+        print(f"before    {before}")
+        for i, step in enumerate(diag.steps, start=1):
+            top = max(step.posterior, key=lambda s: step.posterior[s])
+            print(f"  {i}. {step.action:<22} gain {step.expected_gain_bits:.3f} bits  {step.verdict:<6} "
+                  f"outcome {step.outcome or '-':<10} -> {top} {step.posterior[top]:.2f}")
+        after = ", ".join(f"{s} {p:.2f}" for s, p in sorted(diag.posterior.items(), key=lambda kv: -kv[1])[:3])
+        print(f"after     {after}")
+        print(f"trail     {diag.bundle.with_name(diag.bundle.name + '.diagnosis')}")
+        return 0
+
+    bundles = []
+    for path in args.paths:
+        for manifest in ([path / MANIFEST] if (path / MANIFEST).is_file() else sorted(path.rglob(MANIFEST))):
+            bundle = manifest.parent
+            scored = None if in_diagnosis(bundle) else score_bundle(bundle)
+            if scored is not None and scored.status != "no_failures" and scored.top:
+                bundles.append((bundle, scored))
+    if not bundles:
+        raise ConfigError("no failing bundles with fault labels or ground_truth were found")
+    rows = []
+    for bundle, scored in bundles:
+        diag = run_one(bundle)
+        rows.append({"experiment": scored.experiment, "bundle": str(bundle), "truth": scored.subsystem,
+                     "before": scored.top[0]["subsystem"], "after": diag.top, "status": diag.status,
+                     "experiments_run": len(diag.steps), "actions": len(diag.actions)})
+    n = len(rows)
+    before = sum(r["before"] == r["truth"] for r in rows)
+    after = sum(r["after"] == r["truth"] for r in rows)
+    with_actions = [r for r in rows if r["actions"]]
+    summary = {"diagnosed": n, "top1_before": before, "top1_after": after,
+               "with_actions": len(with_actions),
+               "experiments_run": sum(r["experiments_run"] for r in rows),
+               "experiments_if_every_action": sum(r["actions"] for r in rows),
+               "top1_after_rate": after / n}
+    failed = args.min_top1 is not None and summary["top1_after_rate"] < args.min_top1
+    if args.json:
+        print(json.dumps({"summary": summary, "runs": rows}, indent=2))
+    else:
+        for r in rows:
+            mark = "hit " if r["after"] == r["truth"] else "miss"
+            print(f"  {mark} {r['experiment']:<44} truth {r['truth']:<12} {r['before']:<12} -> {r['after'] or '-':<12} "
+                  f"{r['experiments_run']}/{r['actions']} runs  {r['status']}")
+        print(f"diagnosed {n} failing labeled runs ({len(with_actions)} with diagnostic actions)")
+        print(f"top-1     {before}/{n} before -> {after}/{n} after")
+        print(f"runs      {summary['experiments_run']} follow-up experiments "
+              f"(every action everywhere: {summary['experiments_if_every_action']})")
+        if failed:
+            print(f"GATE      top-1 after {summary['top1_after_rate']:.2f} is below the minimum {args.min_top1}")
     return 1 if failed else 0
 
 
@@ -574,6 +645,19 @@ def build_parser() -> argparse.ArgumentParser:
     loc_p.add_argument("--limit", type=int, default=5, help="hypotheses to show for one bundle (default 5)")
     loc_p.add_argument("--json", action="store_true")
     loc_p.set_defaults(func=_cmd_localize)
+
+    diag_p = sub.add_parser("diagnose", help="run the follow-up experiments that best separate the suspects")
+    diag_p.add_argument("paths", type=Path, nargs="+", metavar="BUNDLE_OR_DIR")
+    diag_p.add_argument("--budget", type=int, default=None, metavar="N",
+                        help="at most N follow-up experiments per bundle (default: until confident)")
+    diag_p.add_argument("--threshold", type=_rate, default=0.9, metavar="P",
+                        help="stop when a suspect's probability reaches P (default 0.9)")
+    diag_p.add_argument("--all", action="store_true",
+                        help="run every diagnostic action instead of choosing (for comparison)")
+    diag_p.add_argument("--min-top1", type=_rate, default=None, metavar="R",
+                        help="with directories: exit 1 if top-1 accuracy after diagnosis is below R")
+    diag_p.add_argument("--json", action="store_true")
+    diag_p.set_defaults(func=_cmd_diagnose)
 
     compare = sub.add_parser("compare", help="compare two run bundles")
     compare.add_argument("baseline", type=Path)

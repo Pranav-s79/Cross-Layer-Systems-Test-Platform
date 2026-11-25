@@ -92,6 +92,11 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   started, with evidence, counter-evidence, and a stated confidence; top-1
   29/36 and top-3 36/36 over all labeled fault experiments (and 40/40 seeds
   of the hazard sweeps).
+- **Guided follow-up experiments:** when the evidence cannot separate the
+  suspects, `crosslayer diagnose` runs the variant that best does (swap a
+  component for a reference, space instructions out, trace operand values),
+  chosen by expected information gain; top-1 goes from 69/76 to 73/76 with
+  29% fewer runs than trying every variant.
 - **Fault injection:** five faults in the reference pipeline, seven on each
   multi-cycle RV32I core and ten on the pipelined one, plus three faulty 5G
   log fixtures, with clean baselines and explicit target labels.

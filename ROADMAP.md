@@ -16,7 +16,7 @@ built hardware and software.
 | | 5 | Live 5G virtual radio | 🔜 |
 | | 6 | Firmware and hardware-in-the-loop | 📋 |
 | **III. Diagnosis** | 7 | Fault localization | ✅ |
-| | 8 | Guided follow-up experiments | 🔜 |
+| | 8 | Guided follow-up experiments | ✅ |
 | | 9 | Learning-assisted triage | 📋 |
 | **IV. Scale** | 10 | Streaming evaluation engine | 📋 |
 | | 11 | Results store and regression analytics | 🔜 |
@@ -157,11 +157,16 @@ log). CI gates on these rates. See
 [docs/fault-localization.md](docs/fault-localization.md); the HTML view is
 milestone 7.2.
 
-### Phase 8 · Guided follow-up experiments 🔜
+### Phase 8 · Guided follow-up experiments ✅
 * Recommend the experiment that best separates competing hypotheses; later
   pick by expected information gain and run it automatically.
 
-**Exit:** fewer experiments to the right diagnosis than the manual workflow, measured.
+**Exit (met):** adapters declare diagnostic actions (swap a component for a
+reference, space instructions out, trace operand values) with what each
+suspect predicts, and `crosslayer diagnose` runs them by expected
+information gain. Over 76 failing labeled runs, top-1 goes from 69 to 73,
+the same as running every action, with 46 follow-up runs instead of 65. See
+[docs/guided-experiments.md](docs/guided-experiments.md).
 
 ### Phase 9 · Learning-assisted triage 📋
 * Cluster failures, detect flaky contracts, learn localization priors.

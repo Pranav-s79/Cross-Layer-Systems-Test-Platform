@@ -30,6 +30,12 @@ corrupt_checksum      one bit flipped in every Nth packet that waits in the buff
 duplicate_completion  every Nth completion is reported twice
 reorder               every Nth dequeue with 2+ packets waiting takes the second one first
 
+Reference components (``--reference``)
+--------------------------------------
+``--reference proc`` runs that component's reference implementation: the same
+model without its fault hooks, as a test bench would swap in a known-good
+part. A fault in that component then has no effect; faults elsewhere still do.
+
 Log format (one record per line, times in seconds with microsecond resolution)::
 
     [    0.001234] sensor_rx: RX seq=1 len=8 crc=0x3a
@@ -51,6 +57,14 @@ from typing import TextIO, cast
 FIRMWARE = "refpipe-1.0"
 PAYLOAD_BYTES = 8
 FAULTS = ("silent_drop", "slow_consumer", "corrupt_checksum", "duplicate_completion", "reorder")
+FAULT_COMPONENT = {
+    "silent_drop": "sensor_rx",
+    "slow_consumer": "proc",
+    "corrupt_checksum": "ring_buffer",
+    "duplicate_completion": "proc",
+    "reorder": "ring_buffer",
+}
+"""The component whose code each fault hook lives in."""
 
 
 def crc8(data: bytes) -> int:
@@ -82,7 +96,8 @@ class Logger:
 
 
 def simulate(args: argparse.Namespace, out: TextIO) -> None:
-    faults = set(args.fault)
+    references = set(getattr(args, "reference", []) or [])
+    faults = {f for f in args.fault if FAULT_COMPONENT[f] not in references}
     arrivals = random.Random(args.seed * 1000 + 1)
     service = random.Random(args.seed * 1000 + 2)
     payloads = random.Random(args.seed * 1000 + 3)
@@ -161,6 +176,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--service-us-min", type=int, default=100)
     p.add_argument("--service-us-max", type=int, default=300)
     p.add_argument("--fault", action="append", default=[], choices=FAULTS)
+    p.add_argument("--reference", action="append", default=[], choices=sorted(set(FAULT_COMPONENT.values())),
+                   help="run this component's reference implementation (none of its fault hooks)")
     p.add_argument("--slow-factor", type=int, default=3)
     p.add_argument("--corrupt-every", type=int, default=25)
     p.add_argument("--duplicate-every", type=int, default=40)

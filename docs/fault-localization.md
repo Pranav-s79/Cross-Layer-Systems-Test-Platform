@@ -85,7 +85,9 @@ Four of the seven misses are a faulty *destination* on a single boundary:
 the evidence cannot tell a bad producer from a bad consumer. Two are
 observation latency: the same instruction's effects are recorded at
 different points (bus, retirement), and the earliest record is a symptom.
-Separating both kinds takes a follow-up experiment, which is Phase 8.
+Separating both kinds takes a follow-up experiment:
+[guided experiments](guided-experiments.md) (Phase 8) fix four of the
+seven, and the other three cannot be re-run or have no separating action.
 
 ## RV32I contracts
 
