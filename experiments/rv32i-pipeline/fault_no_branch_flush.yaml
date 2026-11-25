@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-no-branch-flush
+description: >
+  Taken jumps and branches no longer flush decode and fetch, so the two
+  instructions after them run before the target. Ground truth: hazard
+  (interface pipeline_control).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles
+faults:
+  - no_branch_flush

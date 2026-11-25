@@ -64,8 +64,13 @@ The suite in CI repeats this from the command line: the baseline must pass and
 each fault experiment must fail.
 
 `test_rv32i.py` separately tests the assembler, seeded program generator,
-reference model, trace parser, and all 10 contracts without requiring a
-simulator. When Icarus is present, it also proves that the unmodified RTL
+reference model, trace parser, and the contracts without requiring a
+simulator. `test_rv32i_pipeline.py` tests the reference model's pipeline
+faults on small programs (a stale bypass, the stall that hides a missing
+memory-stage bypass, wrong-path execution), dependence distances and hazard
+bins, that each pipeline fault is first caught by a hazard contract rather
+than the ALU check, and the pipelined core's profile keys; with Icarus, every
+pipelined-core mutant in every trace format. When Icarus is present, it also proves that the unmodified RTL
 passes and each functional mutant first differs at the instruction predicted
 by the independently modeled fault.
 

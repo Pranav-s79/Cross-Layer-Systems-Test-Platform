@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../schemas/suite.schema.json
+schema_version: 1
+name: rv32i-pipeline
+description: >
+  A five-stage pipelined core (learn-fpga pipeline6) with forwarding, a
+  load-use stall, and branch flushes, verified through a testbench monitor in
+  three trace formats. The clean core must match the reference model; every
+  hazard-logic mutant, the classic mutants, and the timing fault must then be
+  detected.
+experiments:
+  - id: baseline
+    path: baseline.yaml
+  - id: commit_log_baseline
+    path: commit_log_baseline.yaml
+    depends_on: [baseline]
+  - id: vcd_baseline
+    path: vcd_baseline.yaml
+    depends_on: [baseline]
+  - id: no_mem_forwarding
+    path: fault_no_mem_forwarding.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: no_wb_forwarding
+    path: fault_no_wb_forwarding.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: no_load_use_stall
+    path: fault_no_load_use_stall.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: no_branch_flush
+    path: fault_no_branch_flush.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: bne_inverted
+    path: fault_bne_inverted.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: sub_as_add
+    path: fault_sub_as_add.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: slt_unsigned
+    path: fault_slt_unsigned.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: jal_imm_bit11
+    path: fault_jal_imm_bit11.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: store_byte_lane
+    path: fault_store_byte_lane.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: mem_wait_states
+    path: fault_mem_wait_states.yaml
+    expect: fail
+    depends_on: [baseline]
+  - id: random_programs
+    path: random_programs.yaml
+    seeds: {count: 20}
+    depends_on: [baseline]
+  - id: hazard_programs
+    path: hazard_programs.yaml
+    seeds: {count: 20}
+    depends_on: [baseline]
+  - id: hazards_no_mem_forwarding
+    path: hazard_no_mem_forwarding.yaml
+    seeds: {count: 10}
+    expect: fail
+    depends_on: [baseline]
+  - id: hazards_no_wb_forwarding
+    path: hazard_no_wb_forwarding.yaml
+    seeds: {count: 10}
+    expect: fail
+    depends_on: [baseline]
+  - id: hazards_no_load_use_stall
+    path: hazard_no_load_use_stall.yaml
+    seeds: {count: 10}
+    expect: fail
+    depends_on: [baseline]
+  - id: hazards_no_branch_flush
+    path: hazard_no_branch_flush.yaml
+    seeds: {count: 10}
+    expect: fail
+    depends_on: [baseline]

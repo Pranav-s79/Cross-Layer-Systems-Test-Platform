@@ -9,11 +9,22 @@ byte-lane write mask, write data in its lanes).
 ``faults`` applies the same bugs as the RTL mutants, modeled independently
 here. The first record where a faulty run differs from a clean run is the
 ground-truth earliest divergence that the RTL contracts should report.
+
+Pipeline faults (``PIPELINE_FAULTS``) are bugs in the hazard logic of a
+classic in-order five-stage pipeline (fetch, decode, execute, memory,
+write-back) that forwards results to execute from memory and write-back,
+stalls one cycle when an instruction uses the result of the load just ahead
+of it, and resolves jumps and branches in execute, flushing the two younger
+instructions behind a taken one. A clean pipeline is invisible to software,
+so the model only tracks pipeline state when one of these faults is active:
+which instructions (or bubbles) are in memory and write-back when the next
+one enters execute, and which two have already been fetched behind it.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections import deque
+from dataclasses import dataclass, field, replace
 from typing import Sequence
 
 MEM_BYTES = 64 * 1024
@@ -22,8 +33,14 @@ OUT_ADDR = 0x1000_0000
 EBREAK = 0x0010_0073
 MASK32 = 0xFFFF_FFFF
 
+PIPELINE_FAULTS = frozenset({"no_mem_forwarding", "no_wb_forwarding", "no_load_use_stall", "no_branch_flush"})
+"""Execute does not receive results from memory / from write-back; a load
+followed by a use of its result does not stall (execute gets the value the
+memory stage holds for a load: its ALU result, not the loaded data); taken
+jumps and branches do not flush the two instructions fetched behind them."""
 MODEL_FAULTS = frozenset(
-    {"bne_inverted", "sub_as_add", "slt_unsigned", "jal_imm_bit11", "regfile_wrong_rd", "store_byte_lane"}
+    {"bne_inverted", "sub_as_add", "slt_unsigned", "jal_imm_bit11", "regfile_wrong_rd", "store_byte_lane",
+     *PIPELINE_FAULTS}
 )
 
 
@@ -136,6 +153,23 @@ class Retire:
     trap: bool
 
 
+@dataclass(frozen=True)
+class _Slot:
+    """An instruction in the memory or write-back stage, for operand forwarding."""
+
+    rd: int
+    """Register it writes (0: none)."""
+    old: int
+    """That register's value before the write (what the register file still holds)."""
+    forwarded: int
+    """What the memory stage forwards: the result, or for a load its ALU output."""
+    value: int
+    """What write-back forwards and writes: the result, or for a load the loaded data."""
+    rd_field: int
+    """The raw rd field, which the load-use check compares (even when it is x0)."""
+    load: bool
+
+
 @dataclass
 class ModelRun:
     retires: list[Retire]
@@ -153,6 +187,11 @@ class Model:
         if len(image) > MEM_BYTES:
             raise ValueError(f"program image of {len(image)} bytes exceeds {MEM_BYTES} bytes of memory")
         self.faults = frozenset(faults)
+        self.pipelined = bool(self.faults & PIPELINE_FAULTS)
+        self._slots: deque[_Slot | None] = deque([None, None], maxlen=2)
+        """Write-back and memory stages (oldest first) as the next instruction enters execute."""
+        self._fetched: deque[int] = deque([4, 8])
+        """PCs already fetched behind the instruction in execute (decode, fetch)."""
         self.mem = bytearray(MEM_BYTES)
         self.mem[: len(image)] = image
         self.regs = [0] * 32
@@ -200,13 +239,61 @@ class Model:
                 break
         return ModelRun(retires, self.outputs, halt, self.bus_errors)
 
+    # -- pipeline state (only with pipeline faults) -------------------------------------
+
+    def _enter_execute(self, insn: int) -> None:
+        """The load-use check in decode: a bubble enters first if the instruction
+        reads (by the pipeline's own rule, x0 included) what the load ahead writes."""
+        ahead = self._slots[-1]
+        if ahead is None or not ahead.load or "no_load_use_stall" in self.faults:
+            return
+        opcode = insn & 0x7F
+        reads_rs1 = opcode not in (0x6F, 0x17, 0x37)  # every opcode but JAL, AUIPC, LUI
+        reads_rs2 = opcode in (0x33, 0x63, 0x23)  # register ALU ops, branches, stores
+        if (reads_rs1 and (insn >> 15) & 0x1F == ahead.rd_field) or (reads_rs2 and (insn >> 20) & 0x1F == ahead.rd_field):
+            self._slots.append(None)
+
+    def _read(self, r: int) -> int:
+        """Register ``r`` as execute sees it: forwarded from memory, else from
+        write-back, else from the register file (without the pending writes)."""
+        if not self.pipelined or r == 0:
+            return self.regs[r]
+        wb, mem = self._slots
+        if mem is not None and mem.rd == r and "no_mem_forwarding" not in self.faults:
+            return mem.forwarded
+        if wb is not None and wb.rd == r and "no_wb_forwarding" not in self.faults:
+            return wb.value
+        if wb is not None and wb.rd == r:
+            return wb.old
+        if mem is not None and mem.rd == r:
+            return mem.old
+        return self.regs[r]
+
+    def _leave_execute(self, insn: int, d: Decoded, a: int, rd: int, rd_val: int, old: int, taken: bool) -> None:
+        """Push the instruction into memory; a taken jump or branch flushes the
+        two instructions behind it (two bubbles), unless the flush is broken,
+        in which case they run before the target."""
+        writes = d.kind not in ("branch", "store") and rd != 0
+        forwarded = rd_val
+        if d.kind == "load":  # the memory stage holds the address-path ALU output for a load
+            f3 = (insn >> 12) & 7
+            op = {0: "addi", 1: "slli", 2: "slti", 3: "sltiu", 4: "xori", 6: "ori", 7: "andi"}.get(
+                f3, "srai" if insn >> 30 & 1 else "srli")
+            forwarded = self._alu(Decoded(op, "alu", rd, d.rs1, 0, d.imm, True, False), a, 0)
+        self._slots.append(_Slot(rd if writes else 0, old, forwarded, rd_val, (insn >> 7) & 0x1F, d.kind == "load"))
+        if taken and "no_branch_flush" not in self.faults:
+            self._slots.extend((None, None))
+
     def step(self, order: int) -> tuple[Retire, str | None]:  # noqa: C901 - one branch per kind
         pc = self.pc
         insn = self._read_word(pc) if pc % 4 == 0 else 0
         d = decode(insn)
-        a = self.regs[d.rs1] if d.uses_rs1 else 0
-        b = self.regs[d.rs2] if d.uses_rs2 else 0
+        if self.pipelined:
+            self._enter_execute(insn)
+        a = self._read(d.rs1) if d.uses_rs1 else 0
+        b = self._read(d.rs2) if d.uses_rs2 else 0
         next_pc = (pc + 4) & MASK32
+        taken = d.kind in ("jal", "jalr")
         rd_val = 0
         mem_addr = mem_wmask = mem_wdata = 0
         trap: str | None = None
@@ -223,6 +310,7 @@ class Model:
         elif d.kind == "branch":
             if self._taken(d.mnemonic, a, b):
                 next_pc = (pc + d.imm) & MASK32
+                taken = True
         elif d.kind == "load":
             addr = (a + d.imm) & MASK32
             size = {"lb": 1, "lbu": 1, "lh": 2, "lhu": 2, "lw": 4}[d.mnemonic]
@@ -255,11 +343,17 @@ class Model:
             return record, trap
 
         rd = d.rd if d.kind not in ("branch", "store") else 0
+        old = self.regs[rd]
         if rd:
             self._set(rd, rd_val)
         else:
             rd_val = 0
         self.pc = next_pc
+        if self.pipelined:
+            self._leave_execute(insn, d, a, rd, rd_val, old, taken)
+            if "no_branch_flush" in self.faults:  # what was fetched behind it runs first
+                self._fetched.append(next_pc if taken else (self._fetched[-1] + 4) & MASK32)
+                self.pc = self._fetched.popleft()
         record = Retire(
             order, pc, insn, d.mnemonic, d.kind,
             d.rs1 if d.uses_rs1 else 0, a, d.rs2 if d.uses_rs2 else 0, b,
@@ -310,6 +404,73 @@ class Model:
         if op == "bltu":
             return a < b
         return a >= b  # bgeu
+
+
+@dataclass(frozen=True)
+class Effects:
+    """What a correct core does with one instruction given the operand values it read."""
+
+    rd: int
+    rd_val: int | None
+    """None for a load: the value comes from memory, not from the operands."""
+    next_pc: int
+    mem_addr: int
+    mem_wmask: int
+    mem_wdata: int
+
+
+_CLEAN = Model(b"")
+
+
+def local_effects(insn: int, pc: int, a: int, b: int) -> Effects | None:
+    """The result, next PC, and data access of ``insn`` at ``pc`` with operands
+    ``a`` and ``b``, by the reference semantics; None for traps and misaligned
+    accesses.
+
+    Comparing a core against this rather than against the reference run
+    separates a unit that computes wrongly from one that was handed wrong
+    inputs: an instruction fed a stale operand still computes consistently.
+    """
+    d = decode(insn)
+    rd = d.rd if d.kind not in ("branch", "store") else 0
+    next_pc = (pc + 4) & MASK32
+    if d.kind == "jal":
+        next_pc = (pc + d.imm) & MASK32
+    elif d.kind == "jalr":
+        next_pc = (a + d.imm) & MASK32 & ~1
+    elif d.kind == "branch" and _CLEAN._taken(d.mnemonic, a, b):
+        next_pc = (pc + d.imm) & MASK32
+    if d.kind == "alu":
+        value: int | None = _CLEAN._alu(d, a, b)
+    elif d.kind == "upper":
+        value = (d.imm if d.mnemonic == "lui" else pc + d.imm) & MASK32
+    elif d.kind in ("jal", "jalr"):
+        value = (pc + 4) & MASK32
+    elif d.kind == "branch":
+        value = 0
+    elif d.kind in ("load", "store"):
+        addr = (a + d.imm) & MASK32
+        size = ACCESS_BYTES[d.mnemonic]
+        if addr % size:
+            return None
+        if d.kind == "load":
+            return Effects(rd, None, next_pc, addr & ~3, 0, 0)
+        shift = 8 * (addr & 3)
+        wmask = ((1 << size) - 1) << (shift // 8)
+        return Effects(0, 0, next_pc, addr & ~3, wmask, ((b & ((1 << (8 * size)) - 1)) << shift) & lanes(wmask))
+    else:
+        return None
+    return Effects(rd, value if rd else 0, next_pc, 0, 0, 0)
+
+
+def with_inferred_next_pc(retires: Sequence[Retire]) -> list[Retire]:
+    """``retires`` as a trace that takes each next PC from the following
+    retirement would show them (see ``TraceSource.next_pc_inferred``)."""
+    out = list(retires)
+    for i in range(len(out) - 1):
+        if not out[i].trap:
+            out[i] = replace(out[i], next_pc=out[i + 1].pc)
+    return out
 
 
 def first_divergence(clean: list[Retire], faulty: list[Retire], fields: Sequence[str] | None = None) -> int | None:

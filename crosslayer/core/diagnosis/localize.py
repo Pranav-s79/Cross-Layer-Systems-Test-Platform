@@ -17,6 +17,11 @@ Weights (documented in ``docs/fault-localization.md``):
 * each passing contract multiplies the score of its source by
   ``PASS_AT_SOURCE`` and of its destination by ``PASS_AT_DESTINATION``,
   down to ``FLOOR``.
+
+Only the description's subsystems are ranked: when an adapter describes the
+structure of one configuration (``SystemAdapter.describe_for``), a part that
+configuration lacks is never a hypothesis, and contracts SKIPPED by their
+precondition add no boundary to the graph.
 """
 
 from __future__ import annotations
@@ -100,6 +105,8 @@ class SystemGraph:
         pairs = {(e.source, e.destination) for e in self.edges}
         for r in results:
             c = r.contract
+            if r.verdict is Verdict.SKIPPED:  # its precondition says this system has no such boundary
+                continue
             if c.source != c.destination and (c.source, c.destination) not in pairs:
                 self.edges.append(Edge(c.source, c.destination, f"contract:{c.id}", False))
                 pairs.add((c.source, c.destination))
@@ -144,6 +151,7 @@ def localize(description: AdapterDescription, results: Sequence[ContractResult])
     def hyp(name: str) -> Hypothesis:
         return hyps.setdefault(name, Hypothesis(name))
 
+    nodes = set(graph.nodes)
     for r in failing:
         c = r.contract
         rank = times.index(r.first_violation_ns) if r.first_violation_ns is not None else len(times)
@@ -154,13 +162,15 @@ def localize(description: AdapterDescription, results: Sequence[ContractResult])
         if c.destination != c.source:
             roles.append((c.destination, DESTINATION, "destination"))
         for name, affinity, role in roles:
+            if name not in nodes:
+                continue
             h = hyp(name)
             h.score += weight * affinity
             h.evidence.append({**base, "role": role})
             for iface in graph.interfaces_between(c.source, c.destination):
                 h.interface_weights[iface] = h.interface_weights.get(iface, 0.0) + weight * affinity
         for name, dist, edge in graph.upstream(c.source):
-            if name == c.destination:
+            if name == c.destination or name not in nodes:
                 continue
             affinity = UPSTREAM ** dist / 2
             h = hyp(name)
@@ -190,6 +200,9 @@ def localize(description: AdapterDescription, results: Sequence[ContractResult])
         if h.interface_weights:
             h.interface = max(sorted(h.interface_weights), key=lambda i: h.interface_weights[i])
 
+    if not hyps:
+        return Localization(METHOD, "ambiguous", [], None, unresolved,
+                            "every failing contract is outside this configuration's subsystems")
     ranked = sorted(hyps.values(), key=lambda h: (-h.score, h.subsystem))
     total = sum(h.score for h in ranked) or 1.0
     for h in ranked:

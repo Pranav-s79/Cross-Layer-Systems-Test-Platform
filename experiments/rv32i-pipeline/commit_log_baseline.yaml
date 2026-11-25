@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-commit-log-baseline
+description: >
+  The pipeline baseline through a Spike-style commit log. lockstep_operands,
+  forwarded_operands and cpi_budget are SKIPPED (no operand values or
+  cycles), and so is redirect_followed (the next PC is inferred).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles
+  trace: commit-log

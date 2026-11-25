@@ -1,6 +1,6 @@
 # Milestones
 
-The active work queue for roadmap Phases 3 and 4. Each milestone is one
+The active work queue for the roadmap phases in progress. Each milestone is one
 `feature/<slug>` branch and one pull request; each step is one commit that
 leaves every check green. Small, unrelated fixes stay in
 [backlog.md](backlog.md); direction and exit criteria are in the
@@ -133,15 +133,15 @@ explained, including faults whose symptoms appear downstream of their cause.
 
 ## Phase 3 · Pipelined processor verification
 
-### 3.7 · A pipelined core and its hazards · `lead` · `feature/pipelined-core`
-- [ ] Choose and vendor a permissively licensed, Icarus-compatible RV32I core
+### 3.7 · A pipelined core and its hazards · `lead` · done
+- [x] Choose and vendor a permissively licensed, Icarus-compatible RV32I core
   with a real pipeline (forwarding, stalls, flushes); record the candidates
   considered and why. Profile it, with a retirement monitor if it has no
-  RVFI port, and pass all 10 contracts.
-- [ ] Hazard-aware random programs (read-after-write at distances 1-3,
+  RVFI port, and pass all contracts.
+- [x] Hazard-aware random programs (read-after-write at distances 1-3,
   load-use, branch after a dependent compute) and hazard coverage bins in the
   adapter's stats, reported per sweep.
-- [ ] Pipeline mutants: a disabled forwarding path, a missing load-use stall,
+- [x] Pipeline mutants: a disabled forwarding path, a missing load-use stall,
   a missing branch flush; each caught at the instruction the reference
   model predicts, and localized.
 

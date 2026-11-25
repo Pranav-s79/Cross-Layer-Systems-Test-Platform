@@ -16,7 +16,7 @@ from crosslayer.core.telemetry import read_events_jsonl
 from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.rv32i.adapter import Rv32iAdapter
 from crosslayer.integrations.rv32i.asm import assemble
-from crosslayer.integrations.rv32i.iss import MODEL_FAULTS, OUT_ADDR, Model, ModelRun, first_divergence
+from crosslayer.integrations.rv32i.iss import OUT_ADDR, Model, ModelRun, first_divergence
 from crosslayer.integrations.rv32i.profile import load_profile
 from crosslayer.integrations.rv32i.traces import Record, TraceSource, sources
 from crosslayer.integrations.rv32i.traces.commitlog import CommitLogSource
@@ -26,10 +26,16 @@ SELFTEST = (PACKAGE / "programs" / "selftest.s").read_text(encoding="utf-8")
 HAS_ICARUS = shutil.which("iverilog") is not None and shutil.which("vvp") is not None
 SIMULATED_TRACES = ["rvfi", "commit-log", "vcd-signals"]
 UNTIMED_SKIPS = {"rv32i.lockstep_operands", "rv32i.cpi_budget"}
+HAZARD_CONTRACTS = {"rv32i.forwarded_operands", "rv32i.redirect_followed"}
+"""Pipeline-only contracts: SKIPPED on PicoRV32 and Quark, which are not pipelined."""
 
 
 SECOND_CORE = "femtorv32-quark"
 """A core with no RVFI port: a testbench monitor and its waveform are the trace."""
+
+
+def _model_faults(core: str) -> list[str]:
+    return sorted(m.model_fault for m in load_profile(core).mutants.values() if m.model_fault)
 
 
 def _configured_source(trace: str, core: str = "picorv32") -> TraceSource:
@@ -80,8 +86,8 @@ def test_commit_log_of_the_clean_model_passes_every_contract_it_can_evaluate(tmp
     assert normalized.diagnostics == []
     assert normalized.stats["trace_source"] == "commit-log"
     results = {r.contract.id: r.verdict for r in evaluate_contracts(Rv32iAdapter().contracts(), normalized.events)}
-    assert {cid for cid, v in results.items() if v is Verdict.SKIPPED} == UNTIMED_SKIPS
-    assert {v for cid, v in results.items() if cid not in UNTIMED_SKIPS} == {Verdict.PASS}
+    assert {cid for cid, v in results.items() if v is Verdict.SKIPPED} == UNTIMED_SKIPS | HAZARD_CONTRACTS
+    assert {v for cid, v in results.items() if cid not in UNTIMED_SKIPS | HAZARD_CONTRACTS} == {Verdict.PASS}
 
 
 def test_commit_log_rebuilds_rvfi_byte_lanes_and_next_pc(tmp_path: Path):
@@ -144,12 +150,12 @@ def test_clean_core_passes_through_every_trace_source(tmp_path: Path, trace: str
     result = _run(tmp_path, trace)
     assert result.verdict is Verdict.PASS
     skipped = {r.contract.id for r in result.results if r.verdict is Verdict.SKIPPED}
-    assert skipped == (set() if _configured_source(trace).timed else UNTIMED_SKIPS)
+    assert skipped == (set() if _configured_source(trace).timed else UNTIMED_SKIPS) | HAZARD_CONTRACTS
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
 @pytest.mark.parametrize("trace", SIMULATED_TRACES)
-@pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
+@pytest.mark.parametrize("fault", _model_faults("picorv32"))
 def test_each_trace_source_finds_the_predicted_first_divergence(tmp_path: Path, trace: str, fault: str):
     _assert_predicted_first_divergence(_run(tmp_path, trace, [fault]), trace, fault)
 
@@ -161,12 +167,12 @@ def test_second_core_without_rvfi_passes_through_its_trace_sources(tmp_path: Pat
     assert result.verdict is Verdict.PASS
     assert result.manifest["build"]["core"]["name"] == SECOND_CORE
     skipped = {r.contract.id for r in result.results if r.verdict is Verdict.SKIPPED}
-    assert skipped == (set() if _configured_source(trace, SECOND_CORE).timed else UNTIMED_SKIPS)
+    assert skipped == (set() if _configured_source(trace, SECOND_CORE).timed else UNTIMED_SKIPS) | HAZARD_CONTRACTS
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
 @pytest.mark.parametrize("trace", ["vcd-signals", "commit-log"])
-@pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
+@pytest.mark.parametrize("fault", _model_faults(SECOND_CORE))
 def test_second_core_mutants_first_diverge_where_the_model_predicts(tmp_path: Path, trace: str, fault: str):
     _assert_predicted_first_divergence(_run(tmp_path, trace, [fault], core=SECOND_CORE), trace, fault, SECOND_CORE)
 

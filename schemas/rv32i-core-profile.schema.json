@@ -95,6 +95,32 @@
       "minItems": 1,
       "uniqueItems": true
     },
+    "includes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Files the sources include: copied next to them, not compiled alone"
+    },
+    "top": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+      "description": "Root module to elaborate (iverilog -s)"
+    },
+    "memory_images": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1048576
+      },
+      "description": "File name -> depth in words; the program image is written under each name, zero-padded"
+    },
     "defines": {
       "type": "array",
       "items": {
@@ -106,6 +132,25 @@
     "clock_period_ns": {
       "type": "integer",
       "minimum": 1
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "bypass_window"
+      ],
+      "properties": {
+        "stages": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "bypass_window": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "description": "Pipelined cores: stage count and how many previous results reach execute by forwarding"
     },
     "provenance": {
       "type": "object",

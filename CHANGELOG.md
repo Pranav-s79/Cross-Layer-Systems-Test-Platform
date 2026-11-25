@@ -5,6 +5,13 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a third RV32I core, a five-stage pipeline with forwarding, a load-use stall, and branch flushes (learn-fpga `pipeline6.v`, BSD-3-Clause, unmodified), verified through a testbench pipeline monitor in all three trace formats, with `experiments/rv32i-pipeline/`.
+- Add four hazard mutants (`no_mem_forwarding`, `no_wb_forwarding`, `no_load_use_stall`, `no_branch_flush`), each predicted by an independent pipeline model in `iss.py` (`PIPELINE_FAULTS`) and caught at the predicted instruction in every trace format and on every seed of a hazard sweep.
+- Add hazard contracts for pipelined cores: `rv32i.forwarded_operands` (operands within the bypass window) and `rv32i.redirect_followed` (no wrong-path retirement); SKIPPED on cores that are not pipelined.
+- Make RV32I contracts local: results, next PCs, and data accesses are checked against what the operands actually read call for (`rv.exp_*`), operands only for the same instruction, loaded values in the new `rv32i.load_data`, and the end-to-end path in the new `rv32i.reference_path`. Localization top-1 rose from 19/26 to 29/36 fault experiments (40/40 sweep seeds); top-3 stays at 100%.
+- Add `SystemAdapter.describe_for(parameters, base_dir)`: localization and ground truth use the structure of the run's configuration; contracts SKIPPED by their precondition add no graph edge.
+- Add hazard coverage bins (read after write at distance 1-3, load-use, branch and store dependences) and `random_mix: hazards` for random programs; the default mix is unchanged.
+- Add core-profile keys `includes`, `top`, `memory_images`, and `pipeline`, and the `next_pc_inferred` trace-source flag.
 - Add direct tests for adapter conformance checks: every failure branch of `check_adapter_conformance` and `check_events_against_catalog`.
 - Add five backlog items (adapter conformance, experiment config errors, process failures, `python -m crosslayer`, simcache misses) found from coverage gaps.
 - Add a "Locate the fault" step to `report.html` (ranked hypotheses with evidence and counter-evidence linked to contract rows) and the top three hypotheses to `crosslayer show`; older bundles render as before.

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-random-programs
+description: >
+  A seeded random RV32I program (randprog.py). The suite runs it as a
+  sweep; the seed here is only the default.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: random
+  random_instructions: 300
+  max_cycles: 20000

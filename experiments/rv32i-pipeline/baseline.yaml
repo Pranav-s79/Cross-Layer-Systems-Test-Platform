@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-baseline
+description: >
+  The unmodified five-stage pipelined core runs the self-test program;
+  retirements come from its testbench monitor as RVFI lines. All 12
+  contracts must pass, including the two hazard contracts.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles

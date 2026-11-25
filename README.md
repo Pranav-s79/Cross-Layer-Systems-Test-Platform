@@ -77,20 +77,24 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
   dependency order and expected verdicts.
 - **Contract tooling:** contract tests, a linter, JSON Schemas, versioning,
   and `crosslayer new adapter` scaffolding.
-- **RTL verification:** two unmodified RV32I cores (PicoRV32, and FemtoRV32
-  Quark, which has no RVFI port) under Icarus Verilog; declarative core
-  profiles (RTL, testbench, mutants in YAML); RVFI, Spike commit-log, and
-  waveform (VCD) trace sources; structural and lockstep contracts; seven
-  injected faults per core; seeded random programs.
+- **RTL verification:** three unmodified RV32I cores under Icarus Verilog:
+  PicoRV32, FemtoRV32 Quark (no RVFI port), and a five-stage pipeline with
+  forwarding, stalls, and flushes; declarative core profiles (RTL,
+  testbench, mutants in YAML); RVFI, Spike commit-log, and waveform (VCD)
+  trace sources; local, end-to-end, and pipeline-hazard contracts; classic
+  and hazard-logic mutants, each caught where an independent model
+  predicts; seeded random programs, including a hazard-heavy mix, with
+  hazard coverage.
 - **Wireless log analysis:** declarative profiles for Open5GS AMF/SMF and
   OCUDU gNB logs; exact NGAP UE id-pair joins with labeled time fallbacks;
   registration, PDU-session, and RRC-state contracts over synthetic fixtures.
 - **Fault localization:** every failing run ranks where the fault most likely
   started, with evidence, counter-evidence, and a stated confidence; top-1
-  19/26 and top-3 26/26 over all labeled fault experiments.
-- **Fault injection:** five faults in the reference pipeline and seven per RV32I
-  core, plus three faulty 5G log fixtures, with clean baselines and explicit
-  target labels.
+  29/36 and top-3 36/36 over all labeled fault experiments (and 40/40 seeds
+  of the hazard sweeps).
+- **Fault injection:** five faults in the reference pipeline, seven on each
+  multi-cycle RV32I core and ten on the pipelined one, plus three faulty 5G
+  log fixtures, with clean baselines and explicit target labels.
 
 > The sensor pipeline is a deterministic simulation. The 5G logs are labeled
 > synthetic fixtures. The RV32I integration runs a real processor RTL core in

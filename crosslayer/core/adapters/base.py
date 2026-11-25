@@ -267,6 +267,17 @@ class SystemAdapter(ABC):
         """
         return self.faults()
 
+    def describe_for(self, parameters: Mapping[str, Any], base_dir: Path) -> AdapterDescription:
+        """The system's structure for one configuration; defaults to ``describe()``.
+
+        Override when parameters select a system whose subsystems or
+        interfaces differ (a processor core with or without pipeline hazard
+        logic). Fault localization and ground-truth checks use this, so a
+        configuration is never blamed on a part it does not have; plans still
+        validate contracts against ``describe()``, the full catalog.
+        """
+        return self.describe()
+
     def event_catalog(self) -> list[EventSpec] | None:
         """Event types this adapter can emit, or None if unknown.
 

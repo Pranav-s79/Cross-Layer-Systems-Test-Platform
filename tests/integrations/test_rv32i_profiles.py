@@ -13,7 +13,7 @@ from crosslayer.core.orchestrator import ExperimentRunner
 from crosslayer.core.orchestrator.experiment import parse_experiment
 from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.rv32i.adapter import Rv32iAdapter
-from crosslayer.integrations.rv32i.iss import MODEL_FAULTS
+from crosslayer.integrations.rv32i.iss import MODEL_FAULTS, PIPELINE_FAULTS
 from crosslayer.integrations.rv32i.profile import (
     CORES_DIR,
     apply_mutants,
@@ -53,7 +53,7 @@ def test_builtin_profiles_load_and_every_mutant_applies_exactly_once():
 
 def test_picorv32_mutants_name_their_reference_model_fault():
     profile = load_profile("picorv32")
-    assert {m.model_fault for m in profile.mutants.values()} == MODEL_FAULTS
+    assert {m.model_fault for m in profile.mutants.values()} == MODEL_FAULTS - PIPELINE_FAULTS
 
 
 @pytest.mark.parametrize(
@@ -116,9 +116,9 @@ def test_fault_catalog_follows_the_selected_core(tmp_path: Path):
     default = {f.name for f in adapter.faults_for({}, tmp_path)}
     custom = {f.name for f in adapter.faults_for({"core": "mycore"}, tmp_path)}
     by_path = {f.name for f in adapter.faults_for({"core": str(root / "core.yaml")}, Path("/"))}
-    assert default == MODEL_FAULTS | {"mem_wait_states"}
+    assert default == (MODEL_FAULTS - PIPELINE_FAULTS) | {"mem_wait_states"}
     assert custom == by_path == {"xor_as_or", "mem_wait_states"}
-    assert {f.name for f in adapter.faults()} == default
+    assert {f.name for f in adapter.faults()} == default | PIPELINE_FAULTS  # every built-in core's mutants
 
 
 def _experiment(tmp_path: Path, **doc):

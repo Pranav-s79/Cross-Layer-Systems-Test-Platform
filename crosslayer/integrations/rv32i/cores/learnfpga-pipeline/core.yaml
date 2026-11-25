@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=../../../../../schemas/rv32i-core-profile.schema.json
+# Core profile for the learn-fpga five-stage pipelined RV32I core (Bruno Levy,
+# "From Blinker to RISC-V" episode II, step 6). See README.md for why this
+# core, and docs/rtl-verification.md. It has no RVFI port: the retirement
+# monitor in tb.v reads its pipeline registers.
+schema_version: 1
+name: learnfpga-pipeline
+description: >
+  Bruno Levy's learn-fpga pipeline6: a classic F/D/E/M/W RV32I pipeline with
+  full forwarding, a load-use stall, and a two-slot flush on taken jumps
+isa: rv32i
+trace: [rvfi, commit-log, vcd-signals]
+testbench: tb.v
+sources: [pipeline6.v]
+includes: [riscv_disassembly.v, clockworks.v, emitter_uart.v]
+top: tb                    # pipeline6.v also defines the board-level SOC wrapper
+memory_images:             # the core $readmemh's its own memories
+  PROGROM.hex: 16384
+  DATARAM.hex: 16384
+defines: [CPU_FREQ=50]     # referenced by the (unelaborated) SOC wrapper
+clock_period_ns: 10
+pipeline:
+  stages: 5
+  bypass_window: 2         # results of the previous two instructions are forwarded to execute
+provenance:
+  upstream: https://github.com/BrunoLevy/learn-fpga
+  path: FemtoRV/TUTORIALS/FROM_BLINKER_TO_RISCV/pipeline6.v
+  commit: f5ada24ae6cca67d99889daec2c4ee44a6e59417
+  git_blob: a5e58280f31de3d162b2c5416062b60ee88190c4
+  license: BSD-3-Clause
+  modifications: none (clockworks.v is a CrossLayer stub; see README.md)
+
+signals:
+  clock: tb.core_clk
+  valid: tb.mon_valid
+  fields:
+    cyc: tb.mon_cyc
+    ord: tb.mon_order
+    pc: tb.mon_pc
+    insn: tb.mon_insn
+    rs1: tb.mon_rs1
+    rs1v: tb.mon_rs1v
+    rs2: tb.mon_rs2
+    rs2v: tb.mon_rs2v
+    rd: tb.mon_rd
+    rdv: tb.mon_rdv
+    npc: tb.mon_npc
+    maddr: tb.mon_maddr
+    wmask: tb.mon_wmask
+    wdata: tb.mon_wdata
+    trap: tb.mon_trap
+
+mutants:
+  # Hazard logic: the bugs a pipeline adds. Each names the reference-model
+  # fault (iss.py PIPELINE_FAULTS) that predicts where it first diverges.
+  no_mem_forwarding:
+    description: Execute no longer receives results from the memory stage (the instruction just ahead).
+    target_subsystem: hazard
+    target_interface: bypass
+    model_fault: no_mem_forwarding
+    edits:
+      - file: pipeline6.v
+        find: "wire E_M_fwd_rs1 = rdId(EM_instr) != 0"
+        replace: "wire E_M_fwd_rs1 = 1'b0 && rdId(EM_instr) != 0"
+      - file: pipeline6.v
+        find: "wire E_M_fwd_rs2 = rdId(EM_instr) != 0"
+        replace: "wire E_M_fwd_rs2 = 1'b0 && rdId(EM_instr) != 0"
+  no_wb_forwarding:
+    description: Execute no longer receives results from the write-back stage (two instructions ahead).
+    target_subsystem: hazard
+    target_interface: bypass
+    model_fault: no_wb_forwarding
+    edits:
+      - file: pipeline6.v
+        find: "wire E_W_fwd_rs1 = rdId(MW_instr) != 0"
+        replace: "wire E_W_fwd_rs1 = 1'b0 && rdId(MW_instr) != 0"
+      - file: pipeline6.v
+        find: "wire E_W_fwd_rs2 = rdId(MW_instr) != 0"
+        replace: "wire E_W_fwd_rs2 = 1'b0 && rdId(MW_instr) != 0"
+  no_load_use_stall:
+    description: >
+      A use of a load's result right after the load no longer stalls; execute gets
+      what the memory stage forwards for a load (its address-path ALU output).
+    target_subsystem: hazard
+    target_interface: pipeline_control
+    model_fault: no_load_use_stall
+    edits:
+      - file: pipeline6.v
+        find: "wire dataHazard = !FD_nop &&"
+        replace: "wire dataHazard = 1'b0 && !FD_nop &&"
+  no_branch_flush:
+    description: >
+      Taken jumps and branches no longer flush decode and fetch, so the two
+      instructions after them run before the target.
+    target_subsystem: hazard
+    target_interface: pipeline_control
+    model_fault: no_branch_flush
+    edits:
+      - file: pipeline6.v
+        find: "assign D_flush = E_JumpOrBranch;"
+        replace: "assign D_flush = 1'b0;"
+      - file: pipeline6.v
+        find: "assign E_flush = E_JumpOrBranch | dataHazard;"
+        replace: "assign E_flush = dataHazard;"
+
+  # Five of the six bugs PicoRV32 and Quark carry, written for this RTL.
+  # regfile_wrong_rd is not ported: forwarding hands the right value to the
+  # next two instructions, so the reference model (no bypass) would predict
+  # the divergence too early.
+  bne_inverted:
+    description: BNE branches when its operands are equal.
+    target_subsystem: alu
+    target_interface: branch_decision
+    model_fault: bne_inverted
+    edits:
+      - file: pipeline6.v
+        find: "3'b001: E_takeBranch = !E_EQ;"
+        replace: "3'b001: E_takeBranch = E_EQ;"
+  sub_as_add:
+    description: SUB adds instead of subtracting.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: sub_as_add
+    edits:
+      - file: pipeline6.v
+        find: "3'b000: E_aluOut = E_minus ? E_aluMinus[31:0] : E_aluPlus;"
+        replace: "3'b000: E_aluOut = E_aluPlus;"
+  slt_unsigned:
+    description: Signed compares (SLT, SLTI, BLT, BGE) compare unsigned.
+    target_subsystem: alu
+    target_interface: writeback
+    model_fault: slt_unsigned
+    edits:
+      - file: pipeline6.v
+        find: "(E_aluIn1[31] ^ E_aluIn2[31]) ? E_aluIn1[31] : E_aluMinus[32];"
+        replace: "E_aluMinus[32];"
+  jal_imm_bit11:
+    description: The JAL target ignores bit 11 of the immediate.
+    target_subsystem: decoder
+    target_interface: jump_target
+    model_fault: jal_imm_bit11
+    edits:
+      - file: pipeline6.v
+        find: "isJAL(DE_instr)    ? DE_PC + Jimm(DE_instr) :"
+        replace: "isJAL(DE_instr)    ? DE_PC + (Jimm(DE_instr) & ~32'h800) :"
+  store_byte_lane:
+    description: SB always writes byte lane 0 of the word.
+    target_subsystem: lsu
+    target_interface: data_bus
+    model_fault: store_byte_lane
+    edits:
+      - file: pipeline6.v
+        find: "(EM_addr[0] ? 4'b1000 : 4'b0100) :\n\t\t                (EM_addr[0] ? 4'b0010 : 4'b0001)"
+        replace: "(4'b0001) :\n\t\t                (4'b0001)"

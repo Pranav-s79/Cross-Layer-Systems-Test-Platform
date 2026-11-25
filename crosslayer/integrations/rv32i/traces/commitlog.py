@@ -53,6 +53,7 @@ class CommitLogSource(TraceSource):
     name = "commit-log"
     timed = False
     operands = False
+    next_pc_inferred = True
 
     def plusargs(self) -> list[str]:
         return ["+commit_log"]

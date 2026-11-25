@@ -17,12 +17,16 @@ from crosslayer.core.verdict import Verdict
 from crosslayer.integrations.rv32i.adapter import Rv32iAdapter
 from crosslayer.integrations.rv32i.asm import AsmError, Program, assemble
 from crosslayer.integrations.rv32i.iss import MODEL_FAULTS, OUT_ADDR, Model, ModelRun, first_divergence
+from crosslayer.integrations.rv32i.profile import load_profile
 from crosslayer.integrations.rv32i.randprog import generate
 
 PACKAGE = Path(__file__).resolve().parents[2] / "crosslayer" / "integrations" / "rv32i"
 EXPERIMENTS = Path(__file__).resolve().parents[2] / "experiments" / "rv32i"
 SELFTEST_SOURCE = (PACKAGE / "programs" / "selftest.s").read_text(encoding="utf-8")
 HAS_ICARUS = shutil.which("iverilog") is not None and shutil.which("vvp") is not None
+PICORV32_FAULTS = sorted(m.model_fault for m in load_profile("picorv32").mutants.values() if m.model_fault)
+HAZARD_CONTRACTS = {"rv32i.forwarded_operands", "rv32i.redirect_followed"}
+"""Pipeline-only contracts: SKIPPED on PicoRV32 and Quark, which are not pipelined."""
 
 
 def _context(tmp_path: Path, *, parameters: dict[str, object] | None = None) -> RunContext:
@@ -107,7 +111,8 @@ def test_normalized_clean_trace_passes_all_contracts(tmp_path: Path):
 
     assert normalized.diagnostics == []
     assert normalized.stats["retired"] == 626
-    assert {result.verdict for result in results} == {Verdict.PASS}
+    assert {r.contract.id for r in results if r.verdict is Verdict.SKIPPED} == HAZARD_CONTRACTS
+    assert {r.verdict for r in results if r.contract.id not in HAZARD_CONTRACTS} == {Verdict.PASS}
 
 
 @pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
@@ -212,11 +217,11 @@ def test_iverilog_baseline_passes_with_relative_output_directory(tmp_path: Path,
     result = ExperimentRunner(Path("runs")).run(load_experiment(EXPERIMENTS / "baseline.yaml"))
 
     assert result.verdict is Verdict.PASS
-    assert {contract.verdict for contract in result.results} == {Verdict.PASS}
+    assert {c.verdict for c in result.results if c.contract.id not in HAZARD_CONTRACTS} == {Verdict.PASS}
 
 
 @pytest.mark.skipif(not HAS_ICARUS, reason="Icarus Verilog is not installed")
-@pytest.mark.parametrize("fault", sorted(MODEL_FAULTS))
+@pytest.mark.parametrize("fault", PICORV32_FAULTS)
 def test_iverilog_mutant_first_mismatch_matches_reference_model(tmp_path: Path, fault: str):
     experiment = EXPERIMENTS / f"fault_{fault}.yaml"
     result = ExperimentRunner(tmp_path / "runs").run(load_experiment(experiment))

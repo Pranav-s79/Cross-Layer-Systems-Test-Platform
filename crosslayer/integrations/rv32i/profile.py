@@ -2,7 +2,11 @@
 
 A profile is a ``core.yaml`` next to the core's RTL. It names the sources,
 the testbench, the trace format, compile-time defines, provenance, and the
-RTL mutants the core supports. Built-in profiles live in ``cores/<name>/``;
+RTL mutants the core supports. Optional keys cover RTL that is not a plain
+list of modules: ``includes`` (files pulled in with `` `include``, copied but
+not compiled on their own), ``top`` (the root module, for sources that
+define more than one), and ``memory_images`` (fixed file names the RTL loads
+its memories from with ``$readmemh``). Built-in profiles live in ``cores/<name>/``;
 an experiment can also point ``parameters.core`` at any ``core.yaml`` (or
 the directory that holds one), so a new core needs no Python changes.
 """
@@ -27,10 +31,14 @@ ISAS = frozenset({"rv32i"})
 
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _DEFINE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(=[^\s]*)?$")
+_MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+_IMAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$")
+MAX_IMAGE_WORDS = 1 << 20
 _TOP_KEYS = {
-    "schema_version", "name", "description", "isa", "trace", "testbench", "sources", "defines",
-    "clock_period_ns", "provenance", "signals", "mutants",
+    "schema_version", "name", "description", "isa", "trace", "testbench", "sources", "includes", "top",
+    "memory_images", "defines", "clock_period_ns", "pipeline", "provenance", "signals", "mutants",
 }
+_PIPELINE_KEYS = {"stages", "bypass_window"}
 _SIGNAL_KEYS = {"clock", "valid", "fields"}
 _SIGNAL_NAME_RE = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)*$")
 _REQUIRED = ("schema_version", "name", "isa", "trace", "testbench", "sources")
@@ -72,6 +80,17 @@ class CoreProfile:
     mutants: Mapping[str, Mutant] = field(default_factory=dict)
     signals: Mapping[str, Any] | None = None
     """Waveform signal map for ``trace: vcd-signals`` (clock, valid, fields)."""
+    includes: tuple[str, ...] = ()
+    """Files the sources `` `include``: copied next to them, never compiled alone."""
+    top: str | None = None
+    """Root module to elaborate (``iverilog -s``); None lets the simulator pick."""
+    memory_images: Mapping[str, int] = field(default_factory=dict)
+    """File name -> memory depth in words: the program image is written under
+    each name, zero-padded to that depth, for RTL that loads its own memory."""
+    pipeline: Mapping[str, int] | None = None
+    """For a pipelined core: ``stages`` and ``bypass_window`` (how many of the
+    previous instructions' results can reach execute by forwarding). None for a
+    core that finishes each instruction before starting the next."""
 
     @property
     def trace(self) -> str:
@@ -85,26 +104,35 @@ class CoreProfile:
         return self.root / name
 
     def files(self) -> tuple[Path, ...]:
-        """The profile file, testbench, and sources, in digest order."""
-        return (self.path, self.file(self.testbench), *(self.file(s) for s in self.sources))
+        """The profile file, testbench, sources, and includes, in digest order."""
+        return (self.path, self.file(self.testbench), *(self.file(s) for s in (*self.sources, *self.includes)))
 
     def digest(self) -> str:
-        """Short SHA-256 over the profile, testbench, and sources, in order."""
+        """Short SHA-256 over the profile, testbench, sources, and includes, in order."""
         stamps = _stamps(self.files())
         cached = _DIGESTS.get(stamps)
         if cached is None:
             h = hashlib.sha256()
-            for name in (PROFILE_NAME, self.testbench, *self.sources):
+            for name in (PROFILE_NAME, self.testbench, *self.sources, *self.includes):
                 h.update(name.encode() + b"\0")
                 h.update(self.file(name).read_bytes())
             cached = _DIGESTS[stamps] = h.hexdigest()[:12]
         return cached
 
     def summary(self) -> dict[str, Any]:
-        return {
+        out = {
             "name": self.name, "isa": self.isa, "traces": list(self.traces), "sources": list(self.sources),
             "testbench": self.testbench, "sha256": self.digest(), "provenance": dict(self.provenance),
         }
+        if self.includes:
+            out["includes"] = list(self.includes)
+        if self.top is not None:
+            out["top"] = self.top
+        if self.memory_images:
+            out["memory_images"] = dict(self.memory_images)
+        if self.pipeline is not None:
+            out["pipeline"] = dict(self.pipeline)
+        return out
 
 
 def builtin_cores() -> list[str]:
@@ -199,6 +227,16 @@ def _load_profile(
     sources = [_file(root, s, f"{where}: sources[{i}]") for i, s in enumerate(raw_sources)]
     if len(set(sources)) != len(sources) or testbench in sources:
         raise ConfigError("must list each file once, separate from the testbench", location=f"{where}: sources")
+    raw_includes = _str_list(doc.get("includes", []), f"{where}: includes")
+    includes = [_file(root, s, f"{where}: includes[{i}]") for i, s in enumerate(raw_includes)]
+    if len(set(includes)) != len(includes) or set(includes) & {testbench, *sources}:
+        raise ConfigError("must list each file once, separate from the testbench and sources",
+                          location=f"{where}: includes")
+    top = doc.get("top")
+    if top is not None and (not isinstance(top, str) or not _MODULE_RE.match(top)):
+        raise ConfigError("must be a Verilog module name", location=f"{where}: top")
+    memory_images = _memory_images(doc.get("memory_images", {}), f"{where}: memory_images")
+    pipeline = _pipeline(doc["pipeline"], f"{where}: pipeline") if "pipeline" in doc else None
     defines = _defines(doc.get("defines", []), f"{where}: defines")
     period = doc.get("clock_period_ns", 10)
     if isinstance(period, bool) or not isinstance(period, int) or period < 1:
@@ -223,8 +261,37 @@ def _load_profile(
     return CoreProfile(
         name=name, path=path, description=str(doc.get("description", "")), isa=isa, traces=tuple(traces),
         testbench=testbench, sources=tuple(sources), defines=tuple(defines), clock_period_ns=period,
-        provenance=provenance, mutants=mutants, signals=signals,
+        provenance=provenance, mutants=mutants, signals=signals, includes=tuple(includes), top=top,
+        memory_images=memory_images, pipeline=pipeline,
     )
+
+
+def _pipeline(value: Any, loc: str) -> dict[str, int]:
+    if not isinstance(value, dict):
+        raise ConfigError("must be a mapping with stages and bypass_window", location=loc)
+    _keys(value, _PIPELINE_KEYS, loc)
+    out: dict[str, int] = {}
+    for key, low in (("stages", 2), ("bypass_window", 0)):
+        v = value.get(key)
+        if isinstance(v, bool) or not isinstance(v, int) or v < low:
+            raise ConfigError(f"must be an integer of at least {low}", location=f"{loc}.{key}")
+        out[key] = v
+    if out["bypass_window"] >= out["stages"]:
+        raise ConfigError("must be smaller than stages", location=f"{loc}.bypass_window")
+    return out
+
+
+def _memory_images(value: Any, loc: str) -> dict[str, int]:
+    if not isinstance(value, dict):
+        raise ConfigError("must map file names to memory depths in words", location=loc)
+    out: dict[str, int] = {}
+    for name, words in value.items():
+        if not isinstance(name, str) or not _IMAGE_NAME_RE.match(name):
+            raise ConfigError(f"invalid file name {name!r} (a plain name like PROGROM.hex)", location=loc)
+        if isinstance(words, bool) or not isinstance(words, int) or not 1 <= words <= MAX_IMAGE_WORDS:
+            raise ConfigError(f"must be a word count from 1 to {MAX_IMAGE_WORDS}", location=f"{loc}.{name}")
+        out[name] = words
+    return out
 
 
 def _signals(value: Any, loc: str) -> dict[str, Any]:

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-mem-wait-states
+description: >
+  Memory answers 3 cycles late. The core has no memory handshake, so the
+  testbench gates its clock: every core cycle takes 4. Results stay
+  correct; only timing changes. Ground truth: memory (interface instruction_bus).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles
+faults:
+  - name: mem_wait_states
+    params: {cycles: 3}
