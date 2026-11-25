@@ -109,7 +109,7 @@ jobs:
       - name: Install CrossLayer
         run: python -m pip install -e ".[dev]"
       - name: RV32I adapter and simulator integration tests
-        run: python -m pytest -q tests/integrations/test_rv32i.py
+        run: python -m pytest -q tests/integrations/test_rv32i.py tests/integrations/test_rv32i_pipeline.py
       - name: Lint RV32I contracts and experiments
         run: crosslayer lint experiments/rv32i/suite.yaml --strict
       - name: RV32I contract tests
@@ -120,7 +120,11 @@ jobs:
         run: |
           crosslayer lint experiments/rv32i-quark/suite.yaml --strict
           crosslayer suite experiments/rv32i-quark/suite.yaml --out runs -j auto
-      - name: Fault localization accuracy (both RV32I cores)
+      - name: Pipelined core (hazard mutants, hazard sweeps)
+        run: |
+          crosslayer lint experiments/rv32i-pipeline/suite.yaml --strict
+          crosslayer suite experiments/rv32i-pipeline/suite.yaml --out runs -j auto
+      - name: Fault localization accuracy (all three RV32I cores)
         run: crosslayer localize runs --score --min-top1 0.5 --min-top3 1.0
       - name: Upload RV32I run bundles
         if: always()

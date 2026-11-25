@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-hazard-no-wb-forwarding
+description: >
+  Hazard-mix random programs on the no_wb_forwarding mutant (execute no longer receives results from the write-back stage).
+  Every seed must catch it. Ground truth: hazard.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: random
+  random_mix: hazards
+  random_instructions: 300
+  max_cycles: 20000
+faults:
+  - no_wb_forwarding

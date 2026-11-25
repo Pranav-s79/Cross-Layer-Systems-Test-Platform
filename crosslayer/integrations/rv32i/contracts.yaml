@@ -1,10 +1,13 @@
 # yaml-language-server: $schema=../../../schemas/contracts.schema.json
-# Default boundary contracts for the PicoRV32 RV32I core.
+# Default boundary contracts for RV32I cores.
 # Each cpu.retire event is one instruction retired by the RTL (from its RVFI
-# port), annotated with what the reference ISA model retired at the same
-# position (rv.ref_*). Two kinds of check:
+# port or a testbench monitor), annotated with what the reference ISA model
+# retired at the same position (rv.ref_*). Two kinds of check:
 #   structural: properties any correct RV32I core has (no model needed)
 #   lockstep:   the RTL matches the reference model, field by field
+# Pipelined cores (cpu.boot rv.pipelined) add two hazard contracts; operands
+# that may have been forwarded (rv.rs1_fwd, rv.rs2_fwd) are checked by
+# rv32i.forwarded_operands instead of rv32i.lockstep_operands.
 schema_version: 1
 contracts:
   - id: rv32i.sequential_pc
@@ -37,16 +40,17 @@ contracts:
         if e.attributes["rv.kind"] == "jal"
         else e.attributes["rv.next_pc"] in (e.attributes["rv.target"], (e.attributes["rv.pc"] + 4) & 0xFFFFFFFF)
 
-  - id: rv32i.lockstep_control_flow
-    title: Each retired instruction has the reference model's PC, encoding, trap status, and next PC
+  - id: rv32i.reference_path
+    title: The core retires the reference model's instructions, in order, with the same traps
     owner: rtl-core
-    source: alu
-    destination: fetch
+    source: core
+    destination: tb
     severity: critical
     description: >
-      The first violation is the first instruction where the RTL and the
-      reference model disagree on control flow; everything after it is a
-      consequence.
+      End to end: the first violation is the first instruction where the RTL
+      and the reference model are no longer on the same path. It says that
+      the core diverged, not where: a wrong value can steer a correct branch
+      off the path. The local contracts say where.
     rule:
       kind: invariant
       select: {event_type: cpu.retire}
@@ -54,7 +58,24 @@ contracts:
         e.attributes["rv.pc"] == e.attributes["rv.ref_pc"]
         and e.attributes["rv.insn"] == e.attributes["rv.ref_insn"]
         and e.attributes["rv.trap"] == e.attributes["rv.ref_trap"]
-        and (e.attributes["rv.trap"] == 1 or e.attributes["rv.next_pc"] == e.attributes["rv.ref_next_pc"])
+
+  - id: rv32i.lockstep_control_flow
+    title: Each instruction's next PC is where its operands send it
+    owner: rtl-core
+    source: alu
+    destination: fetch
+    severity: critical
+    version: 2
+    description: >
+      The expected next PC (rv.exp_next_pc) is the branch decision, jump
+      target, or fall-through the reference semantics give for the operand
+      values the core read, so a branch steered by a wrong operand is not
+      blamed on the branch unit. Without operand values (commit log), it is
+      the reference model's next PC.
+    rule:
+      kind: invariant
+      select: {event_type: cpu.retire}
+      expect: e.attributes["rv.trap"] == 1 or e.attributes["rv.next_pc"] == e.attributes["rv.exp_next_pc"]
 
   - id: rv32i.lockstep_operands
     title: Register reads match the reference model
@@ -62,10 +83,13 @@ contracts:
     source: regfile
     destination: alu
     severity: critical
-    version: 2
+    version: 3
     description: >
       SKIPPED for trace sources that do not record the values read (a
-      commit log lists only results), never passed on missing data.
+      commit log lists only results), never passed on missing data. On a
+      pipelined core, an operand produced within the bypass window may come
+      from forwarding rather than the register file; rv32i.forwarded_operands
+      checks those.
     precondition:
       event_type: cpu.boot
       where: e.attributes["rv.has_operands"] == 1
@@ -73,35 +97,117 @@ contracts:
       kind: invariant
       select: {event_type: cpu.retire}
       expect: >-
-        e.attributes["rv.rs1_val"] == e.attributes["rv.ref_rs1_val"]
-        and e.attributes["rv.rs2_val"] == e.attributes["rv.ref_rs2_val"]
+        e.attributes["rv.pc"] != e.attributes["rv.ref_pc"] or e.attributes["rv.insn"] != e.attributes["rv.ref_insn"]
+        or ((e.attributes["rv.rs1_fwd"] == 1 or e.attributes["rv.rs1_val"] == e.attributes["rv.ref_rs1_val"])
+            and (e.attributes["rv.rs2_fwd"] == 1 or e.attributes["rv.rs2_val"] == e.attributes["rv.ref_rs2_val"]))
+
+  - id: rv32i.forwarded_operands
+    title: Operands produced by the last few instructions (within the bypass window) match the reference model
+    owner: rtl-pipeline
+    source: hazard
+    destination: alu
+    severity: critical
+    description: >
+      A pipelined core reads these before the producer has written the
+      register file, so their values come from the forwarding paths or a
+      stall. SKIPPED for cores without forwarding and for traces without
+      operand values.
+    precondition:
+      event_type: cpu.boot
+      where: e.attributes["rv.has_operands"] == 1 and e.attributes["rv.bypass_window"] > 0
+    rule:
+      kind: invariant
+      select:
+        event_type: cpu.retire
+        where: e.attributes["rv.rs1_fwd"] == 1 or e.attributes["rv.rs2_fwd"] == 1
+      expect: >-
+        e.attributes["rv.pc"] != e.attributes["rv.ref_pc"] or e.attributes["rv.insn"] != e.attributes["rv.ref_insn"]
+        or ((e.attributes["rv.rs1_fwd"] == 0 or e.attributes["rv.rs1_val"] == e.attributes["rv.ref_rs1_val"])
+            and (e.attributes["rv.rs2_fwd"] == 0 or e.attributes["rv.rs2_val"] == e.attributes["rv.ref_rs2_val"]))
+
+  - id: rv32i.redirect_followed
+    title: After a jump or branch, the next instruction to retire is at the next PC it reported
+    owner: rtl-pipeline
+    source: hazard
+    destination: fetch
+    severity: critical
+    description: >
+      A pipelined core fetches past a jump or branch before it resolves; the
+      instructions fetched on the wrong path must be flushed, never retired.
+      SKIPPED for cores that are not pipelined and for traces that infer the
+      next PC from the following retirement (where this always holds).
+    precondition:
+      event_type: cpu.boot
+      where: e.attributes["rv.pipelined"] == 1 and e.attributes["rv.has_next_pc"] == 1
+    rule:
+      kind: successive
+      select: {event_type: cpu.retire}
+      when: >-
+        prev.attributes["rv.kind"] in ("branch", "jal", "jalr")
+        and prev.attributes["rv.trap"] == 0
+      expect: curr.attributes["rv.pc"] == prev.attributes["rv.next_pc"]
 
   - id: rv32i.lockstep_writeback
-    title: Register writes match the reference model
+    title: Register writes are what the instruction computes from the operands it read
     owner: rtl-core
     source: alu
     destination: regfile
     severity: critical
+    version: 2
+    description: >
+      The expected write (rv.exp_rd, rv.exp_rd_val) is the reference
+      semantics applied to the operand values the core actually read, so an
+      execute stage handed a wrong operand is not blamed for computing
+      with it: the operand contracts report that. In a trace without
+      operand values, writes are compared with the reference model's run.
+      Loads are rv32i.load_data's.
     rule:
       kind: invariant
-      select: {event_type: cpu.retire}
+      select:
+        event_type: cpu.retire
+        where: e.attributes["rv.kind"] != "load"
       expect: >-
-        e.attributes["rv.rd"] == e.attributes["rv.ref_rd"]
-        and e.attributes["rv.rd_val"] == e.attributes["rv.ref_rd_val"]
+        e.attributes["rv.rd"] == e.attributes["rv.exp_rd"]
+        and e.attributes["rv.rd_val"] == e.attributes["rv.exp_rd_val"]
+
+  - id: rv32i.load_data
+    title: Loaded values match the reference model's memory
+    owner: rtl-lsu
+    source: lsu
+    destination: regfile
+    severity: critical
+    description: >
+      A load's value depends on memory, not only on its operands, so it is
+      compared with the reference model's run: a wrong value means the load
+      path, or memory an earlier store left different (whose own check then
+      failed first).
+    rule:
+      kind: invariant
+      select:
+        event_type: cpu.retire
+        where: e.attributes["rv.kind"] == "load"
+      expect: >-
+        e.attributes["rv.rd"] == e.attributes["rv.exp_rd"]
+        and e.attributes["rv.rd_val"] == e.attributes["rv.exp_rd_val"]
 
   - id: rv32i.lockstep_memory
-    title: Data-bus accesses (address, byte lanes, write data) match the reference model
+    title: Data-bus accesses (address, byte lanes, write data) are what the operands read call for
     owner: rtl-lsu
     source: lsu
     destination: memory
     severity: critical
+    version: 2
+    description: >
+      Expected from the base and data registers the core actually read
+      (rv.exp_mem_*), like rv32i.lockstep_writeback; from the reference
+      model's run for traces without operand values.
     rule:
       kind: invariant
       select: {event_type: cpu.retire}
       expect: >-
-        e.attributes["rv.mem_addr"] == e.attributes["rv.ref_mem_addr"]
-        and e.attributes["rv.mem_wmask"] == e.attributes["rv.ref_mem_wmask"]
-        and e.attributes["rv.mem_wdata"] == e.attributes["rv.ref_mem_wdata"]
+        e.attributes["rv.mem_addr"] == e.attributes["rv.exp_mem_addr"]
+        and e.attributes["rv.mem_wmask"] == e.attributes["rv.exp_mem_wmask"]
+        and e.attributes["rv.mem_wdata"] == e.attributes["rv.exp_mem_wdata"]
 
   - id: rv32i.program_output
     title: Each value written to the output port matches the reference model, in order

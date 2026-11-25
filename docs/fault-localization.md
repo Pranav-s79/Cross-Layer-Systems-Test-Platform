@@ -15,7 +15,12 @@ crosslayer localize runs --score --min-top3 1.0   # exit 1 if accuracy regresses
 ## Method (`boundary-evidence-v1`)
 
 The system graph has the adapter's subsystems as nodes and its interfaces
-plus every contract boundary (`source -> destination`) as edges.
+plus every evaluated contract boundary (`source -> destination`) as edges.
+The structure is the one for the run's configuration
+(`SystemAdapter.describe_for`, which defaults to `describe()`): a
+multi-cycle RV32I core has no `hazard` subsystem, so it is never blamed. A
+contract SKIPPED by its precondition adds no edge (its boundary does not
+exist here), and only the structure's subsystems are ranked.
 
 | Step | Rule |
 |---|---|
@@ -50,16 +55,20 @@ not change it.
 
 ## Measured accuracy
 
-All 26 labeled fault experiments (reference, RV32I on PicoRV32 and Quark,
-textlog, 5G), run with `crosslayer suite -j 8` on Windows, Python 3.11, and
-scored with `crosslayer localize --score`:
+All 76 labeled fault runs: 36 fault experiments (reference, RV32I on
+PicoRV32, Quark, and the pipelined core, textlog, 5G) and the 40 seeds of
+the pipeline's hazard-mutant sweeps, run with `crosslayer suite -j auto` on
+Windows, Python 3.11, and scored with `crosslayer localize --score`:
 
 | Metric | Result |
 |---|---|
-| Top-1 subsystem | 19/26 (73%) |
-| Top-3 subsystem | 26/26 (100%) |
-| Top-1 subsystem and interface (labels with an interface) | 10/19 |
-| Confident calls that were right | 1/1 (the other 25 runs are labeled ambiguous) |
+| Top-1 subsystem | 69/76 (91%): 29/36 fault experiments, 40/40 sweep seeds |
+| Top-3 subsystem | 76/76 (100%) |
+| Top-1 subsystem and interface (labels with an interface) | 49/69 |
+| Confident calls that were right | 4/4 (the other 72 runs are labeled ambiguous) |
+
+Before milestone 3.7 (26 experiments, no pipelined core): top-1 19/26, top-3
+26/26, interface 10/19, confident 1/1.
 
 Every miss, and why:
 
@@ -68,12 +77,38 @@ Every miss, and why:
 | sensor `duplicate_completion`, `slow_consumer` | `proc` (2) | The consumer is at fault, but the failing contracts' boundaries make it the destination; the source prior wins. |
 | 5G `delayed_pdu_session` | `ngap` (2) | Same pattern: the gNB completes late, on a single boundary. |
 | textlog `slow_reply` | `server` (2) | Same pattern. |
-| RV32I `jal_imm_bit11` (both cores) | `decoder` (3 and 2) | A wrong JAL target is explained as well by the ALU; and the bus error from the wrong fetch is logged a few cycles *before* the JAL retires, so a catch-all contract looks earliest. |
+| RV32I `jal_imm_bit11` (PicoRV32) | `decoder` (2) | The bus error from fetching at the wrong target is logged a few cycles *before* the JAL retires, so `no_bus_errors` (source `core`) looks earliest. On Quark and the pipeline it ranks first. |
 | RV32I `regfile_wrong_rd` via commit log | `regfile` (3) | A commit log has no operand reads, so the first visible symptom is a wrong store, two components downstream of the cause. With RVFI the same fault ranks first. |
+| pipeline `no_load_use_stall` | `hazard` (2) | The first symptom is a store of the bad value to the output port. The port sees it in the memory stage, one cycle before the store retires and its stale operand is reported, so `program_output` (source `lsu`) looks earliest. |
 
 Four of the seven misses are a faulty *destination* on a single boundary:
-the evidence cannot tell a bad producer from a bad consumer. Separating them
-takes a follow-up experiment, which is Phase 8.
+the evidence cannot tell a bad producer from a bad consumer. Two are
+observation latency: the same instruction's effects are recorded at
+different points (bus, retirement), and the earliest record is a symptom.
+Separating both kinds takes a follow-up experiment, which is Phase 8.
+
+## RV32I contracts
+
+Milestone 3.7 added a pipelined core and four hazard mutants. With the
+contracts as they were, all four ranked `hazard` second or worse: a stale
+forwarded operand made the consumer's result wrong, so
+`lockstep_writeback` (`alu -> regfile`) failed at the same instant as the
+operand check and the ALU outscored the bypass. The fix makes each check
+local, comparing a unit's output with what the reference semantics give
+for the inputs it actually received
+([RTL verification](rtl-verification.md#local-and-end-to-end-checks)).
+Each step was measured on the 31 RV32I and reference fault experiments
+(the 21 above plus the pipeline's 10):
+
+| Change | Top-1 | Top-3 | Decision |
+|---|---|---|---|
+| Pipelined core, hazard contracts (`forwarded_operands`, `redirect_followed`), contracts otherwise unchanged | 20/31 | 29/31 | the hazard mutants rank 2-4 |
+| Results and data accesses checked against the operands read; operands compared only for the same instruction | 19/31 | 31/31 | not enough: `regfile_wrong_rd` dropped to 2 on both multi-cycle cores |
+| Control flow split into a local next-PC check (`lockstep_control_flow`) and an end-to-end path check (`reference_path`, source `core`); structure per configuration | 26/31 | 31/31 | kept: a branch steered off the path by a bad register no longer blames the ALU |
+| Loaded values moved to `load_data` (`lsu -> regfile`) | 26/31; hazard sweeps 33/40 -> 40/40 | 31/31 | kept: a load that reads memory an earlier bad store changed no longer blames the ALU |
+
+No experiment's rank got worse. Quark's `jal_imm_bit11` went from 2 to 1 and
+PicoRV32's from 3 to 2.
 
 ## What was tried and rejected
 
@@ -94,5 +129,6 @@ helped without breaking other cases.
   signal values or replay the run.
 * The graph is only as good as the adapter's description: a missing data
   path hides the true cause (see RV32I above).
-* 26 labeled runs are a small set; the weights are documented defaults, not
-  fitted. Phase 9 is where weights are learned and tested on held-out data.
+* 36 fault experiments (plus 40 sweep seeds of four of them) are a small
+  set; the weights are documented defaults, not fitted. Phase 9 is where
+  weights are learned and tested on held-out data.

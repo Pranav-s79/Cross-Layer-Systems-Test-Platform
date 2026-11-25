@@ -103,6 +103,10 @@ the scaffold to check it.
 * Faults as **mutant RTL** (six one-line bugs, one of them PicoRV32's own
   `TESTBUG_001`) plus a timing-only memory fault; optional waveform (VCD) in
   the bundle.
+* Three cores (milestones 3.2-3.7): PicoRV32, FemtoRV32 Quark (no RVFI), and
+  a five-stage pipeline whose forwarding, load-use stall, and branch flush
+  are verified with hazard mutants, hazard-heavy random programs, and
+  hazard coverage.
 
 **Exit (met):** the original design passes all 10 contracts; each mutant
 fails at exactly the instruction where an independent model of the same bug
@@ -147,7 +151,7 @@ faults are detected.
 * Ranked hypotheses with evidence, **counter-evidence**, and uncertainty.
 
 **Exit (met):** measured over all 26 labeled fault experiments: top-1 19/26,
-top-3 26/26, with every miss explained, including faults whose symptoms
+top-3 26/26 (now 29/36 and 36/36 with the pipelined core), with every miss explained, including faults whose symptoms
 appear downstream of their cause (RV32I `regfile_wrong_rd` through a commit
 log). CI gates on these rates. See
 [docs/fault-localization.md](docs/fault-localization.md); the HTML view is

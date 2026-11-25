@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-hazard-programs
+description: >
+  Seeded random programs in the hazards mix (randprog.py): operands favor the
+  last three results, and load-use, compute-then-branch, compute-then-store,
+  and dependent-chain patterns are mixed in. The suite runs it as a sweep and
+  reports the hazard coverage bins no seed hit.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: random
+  random_mix: hazards
+  random_instructions: 300
+  max_cycles: 20000

@@ -176,3 +176,41 @@ def test_localize_one_bundle_and_reject_old_bundles(tmp_path, capsys):
     assert "1. " in capsys.readouterr().out
     (run.bundle_dir / "localization.json").unlink()
     assert main(["localize", str(run.bundle_dir)]) == 4
+
+
+def test_a_skipped_contract_adds_no_boundary_to_the_system_graph():
+    failing = result("t.ab", "a", "b", Verdict.FAIL, 10)  # c is declared but feeds nothing
+    with_skip = localize(DESCRIPTION, [failing, result("t.ca", "c", "a", Verdict.SKIPPED)])
+    with_pass = localize(DESCRIPTION, [failing, result("t.ca", "c", "a", Verdict.PASS)])
+    assert "c" not in ranked(with_skip)  # its precondition says this system has no such boundary
+    assert "c" in ranked(with_pass)  # an evaluated boundary is part of the system
+
+
+def test_subsystems_outside_the_description_are_never_ranked():
+    loc = localize(DESCRIPTION, [result("t.xa", "x", "a", Verdict.FAIL, 10)])
+    assert "x" not in ranked(loc) and ranked(loc)[0] == "a"
+    none = localize(DESCRIPTION, [result("t.xy", "x", "y", Verdict.FAIL, 10)])
+    assert none.hypotheses == [] and none.status == "ambiguous" and "outside" in none.reason
+
+
+class _ConfiguredAdapter(FakeAdapter):
+    """A system whose structure depends on its parameters: without
+    ``parameters.has_client`` it has no client to blame."""
+
+    def describe_for(self, parameters, base_dir):
+        full = self.describe()
+        if parameters.get("has_client"):
+            return full
+        return AdapterDescription(full.name, full.adapter_version, full.system, full.system_version, ("server",))
+
+    def validate_parameters(self, parameters):
+        pass
+
+
+def test_runs_are_localized_against_the_configured_structure(tmp_path):
+    runs = ExperimentRunner(tmp_path / "runs", adapter_loader=lambda ref: _ConfiguredAdapter())
+    without = runs.run(experiment(tmp_path, faults=["lose_ack"]))
+    assert [h["subsystem"] for h in without.manifest["localization"]["top"]] == ["server"]
+    with_client = runs.run(experiment(tmp_path, faults=["lose_ack"], parameters={"has_client": True}))
+    assert "client" in [h["subsystem"] for h in with_client.manifest["localization"]["top"]]
+    assert FakeAdapter().describe_for({}, tmp_path) == FakeAdapter().describe()  # the default

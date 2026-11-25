@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-hazard-no-branch-flush
+description: >
+  Hazard-mix random programs on the no_branch_flush mutant (taken jumps and branches no longer flush decode and fetch).
+  Every seed must catch it. Ground truth: hazard.
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: random
+  random_mix: hazards
+  random_instructions: 300
+  max_cycles: 20000
+faults:
+  - no_branch_flush

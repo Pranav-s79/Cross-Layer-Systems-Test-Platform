@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-bne-inverted
+description: >
+  BNE branches when its operands are equal. Ground truth: alu (interface
+  branch_decision).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles
+faults:
+  - bne_inverted

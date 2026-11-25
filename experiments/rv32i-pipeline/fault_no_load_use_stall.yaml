@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schemas/experiment.schema.json
+schema_version: 1
+name: pipeline-no-load-use-stall
+description: >
+  A use of a load's result right after the load no longer stalls; execute
+  gets what the memory stage forwards for a load (its address-path ALU
+  output). Ground truth: hazard (interface pipeline_control).
+adapter: rv32i
+seed: 1
+timeout_s: 120
+parameters:
+  core: learnfpga-pipeline
+  program: selftest
+  max_cycles: 20000   # a clean self-test run takes about 880 cycles
+faults:
+  - no_load_use_stall

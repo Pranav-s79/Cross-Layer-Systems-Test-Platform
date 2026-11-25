@@ -21,6 +21,7 @@ from __future__ import annotations
 import difflib
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -59,6 +60,7 @@ from crosslayer.integrations.rv32i.iss import (
     ModelRun,
     decode,
     lanes,
+    local_effects,
 )
 from crosslayer.integrations.rv32i.traces import TRACE_LOG, Record, TraceSource, sources
 from crosslayer.integrations.rv32i.profile import (
@@ -89,6 +91,7 @@ _DEFAULTS: dict[str, Any] = {
     "max_cycles": 100_000,
     "waveform": False,
     "random_instructions": 300,
+    "random_mix": "uniform",
 }
 RANDOM_PROGRAM = "random"
 """``program: random`` generates a program from the experiment seed (``randprog.py``)."""
@@ -104,7 +107,8 @@ def _positive_int(value: Any, location: str) -> int:
     return value
 
 
-SUBSYSTEMS = ("fetch", "decoder", "regfile", "alu", "lsu", "memory", "mmio", "core", "tb")
+SUBSYSTEMS = ("fetch", "decoder", "regfile", "alu", "lsu", "memory", "mmio", "hazard", "core", "tb")
+"""``hazard`` is a pipelined core's forwarding, stall, and flush logic."""
 INTERFACES = (
     InterfaceSpec("instruction_bus", "memory", "fetch", "instruction fetches on the memory bus"),
     InterfaceSpec("jump_target", "decoder", "fetch", "decoded jump and branch offsets steer the PC"),
@@ -117,6 +121,8 @@ INTERFACES = (
     InterfaceSpec("decode", "decoder", "alu", "decoded operation and immediates drive the ALU"),
     InterfaceSpec("store_data", "regfile", "lsu", "register values give store data and address bases"),
     InterfaceSpec("load_data", "lsu", "regfile", "loaded values are written to the register file"),
+    InterfaceSpec("bypass", "hazard", "alu", "results forwarded to execute before they reach the register file"),
+    InterfaceSpec("pipeline_control", "hazard", "fetch", "stalls and flushes decide which instructions proceed"),
 )
 WAIT_STATES_FAULT = FaultSpec(
     "mem_wait_states", "Testbench memory answers `cycles` clock cycles late (timing only).",
@@ -152,7 +158,7 @@ class Rv32iAdapter(SystemAdapter):
         default = _load(DEFAULT_CORE)
         return AdapterDescription(
             name="rv32i",
-            adapter_version="0.2.0",
+            adapter_version="0.3.0",
             system="RV32I cores described by core profiles, RTL simulated with Icarus Verilog",
             system_version=f"default core {default.name} sha256:{default.digest()}",
             subsystems=SUBSYSTEMS,
@@ -164,6 +170,14 @@ class Rv32iAdapter(SystemAdapter):
             ),
             external_dependencies=("Icarus Verilog (iverilog, vvp) on PATH",),
         )
+
+    def describe_for(self, parameters: Mapping[str, Any], base_dir: Path) -> AdapterDescription:
+        """A core that is not pipelined has no hazard logic to blame."""
+        full = self.describe()
+        if _load(parameters.get("core", DEFAULT_CORE), base_dir).pipeline is not None:
+            return full
+        return replace(full, subsystems=tuple(s for s in full.subsystems if s != "hazard"),
+                       interfaces=tuple(i for i in full.interfaces if "hazard" not in (i.source, i.destination)))
 
     def capabilities(self) -> frozenset[Capability]:
         return frozenset(
@@ -194,10 +208,14 @@ class Rv32iAdapter(SystemAdapter):
             "rv.mem_addr", "rv.mem_wmask", "rv.mem_wdata", "rv.trap",
             "rv.ref_pc", "rv.ref_insn", "rv.ref_rs1_val", "rv.ref_rs2_val", "rv.ref_rd", "rv.ref_rd_val",
             "rv.ref_next_pc", "rv.ref_mem_addr", "rv.ref_mem_wmask", "rv.ref_mem_wdata", "rv.ref_trap",
+            "rv.rs1_dist", "rv.rs2_dist", "rv.rs1_fwd", "rv.rs2_fwd",
+            "rv.exp_rd", "rv.exp_rd_val", "rv.exp_next_pc", "rv.exp_mem_addr", "rv.exp_mem_wmask",
+            "rv.exp_mem_wdata",
         )
         return [
-            EventSpec("cpu.boot", ("tb",), ("rv.max_cycles", "rv.wait_states", "rv.trace", "rv.timed", "rv.has_operands"),
-                      description="run start; the trace format and whether it carries cycles and operand values"),
+            EventSpec("cpu.boot", ("tb",), ("rv.max_cycles", "rv.wait_states", "rv.trace", "rv.timed", "rv.has_operands",
+                                            "rv.has_next_pc", "rv.pipelined", "rv.bypass_window"),
+                      description="run start; what the trace records, and whether the core is pipelined"),
             EventSpec("cpu.retire", ("core",), retire, ("retire",),
                       description="one retired instruction (RVFI) with the reference model's values"),
             EventSpec("cpu.output", ("mmio",), ("rv.cycle", "rv.index", "rv.data", "rv.ref_data")),
@@ -230,6 +248,10 @@ class Rv32iAdapter(SystemAdapter):
         for key in ("max_cycles", "random_instructions"):
             if key in parameters:
                 _positive_int(parameters[key], f"parameters.{key}")
+        from crosslayer.integrations.rv32i.randprog import MIXES
+
+        if parameters.get("random_mix", "uniform") not in MIXES:
+            raise ConfigError(f"must be one of {list(MIXES)}", location="parameters.random_mix")
         if not isinstance(parameters.get("waveform", False), bool):
             raise ConfigError("must be true or false", location="parameters.waveform")
 
@@ -260,7 +282,8 @@ class Rv32iAdapter(SystemAdapter):
         if self._param(ctx, "program") == RANDOM_PROGRAM:
             from crosslayer.integrations.rv32i.randprog import generate
 
-            source = generate(ctx.seed, instructions=self._param(ctx, "random_instructions"))
+            source = generate(ctx.seed, instructions=self._param(ctx, "random_instructions"),
+                              mix=self._param(ctx, "random_mix"))
         else:
             source = self._program_path(ctx).read_text(encoding="utf-8")
         try:
@@ -296,6 +319,12 @@ class Rv32iAdapter(SystemAdapter):
         shutil.copyfile(ctx.raw_dir / HEX_NAME, ctx.work_dir / HEX_NAME)
 
         profile = self._profile(ctx)
+        for name, depth in profile.memory_images.items():
+            if len(program.words) > depth:
+                raise AdapterError(f"program of {len(program.words)} words does not fit {name} "
+                                   f"({depth} words in core {profile.name!r})")
+            padded = [f"{w:08x}" for w in program.words] + ["00000000"] * (depth - len(program.words))
+            (ctx.work_dir / name).write_text("\n".join(padded) + "\n", encoding="utf-8", newline="\n")
         applied = [f.name for f in ctx.faults if f.name in profile.mutants]
         try:
             texts, mutant_defines = apply_mutants(profile, applied)
@@ -303,7 +332,7 @@ class Rv32iAdapter(SystemAdapter):
             raise AdapterError(str(exc)) from None
         diff_lines: list[str] = []
         compiled: list[tuple[str, str]] = []
-        for name in (profile.testbench, *profile.sources):
+        for name in (profile.testbench, *profile.sources, *profile.includes):
             original = profile.file(name).read_text(encoding="utf-8")
             text = texts.get(name, original)
             target = ctx.work_dir / name
@@ -321,7 +350,7 @@ class Rv32iAdapter(SystemAdapter):
             (ctx.raw_dir / DIFF_NAME).write_text(f"# core: {profile.name}\n# mutants: {', '.join(applied)}\n{text}",
                                                  encoding="utf-8", newline="\n")
 
-        flags = ["-g2005", *(f"-D{d}" for d in defines)]
+        flags = ["-g2005", *(f"-D{d}" for d in defines), *(["-s", profile.top] if profile.top else [])]
         command = [iverilog, *flags, "-o", "sim.vvp", profile.testbench, *profile.sources]
         details: dict[str, Any] = {"command": command, "core": profile.summary(), "mutants": applied,
                                    "program_words": len(program.words)}
@@ -429,7 +458,7 @@ class Rv32iAdapter(SystemAdapter):
         def fetch(pc: int) -> int:
             return int.from_bytes(image[pc:pc + 4].ljust(4, b"\0"), "little") if 0 <= pc < len(image) else 0
 
-        parser = _TraceParser(ctx, program, reference, profile.clock_period_ns, source)
+        parser = _TraceParser(ctx, program, reference, profile, source)
         for item in source.parse(ctx.raw_dir, fetch):
             parser.feed(item)
         return NormalizationResult(
@@ -448,6 +477,14 @@ class Rv32iAdapter(SystemAdapter):
         )
 
 
+HAZARD_BINS = ("raw_d1", "raw_d2", "raw_d3", "load_use_d1", "load_use_d2", "branch_dep_d1", "branch_dep_d2",
+               "store_data_d1")
+"""Dependences in retirement order: an operand produced 1-3 instructions
+earlier by a non-load (read after write) or 1-2 earlier by a load (load-use);
+a branch or JALR whose operand was produced 1-2 earlier; a store whose data
+was produced by the instruction just before. These are the cases a
+pipeline's forwarding, stall, and flush logic must get right."""
+
 _RETIRE_ATTRS = {
     "cyc": "rv.cycle", "ord": "rv.order", "pc": "rv.pc", "insn": "rv.insn",
     "rs1": "rv.rs1", "rs1v": "rv.rs1_val", "rs2": "rv.rs2", "rs2v": "rv.rs2_val",
@@ -459,13 +496,18 @@ _RETIRE_ATTRS = {
 class _TraceParser:
     """Turns trace records into events, each annotated with the reference model's values."""
 
-    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun, clock_period_ns: int,
+    def __init__(self, ctx: RunContext, program: Program, reference: ModelRun, profile: CoreProfile,
                  source: TraceSource) -> None:
         self.ctx = ctx
         self.program = program
         self.reference = reference
-        self.clock_period_ns = clock_period_ns
+        self.clock_period_ns = profile.clock_period_ns
+        self.pipeline = profile.pipeline
+        self.bypass_window = profile.pipeline["bypass_window"] if profile.pipeline else 0
         self.source = source
+        self.writers: dict[int, tuple[int, str]] = {}
+        """Register -> (order, kind) of the last retired instruction that wrote it."""
+        self.hazards = dict.fromkeys(HAZARD_BINS, 0)
         self.events: list[NormalizedEvent] = []
         self.diagnostics: list[ParseDiagnostic] = []
         self.records = 0
@@ -483,9 +525,37 @@ class _TraceParser:
         }
 
     def coverage(self) -> dict[str, dict[str, int]]:
-        """ISA coverage bins, zero-hit bins included: mnemonics retired, branch
-        directions, and each access width at each aligned byte offset."""
-        return {"mnemonic": self.mnemonics, "branch": self.branches, "memory": self.accesses}
+        """Coverage bins, zero-hit bins included: mnemonics retired, branch
+        directions, each access width at each aligned byte offset, and
+        dependences between nearby instructions (``HAZARD_BINS``)."""
+        return {"mnemonic": self.mnemonics, "branch": self.branches, "memory": self.accesses,
+                "hazard": self.hazards}
+
+    def _dependences(self, order: int, f: Mapping[str, int], d: Decoded) -> dict[str, int]:
+        """Distance (in retirements) back to the producer of each operand, the
+        bypass flags, and the hazard bins this instruction hits."""
+        out = {"rv.rs1_dist": 0, "rv.rs2_dist": 0, "rv.rs1_fwd": 0, "rv.rs2_fwd": 0}
+        if f.get("trap"):
+            return out
+        hit: set[str] = set()
+        for name, reg, used in (("rs1", d.rs1, d.uses_rs1), ("rs2", d.rs2, d.uses_rs2)):
+            if not used or reg == 0 or reg not in self.writers:
+                continue
+            produced, kind = self.writers[reg]
+            dist = order - produced
+            out[f"rv.{name}_dist"] = dist
+            out[f"rv.{name}_fwd"] = int(dist <= self.bypass_window)
+            if kind == "load" and dist <= 2:
+                hit.add(f"load_use_d{dist}")
+            elif kind != "load" and dist <= 3:
+                hit.add(f"raw_d{dist}")
+            if d.kind in ("branch", "jalr") and dist <= 2:
+                hit.add(f"branch_dep_d{dist}")
+            if d.kind == "store" and name == "rs2" and dist == 1:
+                hit.add("store_data_d1")
+        for b in hit:
+            self.hazards[b] += 1
+        return out
 
     def _count(self, f: Mapping[str, int], d: Decoded) -> None:
         if d.mnemonic in self.mnemonics:
@@ -540,7 +610,8 @@ class _TraceParser:
         self._event(record, "cpu.boot", "tb", {
             "rv.max_cycles": f.get("max_cycles"), "rv.wait_states": f.get("wait_states"),
             "rv.trace": self.source.name, "rv.timed": int(self.source.timed),
-            "rv.has_operands": int(self.source.operands),
+            "rv.has_operands": int(self.source.operands), "rv.has_next_pc": int(not self.source.next_pc_inferred),
+            "rv.pipelined": int(self.pipeline is not None), "rv.bypass_window": self.bypass_window,
         })
 
     def _on_retire(self, record: Record) -> None:
@@ -551,6 +622,9 @@ class _TraceParser:
         attrs: dict[str, Any] = {name: f[key] for key, name in _RETIRE_ATTRS.items() if key in f}
         attrs.update({"rv.op": d.mnemonic, "rv.kind": d.kind})
         self._count(f, d)
+        attrs.update(self._dependences(order, f, d))
+        if f.get("rd") and not f.get("trap"):
+            self.writers[f["rd"]] = (order, d.kind)
         if "cyc" in f:
             attrs["rv.cpi"] = f["cyc"] - self.last_cycle
             self.last_cycle = f["cyc"]
@@ -574,9 +648,27 @@ class _TraceParser:
             "rv.ref_mem_wdata": ref.mem_wdata if ref else _SENTINEL,
             "rv.ref_trap": int(ref.trap) if ref else _SENTINEL,
         })
+        attrs.update(self._expected(f, attrs))
         self.last_retire = f
         self._event(record, "cpu.retire", "core", attrs,
                     Severity.WARNING if f.get("trap") else Severity.INFO, {"retire": str(order)})
+
+    def _expected(self, f: Mapping[str, int], attrs: Mapping[str, Any]) -> dict[str, int]:
+        """``rv.exp_*``: the result, next PC, and data access this instruction
+        should have given the operands it read (``iss.local_effects``). A load's value, and
+        everything for a trace without operand values, come from the reference
+        run instead."""
+        effects = None
+        if self.source.operands and not f.get("trap"):
+            effects = local_effects(f["insn"], f["pc"], f.get("rs1v", 0), f.get("rs2v", 0))
+        if effects is None:
+            return {"rv.exp_rd": attrs["rv.ref_rd"], "rv.exp_rd_val": attrs["rv.ref_rd_val"],
+                    "rv.exp_next_pc": attrs["rv.ref_next_pc"], "rv.exp_mem_addr": attrs["rv.ref_mem_addr"],
+                    "rv.exp_mem_wmask": attrs["rv.ref_mem_wmask"], "rv.exp_mem_wdata": attrs["rv.ref_mem_wdata"]}
+        return {"rv.exp_rd": effects.rd,
+                "rv.exp_rd_val": attrs["rv.ref_rd_val"] if effects.rd_val is None else effects.rd_val,
+                "rv.exp_next_pc": effects.next_pc, "rv.exp_mem_addr": effects.mem_addr,
+                "rv.exp_mem_wmask": effects.mem_wmask, "rv.exp_mem_wdata": effects.mem_wdata}
 
     def _on_output(self, record: Record) -> None:
         f = record.fields

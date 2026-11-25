@@ -53,6 +53,9 @@ class TraceSource(ABC):
     """True if retirements carry the cycle (``cyc``) they retired on."""
     operands: bool
     """True if retirements carry the register values read (``rs1v``, ``rs2v``)."""
+    next_pc_inferred: bool = False
+    """True if ``npc`` is not recorded but taken from the following retirement
+    (so a core that retires the wrong instruction shows it at the one before)."""
     artifacts: tuple[str, ...] = (TRACE_LOG,)
     """Raw files (in the run's raw directory) the source reads."""
 

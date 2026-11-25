@@ -37,6 +37,8 @@ ACCEPTED = [
     ("empty mutants", {"mutants": None}),
     ("optional mutant keys", {"mutants": {"m": {**MUTANT, "target_interface": None, "model_fault": None,
                                                  "description": "d"}}}),
+    ("includes, top, images", {"includes": ["inc.v"], "top": "tb", "memory_images": {"ROM.hex": 1024}}),
+    ("pipeline", {"pipeline": {"stages": 5, "bypass_window": 2}}),
 ]
 # Rejected by the loader and expected to be rejected by the schema too.
 REJECTED = [
@@ -55,11 +57,17 @@ REJECTED = [
     ("mutant without change", {"mutants": {"m": {"target_subsystem": "alu"}}}),
     ("mutant extra key", {"mutants": {"m": {**MUTANT, "x": 1}}}),
     ("mutant name", {"mutants": {"Bad": MUTANT}}),
+    ("bad top", {"top": "1tb"}),
+    ("image path", {"memory_images": {"../rom.hex": 16}}),
+    ("image depth", {"memory_images": {"rom.hex": 0}}),
+    ("pipeline without window", {"pipeline": {"stages": 5}}),
+    ("pipeline extra key", {"pipeline": {"stages": 5, "bypass_window": 2, "width": 2}}),
+    ("one-stage pipeline", {"pipeline": {"stages": 1, "bypass_window": 0}}),
 ]
 
 
 def _profile(tmp_path: Path, doc: dict) -> Path:
-    for name in ("tb.v", "core.v"):
+    for name in ("tb.v", "core.v", "inc.v"):
         (tmp_path / name).write_text("// synthetic\n", encoding="utf-8")
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(doc), encoding="utf-8")

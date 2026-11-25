@@ -172,7 +172,7 @@ class ExperimentRunner:
             raise ConfigError("faults cannot be injected when analyzing existing artifacts")
         truth = experiment.ground_truth
         if truth:
-            described = adapter.describe()
+            described = adapter.describe_for(experiment.parameters, experiment.base_dir)
             if truth["subsystem"] not in described.subsystems:
                 raise ConfigError(f"ground_truth.subsystem {truth['subsystem']!r} is not a subsystem of adapter "
                                   f"{experiment.adapter!r} ({sorted(described.subsystems)})")
@@ -314,7 +314,8 @@ class ExperimentRunner:
         # nothing, which produces misleading failures. Skip evaluation instead.
         with timer.stage("evaluate"):
             results = evaluate_contracts(plan.contracts, events) if have_events else []
-            localization = localize(description, results).to_dict()
+            structure = adapter.describe_for(experiment.parameters, experiment.base_dir)
+            localization = localize(structure, results).to_dict()
         verdict = Verdict.ERROR if errors else aggregate_verdict(results)
 
         with timer.stage("write"):

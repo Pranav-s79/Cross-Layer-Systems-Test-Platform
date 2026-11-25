@@ -29,55 +29,93 @@ cases:
     events:
       - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: jal, rv.pc: 0, rv.target: 16, rv.next_pc: 4}}
 
-  - name: control flow matches the reference model
+  - name: the core is on the reference model's path
+    contract: rv32i.reference_path
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 4, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0}}
+  - name: program counters diverge from the reference model
+    contract: rv32i.reference_path
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 12, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0}}
+
+  - name: next PC is where the operands send it
     contract: rv32i.lockstep_control_flow
     expect: pass
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 4, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0, rv.next_pc: 8, rv.ref_next_pc: 8}}
-  - name: program counters diverge from the reference model
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.trap: 0, rv.next_pc: 40, rv.exp_next_pc: 40, rv.ref_next_pc: 8}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.trap: 1, rv.next_pc: 0, rv.exp_next_pc: 4}}
+  - name: a branch decides against its operands
     contract: rv32i.lockstep_control_flow
     expect: fail
     expect_violations: 1
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 12, rv.ref_pc: 4, rv.insn: 19, rv.ref_insn: 19, rv.trap: 0, rv.ref_trap: 0, rv.next_pc: 16, rv.ref_next_pc: 8}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.trap: 0, rv.next_pc: 8, rv.exp_next_pc: 40}}
 
   - name: register operands match the reference model
     contract: rv32i.lockstep_operands
     expect: pass
     events:
       - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20, rv.rs1_fwd: 0, rv.rs2_fwd: 0}}
+  - name: operands of a different instruction are not compared (control flow already diverged)
+    contract: rv32i.lockstep_operands
+    expect: pass
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 12, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20, rv.rs1_fwd: 0, rv.rs2_fwd: 0}}
   - name: register operand differs from the reference model
     contract: rv32i.lockstep_operands
     expect: fail
     expect_violations: 1
     events:
       - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20, rv.rs1_fwd: 0, rv.rs2_fwd: 0}}
 
-  - name: register writeback matches the reference model
+  - name: register write is what the operands read call for
     contract: rv32i.lockstep_writeback
     expect: pass
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rd: 5, rv.ref_rd: 5, rv.rd_val: 42, rv.ref_rd_val: 42}}
-  - name: register writeback differs from the reference model
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.rd: 5, rv.exp_rd: 5, rv.rd_val: 42, rv.exp_rd_val: 42}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: load, rv.rd: 6, rv.exp_rd: 6, rv.rd_val: 1, rv.exp_rd_val: 2}}
+  - name: a result computed from a stale operand is consistent with it
+    contract: rv32i.lockstep_writeback
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.rd: 5, rv.exp_rd: 5, rv.rd_val: 41, rv.exp_rd_val: 41, rv.ref_rd_val: 42}}
+  - name: register write differs from what the operands call for
     contract: rv32i.lockstep_writeback
     expect: fail
     expect_violations: 1
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.rd: 5, rv.ref_rd: 5, rv.rd_val: 41, rv.ref_rd_val: 42}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.rd: 5, rv.exp_rd: 5, rv.rd_val: 41, rv.exp_rd_val: 42}}
+
+  - name: loaded value matches the reference model
+    contract: rv32i.load_data
+    expect: pass
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: load, rv.rd: 6, rv.exp_rd: 6, rv.rd_val: 2, rv.exp_rd_val: 2}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.rd: 5, rv.exp_rd: 5, rv.rd_val: 1, rv.exp_rd_val: 9}}
+  - name: loaded value differs from the reference model
+    contract: rv32i.load_data
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: load, rv.rd: 6, rv.exp_rd: 6, rv.rd_val: 1, rv.exp_rd_val: 2}}
 
   - name: memory write matches the reference model
     contract: rv32i.lockstep_memory
     expect: pass
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.ref_mem_addr: 4096, rv.mem_wmask: 15, rv.ref_mem_wmask: 15, rv.mem_wdata: 42, rv.ref_mem_wdata: 42}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.exp_mem_addr: 4096, rv.mem_wmask: 15, rv.exp_mem_wmask: 15, rv.mem_wdata: 42, rv.exp_mem_wdata: 42}}
   - name: memory byte lanes differ from the reference model
     contract: rv32i.lockstep_memory
     expect: fail
     expect_violations: 1
     events:
-      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.ref_mem_addr: 4096, rv.mem_wmask: 1, rv.ref_mem_wmask: 2, rv.mem_wdata: 42, rv.ref_mem_wdata: 10752}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.mem_addr: 4096, rv.exp_mem_addr: 4096, rv.mem_wmask: 1, rv.exp_mem_wmask: 2, rv.mem_wdata: 42, rv.exp_mem_wdata: 10752}}
 
   - name: output value matches the reference model
     contract: rv32i.program_output
@@ -226,6 +264,58 @@ cases:
       - {t_us: 48, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
       - {t_us: 49, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
       - {t_us: 50, type: cpu.retire, subsystem: core, attrs: {rv.op: add, rv.cpi: 12}}
+
+  - name: a forwarded operand is left to the forwarding contract
+    contract: rv32i.lockstep_operands
+    expect: pass
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.timed: 1, rv.has_operands: 1}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 20, rv.ref_rs2_val: 20, rv.rs1_fwd: 1, rv.rs2_fwd: 0}}
+
+  - name: forwarded operands match the reference model
+    contract: rv32i.forwarded_operands
+    expect: pass
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.has_operands: 1, rv.bypass_window: 2}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 7, rv.ref_rs2_val: 20, rv.rs1_fwd: 1, rv.rs2_fwd: 0}}
+  - name: a forwarded operand is stale
+    contract: rv32i.forwarded_operands
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.has_operands: 1, rv.bypass_window: 2}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 10, rv.ref_rs1_val: 10, rv.rs2_val: 7, rv.ref_rs2_val: 20, rv.rs1_fwd: 0, rv.rs2_fwd: 1}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 3, rv.ref_rs1_val: 4, rv.rs2_val: 0, rv.ref_rs2_val: 0, rv.rs1_fwd: 0, rv.rs2_fwd: 0}}
+  - name: forwarding check does not apply to a core without a bypass
+    contract: rv32i.forwarded_operands
+    expect: skipped
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.has_operands: 1, rv.bypass_window: 0}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.pc: 8, rv.ref_pc: 8, rv.insn: 51, rv.ref_insn: 51, rv.rs1_val: 11, rv.ref_rs1_val: 10, rv.rs2_val: 0, rv.ref_rs2_val: 0, rv.rs1_fwd: 0, rv.rs2_fwd: 0}}
+
+  - name: the instruction after a taken branch is its target
+    contract: rv32i.redirect_followed
+    expect: pass
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.pipelined: 1, rv.has_next_pc: 1}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: branch, rv.trap: 0, rv.pc: 0, rv.next_pc: 32}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 32, rv.next_pc: 36}}
+      - {t_us: 3, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 36, rv.next_pc: 40}}
+  - name: a wrong-path instruction retires after a taken branch
+    contract: rv32i.redirect_followed
+    expect: fail
+    expect_violations: 1
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.pipelined: 1, rv.has_next_pc: 1}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: branch, rv.trap: 0, rv.pc: 0, rv.next_pc: 32}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 4, rv.next_pc: 8}}
+  - name: redirect check does not apply when the next PC is inferred from the trace
+    contract: rv32i.redirect_followed
+    expect: skipped
+    events:
+      - {t_us: 0, type: cpu.boot, subsystem: tb, attrs: {rv.pipelined: 1, rv.has_next_pc: 0}}
+      - {t_us: 1, type: cpu.retire, subsystem: core, attrs: {rv.kind: branch, rv.trap: 0, rv.pc: 0, rv.next_pc: 32}}
+      - {t_us: 2, type: cpu.retire, subsystem: core, attrs: {rv.kind: alu, rv.trap: 0, rv.pc: 4, rv.next_pc: 8}}
 
   - name: operand check does not apply to a trace without operand values
     contract: rv32i.lockstep_operands
