@@ -171,12 +171,12 @@ Entry: a CI run now writes over 100 bundles (five suites with 20-seed
 sweeps), and scoring and comparison walk directories to find them.
 
 ### 11.1 · Run index · `routine` · `feature/run-index`
-- [ ] `crosslayer index add PATH...` records bundles in a SQLite file (stdlib
+- [x] `crosslayer index add PATH...` records bundles in a SQLite file (stdlib
   `sqlite3`; default `runs/index.sqlite`): run, experiment, config hash,
   seed, verdict, timings, every contract result with first-violation time,
   fault labels and ground truth, and top localization hypotheses. Adding the
   same bundle twice is a no-op; the schema is versioned.
-- [ ] `crosslayer history CONTRACT_ID [--experiment NAME] [--json]` lists that
+- [x] `crosslayer history CONTRACT_ID [--experiment NAME] [--json]` lists that
   contract's verdicts over time; `crosslayer index runs` lists runs with
   filters (experiment, verdict, since).
 

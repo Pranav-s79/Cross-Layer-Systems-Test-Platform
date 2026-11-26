@@ -17,6 +17,10 @@
     crosslayer diff-contracts OLD NEW [--json] per-owner changelog; fails on unversioned semantic changes
     crosslayer new adapter NAME       scaffold a working adapter project (--dir DIR)
     crosslayer verify BUNDLE [--json]  check bundle files against manifest hashes
+    crosslayer index add PATH... [--db FILE] [--json]   record bundles in a SQLite run index
+    crosslayer index runs [--db FILE] [--experiment N] [--verdict V] [--since D] [--limit N] [--json]
+    crosslayer history CONTRACT_ID [--experiment N] [--db FILE] [--limit N] [--json]
+                                      one contract's verdicts over time, from the index
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
 """
@@ -45,6 +49,7 @@ from crosslayer.core.orchestrator.experiment import load_experiment
 from crosslayer.core.orchestrator.runner import ExperimentRunner
 from crosslayer.core.orchestrator.suite import SuiteEntryResult, SuiteRunner, load_suite
 from crosslayer.core.diagnosis.scoring import score_paths, summarize
+from crosslayer.core.results import DEFAULT_DB, RunIndex, parse_since
 from crosslayer.core.schemas import SCHEMAS
 from crosslayer.scaffold import create_adapter_project
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
@@ -120,6 +125,16 @@ def _rate(text: str) -> float:
         raise argparse.ArgumentTypeError(f"expected a number between 0 and 1, got {text!r}") from None
     if not 0 <= value <= 1:
         raise argparse.ArgumentTypeError(f"expected a number between 0 and 1, got {text!r}")
+    return value
+
+
+def _positive(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {text!r}")
     return value
 
 
@@ -590,6 +605,50 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def _cmd_index(args: argparse.Namespace) -> int:
+    if args.index_command == "add":
+        with RunIndex(args.db, create=True) as index:
+            outcomes = index.add(args.paths)
+        added = sum(o.added for o in outcomes)
+        if args.json:
+            print(json.dumps({"db": str(args.db), "added": added, "unchanged": len(outcomes) - added,
+                              "bundles": [{"bundle": str(o.bundle), "run_id": o.run_id, "added": o.added}
+                                          for o in outcomes]}, indent=2))
+        else:
+            for o in outcomes:
+                print(f"{'added    ' if o.added else 'unchanged'} {o.run_id}")
+            print(f"index     {args.db}: {added} added, {len(outcomes) - added} already indexed")
+        return 0
+    since = parse_since(args.since) if args.since else None
+    with RunIndex(args.db) as index:
+        runs = index.runs(experiment=args.experiment, verdict=args.verdict, since=since, limit=args.limit)
+    if args.json:
+        print(json.dumps({"runs": runs}, indent=2))
+        return 0
+    for r in runs:
+        failing = sum(c["verdict"] in ("fail", "error") for c in r["contracts"])
+        print(f"{r['started_at'] or '-':<25} {r['verdict']:<12} {r['experiment']:<44} seed {r['seed']!s:<6} "
+              f"{failing} failing  {r['run_id']}")
+    print(f"{len(runs)} run(s)")
+    return 0
+
+
+def _cmd_history(args: argparse.Namespace) -> int:
+    with RunIndex(args.db) as index:
+        rows = index.history(args.contract_id, experiment=args.experiment, limit=args.limit)
+        if not rows and args.contract_id not in index.known_contracts():
+            raise ConfigError(f"no contract {args.contract_id!r} in the index", location=str(args.db))
+    if args.json:
+        print(json.dumps({"contract": args.contract_id, "results": rows}, indent=2))
+        return 0
+    for r in rows:
+        at = f"  first violation {r['first_violation_ns'] / 1e6:.3f} ms" if r["first_violation_ns"] is not None else ""
+        print(f"{r['started_at'] or '-':<25} {r['verdict']:<12} {r['experiment']:<44} seed {r['seed']!s:<6} "
+              f"{r['run_id']}{at}")
+    print(f"{len(rows)} result(s) for {args.contract_id}")
+    return 0
+
+
 def _installed_version() -> str:
     from importlib import metadata
 
@@ -710,6 +769,30 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("bundle", type=Path)
     verify.add_argument("--json", action="store_true", help="print one JSON document")
     verify.set_defaults(func=_cmd_verify)
+
+    index = sub.add_parser("index", help="record run bundles in a SQLite index and list them")
+    index_sub = index.add_subparsers(dest="index_command", required=True)
+    add = index_sub.add_parser("add", help="index bundles (or every bundle under a directory); repeats are no-ops")
+    add.add_argument("paths", type=Path, nargs="+", metavar="BUNDLE_OR_DIR")
+    add.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"index file (default: {DEFAULT_DB})")
+    add.add_argument("--json", action="store_true", help="print one JSON document")
+    add.set_defaults(func=_cmd_index)
+    runs = index_sub.add_parser("runs", help="list indexed runs, newest first")
+    runs.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"index file (default: {DEFAULT_DB})")
+    runs.add_argument("--experiment", help="only this experiment name")
+    runs.add_argument("--verdict", choices=["pass", "fail", "inconclusive", "error"], help="only this run verdict")
+    runs.add_argument("--since", metavar="DATE", help="only runs started at or after YYYY-MM-DD or an ISO date-time (UTC)")
+    runs.add_argument("--limit", type=_positive, default=None, metavar="N", help="at most N runs")
+    runs.add_argument("--json", action="store_true", help="print one JSON document")
+    runs.set_defaults(func=_cmd_index)
+
+    history = sub.add_parser("history", help="one contract's verdicts over time, from the run index")
+    history.add_argument("contract_id")
+    history.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"index file (default: {DEFAULT_DB})")
+    history.add_argument("--experiment", help="only this experiment name")
+    history.add_argument("--limit", type=_positive, default=None, metavar="N", help="at most N results")
+    history.add_argument("--json", action="store_true", help="print one JSON document")
+    history.set_defaults(func=_cmd_history)
     return parser
 
 
