@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Add a SQLite run index (Phase 11): `crosslayer index add PATH...` records runs, contract results with first-violation time, fault labels, ground truth, timings, and top hypotheses; `crosslayer index runs` lists them and `crosslayer history CONTRACT_ID` shows one contract's verdicts over time.
 - Add guided follow-up experiments (Phase 8): `SystemAdapter.diagnostic_actions` declares experiment variants with a `clears` or `observes` outcome model, and `crosslayer diagnose` runs them by expected information gain, updating the suspects by Bayes' rule, and writes the trail to `<bundle>.diagnosis/`. Over 76 failing labeled runs, top-1 goes from 69 to 73 with 46 follow-up runs (65 to run every action).
 - Add reference components to the sensor-pipeline simulator (`reference_components`, `sim.py --reference`) and the actions that swap each one in.
 - Add `nop_spacing` to the RV32I adapter (`asm.assemble(spacing=N)`) and the `space_instructions` and `observe_operands` actions.

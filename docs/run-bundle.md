@@ -40,4 +40,6 @@ Every run writes `<output>/<run_id>/`, where
   `--json` prints `intact` and `problems`. Exit 0 if intact, 1 if any problem, 4 if the
   bundle or its manifest cannot be read.
 
+Across many bundles: [`crosslayer index`](run-index.md) records them in SQLite.
+
 Planned: `dependency_graph.json` and `diagnosis.json` (Phase 7).
