@@ -147,7 +147,7 @@ with a one-line reason and take the next one.
 - [x] **Direct tests for `core/adapters/conformance.py`.** Coverage is 84%
   (`pytest --cov=crosslayer`, Icarus not installed); the failure branches of
   `check_adapter_conformance` (lines 40-125) have no test that feeds it a broken adapter.
-- [ ] **`crosslayer run --set key=value`.** Override experiment `parameters`
+- [x] **`crosslayer run --set key=value`.** Override experiment `parameters`
   from the command line (repeatable; values parsed as YAML scalars, dotted keys
   for nesting). The override is recorded in the bundle's `configuration.yaml`
   and config hash, so `replay` reproduces it. Unknown keys still fail plan.

@@ -365,3 +365,64 @@ def test_verify_names_added_file(tmp_path, capsys):
     assert code == 1 and problems == ["unexpected: extra.txt"]
     assert main(["verify", str(bundle)]) == 1
     assert "unexpected: extra.txt" in capsys.readouterr().out
+
+
+# -- run --set ----------------------------------------------------------------
+
+def _packets(bundle_root: Path) -> int:
+    import yaml
+    (bundle,) = [p for p in bundle_root.iterdir() if p.is_dir()]
+    return int(yaml.safe_load((bundle / "configuration.yaml").read_text())["parameters"]["packets"])
+
+
+def test_run_set_overrides_parameter_and_replays(tmp_path, capsys):
+    out = tmp_path / "runs"
+    assert main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(out), "--quiet", "--set", "packets=120"]) == 0
+    assert _packets(out) == 120
+    (bundle,) = [p for p in out.iterdir() if p.is_dir()]
+    base_out = tmp_path / "base"
+    assert main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(base_out), "--quiet"]) == 0
+    hashes = {json.loads((b / "manifest.json").read_text())["config_hash"]
+              for root in (out, base_out) for b in root.iterdir()}
+    assert len(hashes) == 2  # the override changes the config hash
+    capsys.readouterr()
+    assert main(["replay", str(bundle), "--out", str(tmp_path / "re")]) == 0
+    assert "config hash        match" in capsys.readouterr().out
+
+
+def test_run_set_dry_run_lists_overrides_and_writes_nothing(tmp_path, capsys):
+    assert main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "runs"),
+                 "--dry-run", "--set", "packets=50", "--set", "buffer_capacity=4"]) == 0
+    assert "overrides  packets=50, buffer_capacity=4" in capsys.readouterr().out
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize("override, message", [
+    ("nope=1", "unknown parameters ['nope']"),
+    ("packets=-3", "parameters.packets"),
+    ("packets", "expected key=value"),
+    ("=5", "expected key=value"),
+    ("a..b=1", "empty segment"),
+    ("packets.x=1", "is int, not a mapping"),
+    ("packets=[1", "not valid YAML"),
+])
+def test_run_set_errors_exit_4(tmp_path, capsys, override, message):
+    code = main(["run", str(EXPERIMENTS / "baseline.yaml"), "--out", str(tmp_path / "runs"),
+                 "--dry-run", "--set", override])
+    assert code == 4
+    assert message in capsys.readouterr().err
+    assert not (tmp_path / "runs").exists()
+
+
+def test_run_set_duplicate_key_rejected(tmp_path, capsys):
+    assert main(["run", str(EXPERIMENTS / "baseline.yaml"), "--dry-run",
+                 "--set", "packets=1", "--set", "packets=2"]) == 4
+    assert "set more than once" in capsys.readouterr().err
+
+
+def test_with_parameters_nested_does_not_mutate_original():
+    from crosslayer.core.orchestrator.experiment import load_experiment, parse_overrides
+    exp = load_experiment(EXPERIMENTS / "baseline.yaml")
+    new = exp.with_parameters(parse_overrides(["x.y.z=[1, 2]", "flag=true"]))
+    assert new.parameters["x"] == {"y": {"z": [1, 2]}} and new.parameters["flag"] is True
+    assert "x" not in exp.parameters
