@@ -174,6 +174,25 @@ def test_suite_runs_in_parallel_with_auto_jobs(tmp_path, capsys):
     assert "result    PASSED" in capsys.readouterr().out
 
 
+def test_suite_only_runs_a_subset_and_reports_the_rest(tmp_path, capsys):
+    suite = str(EXPERIMENTS / "suite.yaml")
+    assert main(["suite", suite, "--out", str(tmp_path), "--only", "reorder", "--only", "silent_drop,reorder"]) == 0
+    out = capsys.readouterr().out
+    assert "MET      baseline" in out and "MET      reorder" in out
+    assert out.count("SKIPPED") == 3 and "not selected" in out and "result    PASSED" in out
+
+
+def test_suite_only_unknown_id_is_a_config_error(tmp_path, capsys):
+    assert main(["suite", str(EXPERIMENTS / "suite.yaml"), "--out", str(tmp_path), "--only", "nope"]) == 4
+    assert "unknown experiment 'nope' in only" in capsys.readouterr().err
+
+
+def test_suite_only_rejects_an_empty_name(capsys):
+    with pytest.raises(SystemExit) as info:
+        main(["suite", str(EXPERIMENTS / "suite.yaml"), "--only", "baseline,"])
+    assert info.value.code == 2
+
+
 def test_diff_contracts_command(tmp_path, capsys):
     old = Path(__file__).resolve().parents[1] / "crosslayer" / "integrations" / "sensor_pipeline" / "contracts.yaml"
     text = old.read_text(encoding="utf-8")

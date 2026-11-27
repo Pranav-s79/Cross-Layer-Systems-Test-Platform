@@ -296,3 +296,88 @@ def test_reference_suite_runs_in_worker_processes(tmp_path):
     outcome = SuiteRunner(tmp_path / "out", jobs=2).run(suite)
     assert outcome.passed
     assert all(r.bundle_dir and (r.bundle_dir / "manifest.json").is_file() for r in outcome.results)
+
+
+# -- --only -------------------------------------------------------------------------
+
+
+def _only_suite(tmp_path: Path) -> Path:
+    return _suite(tmp_path, [
+        {"id": "base", "path": _experiment(tmp_path, "base")},
+        {"id": "fault", "path": _experiment(tmp_path, "fault", ["lose_ack"]), "expect": "fail",
+         "depends_on": ["base"]},
+        {"id": "other", "path": _experiment(tmp_path, "other")},
+        {"id": "sweep", "path": _experiment(tmp_path, "sweep"), "seeds": [1, 2], "depends_on": ["base"]},
+    ])
+
+
+def test_only_runs_the_selection_and_its_dependencies(tmp_path):
+    suite = load_suite(_only_suite(tmp_path))
+    outcome = _runner(tmp_path).run(suite, only=["fault"])
+    assert [(r.entry.id, r.status, r.skip_reason) for r in outcome.results] == [
+        ("base", "met", None), ("fault", "met", None), ("other", "skipped", "not selected"),
+        ("sweep@1", "skipped", "not selected"), ("sweep@2", "skipped", "not selected")]
+    assert outcome.passed  # unselected experiments do not fail the suite
+    assert len(list((outcome.suite_dir / "runs").iterdir())) == 2
+    summary = json.loads((outcome.suite_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["only"] == ["fault"]
+    assert summary["counts"] == {"met": 2, "unmet": 0, "blocked": 0, "skipped": 3}
+    assert "skipped (not selected)" in (outcome.suite_dir / "report.md").read_text(encoding="utf-8")
+    message = ET.parse(outcome.suite_dir / "junit.xml").getroot().find(".//skipped").get("message")
+    assert message == "skipped: not selected"
+
+
+def test_only_accepts_a_sweep_id_or_one_seed(tmp_path):
+    suite = load_suite(_only_suite(tmp_path))
+    whole = _runner(tmp_path).run(suite, only=["sweep"])
+    assert [r.status for r in whole.results if r.entry.id.startswith("sweep")] == ["met", "met"]
+    one = _runner(tmp_path).run(suite, only=["sweep@2"])
+    assert {r.entry.id: r.status for r in one.results} == {
+        "base": "met", "fault": "skipped", "other": "skipped", "sweep@1": "skipped", "sweep@2": "met"}
+
+
+def test_without_only_nothing_is_deselected(tmp_path):
+    outcome = _runner(tmp_path).run(load_suite(_only_suite(tmp_path)))
+    assert all(r.skip_reason is None for r in outcome.results)
+    summary = json.loads((outcome.suite_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["only"] is None
+
+
+def test_unmet_selected_experiment_still_fails_the_suite(tmp_path):
+    suite = load_suite(_suite(tmp_path, [
+        {"id": "wrong", "path": _experiment(tmp_path, "wrong", ["lose_ack"])},
+        {"id": "fine", "path": _experiment(tmp_path, "fine")},
+    ]))
+    outcome = _runner(tmp_path).run(suite, only=["wrong"])
+    assert not outcome.passed
+    assert [r.status for r in outcome.results] == ["unmet", "skipped"]
+
+
+@pytest.mark.parametrize("only, match", [
+    (["nope"], r"unknown experiment 'nope' in only \(valid: base, fault, other, sweep, sweep@1, sweep@2\)"),
+    (["sweep@9"], "unknown experiment 'sweep@9'"),
+    ([], "'only' must name at least one experiment"),
+])
+def test_only_rejects_unknown_names_before_running(tmp_path, only, match):
+    runner = _runner(tmp_path)
+    with pytest.raises(ConfigError, match=match):
+        runner.run(load_suite(_only_suite(tmp_path)), only=only)
+    assert not (tmp_path / "out").exists() or not list((tmp_path / "out").iterdir())
+
+
+def test_only_does_not_plan_unselected_experiments(tmp_path):
+    entries = [{"id": "good", "path": _experiment(tmp_path, "good")},
+               {"id": "broken", "path": _experiment(tmp_path, "broken", ["no_such_fault"])}]
+    suite = load_suite(_suite(tmp_path, entries))
+    with pytest.raises(ConfigError, match="experiment 'broken'"):
+        _runner(tmp_path).run(suite)
+    outcome = _runner(tmp_path).run(suite, only=["good"])
+    assert [r.status for r in outcome.results] == ["met", "skipped"]
+
+
+def test_parallel_only_matches_sequential(tmp_path):
+    suite = load_suite(_only_suite(tmp_path))
+    sequential = _parallel(tmp_path, 1).run(suite, only=["sweep@1"])
+    parallel = _parallel(tmp_path, 3).run(suite, only=["sweep@1"])
+    assert _statuses(parallel) == _statuses(sequential)
+    assert [r.skip_reason for r in parallel.results] == [r.skip_reason for r in sequential.results]

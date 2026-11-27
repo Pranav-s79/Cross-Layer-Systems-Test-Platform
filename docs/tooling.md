@@ -135,6 +135,12 @@ crosslayer suite experiments/reference/suite.yaml --out runs
   going finish.
 * `--fail-fast` stops after the first experiment that misses its expectation.
   The rest are marked `skipped` (not run) in the summary, report and JUnit.
+* `--only ID[,ID...]` (repeatable) runs the named experiments and everything
+  they depend on, transitively. A sweep's id selects every seed; `id@3` one
+  seed. The rest are `skipped` (reason `not selected`) and do not fail the
+  suite; an unknown id is a configuration error (exit 4) listing the valid
+  ones. Only the selected experiments are validated before the run;
+  `summary.json` records `only`, and each entry a `skip_reason`.
 * Output: `runs/suite-<name>-<time>/` with `summary.json`, `report.md`,
   `junit.xml`, and each run's bundle. Exit 0 only if every experiment met its
   expectation.

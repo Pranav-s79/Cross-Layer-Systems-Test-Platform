@@ -1,7 +1,7 @@
 """Command-line entry point.
 
     crosslayer run EXPERIMENT [--out DIR] [--seed N]
-    crosslayer suite SUITE [--out DIR] [--fail-fast] [-j N] experiments in dependency order, with expected verdicts
+    crosslayer suite SUITE [--out DIR] [--fail-fast] [--only ID[,ID...]] [-j N] experiments in dependency order, with expected verdicts
     crosslayer replay BUNDLE [--out DIR] [--json]   re-run a bundle's configuration and compare hashes
     crosslayer show BUNDLE [--limit N] [--json]   summarize an existing bundle without re-running it
     crosslayer localize BUNDLE|DIR... [--score] [--min-top1 R] [--min-top3 R] [--json]
@@ -533,6 +533,13 @@ def _jobs(text: str) -> int:
     return jobs
 
 
+def _id_list(text: str) -> list[str]:
+    names = [part.strip() for part in text.split(",")]
+    if not all(names):
+        raise argparse.ArgumentTypeError(f"expected comma-separated experiment ids, got {text!r}")
+    return names
+
+
 def _cmd_suite(args: argparse.Namespace) -> int:
     suite = load_suite(args.suite)
     print(f"suite     {suite.name} ({len(suite.entries)} experiments)")
@@ -541,10 +548,12 @@ def _cmd_suite(args: argparse.Namespace) -> int:
         verdict = r.verdict.upper() if r.verdict else "-"
         detail = f"blocked by {', '.join(r.blocked_by)}" if r.blocked_by else (r.run_id or "")
         if r.status == "skipped":
-            detail = "fail-fast"
+            detail = r.skip_reason or ""
         print(f"  {r.status.upper():<8} {r.entry.id:<24} expect {r.entry.expect.upper():<12} got {verdict:<12} {detail}")
 
-    outcome = SuiteRunner(args.out, jobs=args.jobs).run(suite, on_result=show, fail_fast=args.fail_fast)
+    outcome = SuiteRunner(args.out, jobs=args.jobs).run(
+        suite, on_result=show, fail_fast=args.fail_fast,
+        only=[n for group in args.only for n in group] if args.only else None)
     print(f"result    {'PASSED' if outcome.passed else 'FAILED'}")
     print(f"output    {outcome.suite_dir}")
     return 0 if outcome.passed else 1
@@ -709,6 +718,9 @@ def build_parser() -> argparse.ArgumentParser:
     suite_p.add_argument("--out", type=Path, default=Path("runs"), help="output directory (default: runs/)")
     suite_p.add_argument("--fail-fast", action="store_true",
                          help="stop after the first experiment that misses its expectation; skip the rest")
+    suite_p.add_argument("--only", action="append", type=_id_list, metavar="ID[,ID...]",
+                         help="run only these experiments and what they depend on (repeatable); a sweep id "
+                              "selects every seed, 'id@3' one seed; the rest are reported as skipped")
     suite_p.add_argument("-j", "--jobs", type=_jobs, default=1, metavar="N",
                          help="run up to N experiments at once once their dependencies are done; "
                               "'auto' uses every CPU (default: 1)")
