@@ -201,6 +201,20 @@ parameters, faults, contracts) and prints the adapter, mode, faults, and
 contract ids without executing anything or writing a bundle. It exits 0, or 4
 on a configuration error.
 
+## Parameter overrides
+
+`crosslayer run EXPERIMENT --set KEY=VALUE` overrides an entry of `parameters`
+(repeatable). Values are parsed as YAML (`packets=800`, `flag=true`,
+`list=[a, b]`); dotted keys reach nested mappings (`cpu.depth=4`). The adapter
+validates the result, so an unknown key or bad value fails before anything runs
+(exit 4). The override is part of the bundle's `configuration.yaml` and config
+hash, so `crosslayer replay` reproduces it. It combines with `--seed` and
+`--dry-run`.
+
+```
+crosslayer run experiments/reference/baseline.yaml --set packets=800 --dry-run
+```
+
 ## Contract versioning
 
 Bump `version` when **what the contract checks** changes: `rule`, `source`,

@@ -19,10 +19,13 @@ Example::
 
 from __future__ import annotations
 
+import copy
 import hashlib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+import yaml
 
 from crosslayer.core.adapters.base import FaultRequest
 from crosslayer.core.contracts.loader import (
@@ -75,6 +78,21 @@ class ExperimentConfig:
         if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
             raise ConfigError(f"seed must be a non-negative integer, got {seed!r}")
         return replace(self, seed=seed)
+
+    def with_parameters(self, overrides: Mapping[str, Any]) -> "ExperimentConfig":
+        """Merge ``overrides`` into ``parameters``; dotted keys address nested mappings."""
+        merged: dict[str, Any] = copy.deepcopy(dict(self.parameters))
+        for dotted, value in overrides.items():
+            parts = dotted.split(".")
+            node = merged
+            for i, part in enumerate(parts[:-1]):
+                child = node.setdefault(part, {})
+                if not isinstance(child, dict):
+                    raise ConfigError(f"cannot set {dotted!r}: parameters.{'.'.join(parts[:i + 1])} "
+                                      f"is {type(child).__name__}, not a mapping", location="--set")
+                node = child
+            node[parts[-1]] = value
+        return replace(self, parameters=merged)
 
     def load_contracts(self) -> list[BoundaryContract]:
         contracts: list[BoundaryContract] = []
@@ -253,6 +271,26 @@ def _parse_ground_truth(raw: Any, where: str) -> dict[str, str] | None:
         if (value is not None or key == "subsystem") and (not isinstance(value, str) or not value.strip()):
             raise ConfigError("must be a non-empty string", location=f"{where}.{key}")
     return {k: raw[k].strip() for k in ("subsystem", "interface", "note") if raw.get(k) is not None}
+
+
+def parse_overrides(items: Sequence[str]) -> dict[str, Any]:
+    """Parse ``key=value`` pairs from ``--set``; values are YAML scalars or flow collections."""
+    out: dict[str, Any] = {}
+    for item in items:
+        key, sep, raw = item.partition("=")
+        key = key.strip()
+        if not sep or not key:
+            raise ConfigError(f"expected key=value, got {item!r}", location="--set")
+        if any(not part for part in key.split(".")):
+            raise ConfigError(f"empty segment in key {key!r}", location="--set")
+        if key in out:
+            raise ConfigError(f"{key!r} is set more than once", location="--set")
+        try:
+            value = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            raise ConfigError(f"value for {key!r} is not valid YAML: {raw!r}", location="--set") from exc
+        out[key] = value
+    return out
 
 
 def load_experiment(path: Path) -> ExperimentConfig:

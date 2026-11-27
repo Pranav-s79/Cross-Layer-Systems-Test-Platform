@@ -45,7 +45,7 @@ from crosslayer.core.contracts.versioning import diff_contracts, render_changelo
 from crosslayer.core.orchestrator.lint import lint_contract_file, lint_experiment
 from crosslayer.core.errors import ConfigError
 from crosslayer.core.orchestrator.compare import compare_bundles, render_comparison
-from crosslayer.core.orchestrator.experiment import load_experiment
+from crosslayer.core.orchestrator.experiment import load_experiment, parse_overrides
 from crosslayer.core.orchestrator.runner import ExperimentRunner
 from crosslayer.core.orchestrator.suite import SuiteEntryResult, SuiteRunner, load_suite
 from crosslayer.core.diagnosis.scoring import score_paths, summarize
@@ -59,6 +59,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     experiment = load_experiment(args.experiment)
     if args.seed is not None:
         experiment = experiment.with_seed(args.seed)
+    if args.set:
+        experiment = experiment.with_parameters(parse_overrides(args.set))
     runner = ExperimentRunner(args.out)
     if args.dry_run:
         plan = runner.plan(experiment)
@@ -67,6 +69,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"mode       {plan.mode}")
         faults = ", ".join(f["name"] for f in plan.fault_labels) or "none"
         print(f"faults     {faults}")
+        if args.set:
+            print("overrides  " + ", ".join(args.set))
         print(f"contracts  {len(plan.contracts)}")
         for contract in plan.contracts:
             print(f"  {contract.id}")
@@ -667,6 +671,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("experiment", type=Path)
     run.add_argument("--out", type=Path, default=Path("runs"), help="directory for run bundles (default: runs/)")
     run.add_argument("--seed", type=int, help="override the experiment seed")
+    run.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                     help="override an experiment parameter (repeatable; YAML value, dotted keys for nesting)")
     run.add_argument("--dry-run", action="store_true", help="validate and print the plan without running")
     run.add_argument("--quiet", action="store_true", help="do not list per-contract results")
     run.set_defaults(func=_cmd_run)
