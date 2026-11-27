@@ -33,6 +33,7 @@ CI runs all of them on every push: ruff and mypy in the lint job, a coverage rep
 | Processes | `test_process.py` | Timeouts kill the whole process tree |
 | Environment | `test_environment.py` | Captured version, Python and platform fields; git revision and dirty flag, only at the repository root |
 | Runner and bundles | `test_runner.py` | Complete bundles, tamper detection, exact replay, config errors leave no bundle |
+| Flaky contracts | `test_flaky.py` | Disagreeing repeats, counts and flips, config-hash and per-seed grouping, `--min-runs`, `--fail-on-flaky` |
 | Regressions | `test_regressions.py` | Flips, newly failing contracts, timing and first-violation shifts against tolerances, first-appearance links, per-seed series, CLI exit codes |
 | Run index | `test_run_index.py` | Rows match the bundles; re-adding is a no-op; filters and ordering; a bad bundle adds nothing; foreign or newer databases are refused |
 | Tooling | `test_contract_testing.py`, `test_lint.py`, `test_schemas.py`, `test_suite.py`, `test_versioning.py` | Each Phase 2 tool; schemas never stricter than the loaders |

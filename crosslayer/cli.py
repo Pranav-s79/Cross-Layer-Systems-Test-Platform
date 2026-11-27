@@ -23,6 +23,8 @@
                                       one contract's verdicts over time, from the index
     crosslayer regressions [--db FILE] [--experiment N] [--timing-tolerance R] [--min-seconds S]
                            [--violation-tolerance R] [--json]   latest run vs earlier runs, per experiment and seed
+    crosslayer flaky [--db FILE] [--experiment N] [--min-runs N] [--fail-on-flaky] [--json]
+                                      contracts whose verdict differs between runs of one configuration
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
 """
@@ -51,7 +53,18 @@ from crosslayer.core.orchestrator.experiment import load_experiment, parse_overr
 from crosslayer.core.orchestrator.runner import ExperimentRunner
 from crosslayer.core.orchestrator.suite import SuiteEntryResult, SuiteRunner, load_suite
 from crosslayer.core.diagnosis.scoring import score_paths, summarize
-from crosslayer.core.results import DEFAULT_DB, RunIndex, Tolerances, analyze, has_regression, parse_since, render
+from crosslayer.core.results import (
+    DEFAULT_DB,
+    RunIndex,
+    Tolerances,
+    analyze,
+    find_flaky,
+    has_regression,
+    parse_since,
+    render,
+    render_flaky,
+    repeated_series,
+)
 from crosslayer.core.schemas import SCHEMAS
 from crosslayer.scaffold import create_adapter_project
 from crosslayer.core.verdict import EXIT_CODES, EXIT_CONFIG_ERROR
@@ -689,6 +702,22 @@ def _cmd_regressions(args: argparse.Namespace) -> int:
     return 1 if regressed else 0
 
 
+def _cmd_flaky(args: argparse.Namespace) -> int:
+    with RunIndex(args.db) as index:
+        runs = index.runs(experiment=args.experiment)
+    if not runs:
+        raise ConfigError("no runs in the index" + (f" for experiment {args.experiment!r}" if args.experiment else ""),
+                          location=str(args.db))
+    findings = find_flaky(runs, min_runs=args.min_runs)
+    checked = repeated_series(runs, min_runs=args.min_runs)
+    if args.json:
+        print(json.dumps({"flaky": bool(findings), "series_checked": checked,
+                          "findings": [f.to_dict() for f in findings]}, indent=2))
+    else:
+        print(render_flaky(findings, series=checked))
+    return 1 if findings and args.fail_on_flaky else 0
+
+
 def _installed_version() -> str:
     from importlib import metadata
 
@@ -851,6 +880,16 @@ def build_parser() -> argparse.ArgumentParser:
                              help="report a first-violation time that moved by more than this fraction (default 0.1)")
     regressions.add_argument("--json", action="store_true", help="print one JSON document")
     regressions.set_defaults(func=_cmd_regressions)
+
+    flaky = sub.add_parser(
+        "flaky", help="list contracts whose verdict differs between runs of the same configuration")
+    flaky.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"index file (default: {DEFAULT_DB})")
+    flaky.add_argument("--experiment", help="only this experiment name")
+    flaky.add_argument("--min-runs", type=int, default=2, metavar="N",
+                       help="repeats a configuration needs before it is checked (default: 2)")
+    flaky.add_argument("--fail-on-flaky", action="store_true", help="exit 1 when any contract is flaky")
+    flaky.add_argument("--json", action="store_true", help="print one JSON document")
+    flaky.set_defaults(func=_cmd_flaky)
     return parser
 
 

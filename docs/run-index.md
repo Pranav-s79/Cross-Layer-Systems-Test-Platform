@@ -17,7 +17,7 @@ crosslayer history pipeline.rx_accounted --experiment sensor-pipeline-silent-dro
 | `index runs [--experiment N] [--verdict V] [--since D] [--limit N] [--json]` | Runs, newest first. `--since` takes `YYYY-MM-DD` or an ISO date-time (UTC unless it names a zone). |
 | `history CONTRACT_ID [--experiment N] [--limit N] [--json]` | That contract's verdict in each run, newest first, with the first-violation time of failures. An id the index has never seen is a config error (exit 4); a filter that matches nothing is an empty list. |
 
-`index runs`, `history`, and `regressions` never create the database; without one they exit 4.
+`index runs`, `history`, `regressions`, and `flaky` never create the database; without one they exit 4.
 
 ## Regressions
 
@@ -47,6 +47,31 @@ run. A series whose config hash differs from the previous run's is marked
 The index records no threshold attributes of contract expressions, so
 first-violation time is the attribute compared.
 
+## Flaky contracts
+
+```bash
+crosslayer flaky --db runs/index.sqlite [--experiment N] [--min-runs N] [--fail-on-flaky] [--json]
+```
+
+Runs with the same experiment, seed, and config hash are repeats of one
+configuration. A contract (or the run verdict, subject `run`) whose verdict
+differs between them is flaky. Each finding gives the verdict counts, the
+number of flips between consecutive runs, the latest verdict, and the first run
+whose verdict differed from the one before it. A seed sweep is compared per
+seed, and a changed config hash starts a new group, so a verdict that moved
+because the configuration moved is a regression question, not a flaky one.
+
+| Option | Effect |
+|---|---|
+| `--min-runs N` | Repeats a group needs before it is checked (default 2, minimum 2) |
+| `--fail-on-flaky` | Exit 1 when anything is flaky; the default exit is 0 |
+
+The report ends with how many repeated configurations were checked, so zero
+flaky is distinguishable from nothing to compare. Repeated runs of a
+deterministic experiment normally agree; a finding means a contract depends on
+something the configuration does not pin (wall-clock timing, ordering, an
+unseeded source).
+
 ## What is recorded
 
 | Table | One row per | Columns |
@@ -71,5 +96,4 @@ new file instead.
 
 The index records bundles by path and does not copy them; moving a bundle
 leaves a stale `bundle_path`. Rows are never updated or removed, so a bundle
-edited after indexing keeps its old row. Flaky contracts (same config hash,
-different verdicts) come in the next milestone step.
+edited after indexing keeps its old row.

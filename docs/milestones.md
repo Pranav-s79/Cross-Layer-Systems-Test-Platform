@@ -185,7 +185,7 @@ sweeps), and scoring and comparison walk directories to find them.
   with its previous runs: verdict flips, newly failing contracts, and stage
   timing or threshold-attribute changes beyond a stated tolerance, each
   linked to the first run where it appeared.
-- [ ] Flaky contracts: verdicts that differ between runs with the same config
+- [x] Flaky contracts: verdicts that differ between runs with the same config
   hash, reported with counts; seed sweeps are compared per seed.
 
 ### 11.3 · Dashboard · `routine` · `feature/results-dashboard`
