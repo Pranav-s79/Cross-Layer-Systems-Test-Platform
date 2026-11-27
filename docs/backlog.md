@@ -151,7 +151,7 @@ with a one-line reason and take the next one.
   from the command line (repeatable; values parsed as YAML scalars, dotted keys
   for nesting). The override is recorded in the bundle's `configuration.yaml`
   and config hash, so `replay` reproduces it. Unknown keys still fail plan.
-- [ ] **`crosslayer suite --only ID[,ID...]`.** Run a subset of a suite plus
+- [x] **`crosslayer suite --only ID[,ID...]`.** Run a subset of a suite plus
   the experiments they depend on (transitively), reporting the rest as
   `skipped`; sweep ids accept the base id (`random_programs`) or one seed
   (`random_programs@3`).

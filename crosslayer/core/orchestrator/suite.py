@@ -40,7 +40,7 @@ from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExe
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from crosslayer.core.artifacts.report import coverage_bins
 from crosslayer.core.contracts.loader import read_document
@@ -54,6 +54,8 @@ _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _DOC_KEYS = {"schema_version", "name", "description", "experiments"}
 _ENTRY_KEYS = {"id", "path", "expect", "depends_on", "seeds"}
 MAX_SEEDS = 1000
+FAIL_FAST = "fail-fast"
+NOT_SELECTED = "not selected"
 
 
 @dataclass(frozen=True)
@@ -78,13 +80,15 @@ class Suite:
 class SuiteEntryResult:
     entry: SuiteEntry
     status: str
-    """``met``, ``unmet``, ``blocked``, or ``skipped`` (after a ``fail_fast`` stop)."""
+    """``met``, ``unmet``, ``blocked``, or ``skipped`` (``skip_reason`` says why)."""
     verdict: Verdict | None = None
     run_id: str | None = None
     bundle_dir: Path | None = None
     blocked_by: list[str] = field(default_factory=list)
     coverage: dict[str, dict[str, int]] | None = None
     """Coverage bins from the run's normalization stats, if it reported any."""
+    skip_reason: str | None = None
+    """``fail-fast`` (after a stop) or ``not selected`` (outside ``only``)."""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +103,7 @@ class SuiteEntryResult:
             "bundle": self.bundle_dir.name if self.bundle_dir else None,
             "depends_on": list(self.entry.depends_on),
             "blocked_by": self.blocked_by,
+            "skip_reason": self.skip_reason,
         }
 
 
@@ -107,10 +112,13 @@ class SuiteResult:
     suite: Suite
     suite_dir: Path
     results: list[SuiteEntryResult]
+    only: tuple[str, ...] | None = None
+    """The ``only`` selection this run used, as given."""
 
     @property
     def passed(self) -> bool:
-        return all(r.status == "met" for r in self.results)
+        """Every selected experiment met its expectation (unselected ones do not count)."""
+        return all(r.status == "met" or r.skip_reason == NOT_SELECTED for r in self.results)
 
 
 # -- loading -----------------------------------------------------------------------
@@ -283,6 +291,33 @@ def _expand_sweeps(
     return entries
 
 
+def select_entries(suite: Suite, only: Iterable[str]) -> set[str]:
+    """Ids of the entries ``only`` names plus everything they depend on, transitively.
+
+    A name is an entry id, a sweep's declared id (all of its seeds), or one
+    seed as ``<id>@<seed>``. Unknown names are a ``ConfigError`` that lists
+    the valid ones.
+    """
+    by_id = {e.id: e for e in suite.entries}
+    names = list(only)
+    if not names:
+        raise ConfigError("'only' must name at least one experiment")
+    chosen: set[str] = set()
+    for name in names:
+        matched = [e.id for e in suite.entries if e.id == name or e.sweep == name]
+        if not matched:
+            valid = sorted({e.sweep or e.id for e in suite.entries} | set(by_id))
+            raise ConfigError(f"unknown experiment '{name}' in only (valid: {', '.join(valid)})")
+        chosen.update(matched)
+    stack = list(chosen)
+    while stack:
+        for dep in by_id[stack.pop()].depends_on:
+            if dep not in chosen:
+                chosen.add(dep)
+                stack.append(dep)
+    return chosen
+
+
 def sweep_summaries(results: list[SuiteEntryResult]) -> list[dict[str, Any]]:
     """Per sweep: seed counts by status, and coverage bins summed over the seeds that ran."""
     sweeps: dict[str, list[SuiteEntryResult]] = {}
@@ -368,11 +403,18 @@ class SuiteRunner:
         *,
         on_result: Callable[[SuiteEntryResult], None] | None = None,
         fail_fast: bool = False,
+        only: Iterable[str] | None = None,
     ) -> SuiteResult:
-        # Validate every experiment (adapter, faults, contracts) before running
-        # any of them, so a mistake in the last entry cannot leave a half-run suite.
+        """``only`` runs the named experiments and what they depend on (see
+        ``select_entries``); the rest are reported as skipped."""
+        only_names = tuple(only) if only is not None else None
+        selected = select_entries(suite, only_names) if only_names is not None else None
+        # Validate every experiment that will run (adapter, faults, contracts) before
+        # running any of them, so a mistake in the last entry cannot leave a half-run suite.
         planner = self._runner_factory(self.output_root)
         for entry in suite.entries:
+            if selected is not None and entry.id not in selected:
+                continue
             try:
                 planner.plan(entry.experiment)
             except ConfigError as exc:
@@ -381,18 +423,22 @@ class SuiteRunner:
         suite_dir = self._suite_dir(suite)
         order = execution_order(suite.entries)
         if self.jobs == 1:
-            results = self._run_sequential(order, suite_dir / "runs", on_result, fail_fast)
+            results = self._run_sequential(order, suite_dir / "runs", on_result, fail_fast, selected)
         else:
-            results = self._run_parallel(order, suite_dir / "runs", on_result, fail_fast)
-        outcome = SuiteResult(suite, suite_dir, results)
+            results = self._run_parallel(order, suite_dir / "runs", on_result, fail_fast, selected)
+        outcome = SuiteResult(suite, suite_dir, results, only_names)
         _write_outputs(outcome)
         return outcome
 
     @staticmethod
-    def _resolve(entry: SuiteEntry, status: Mapping[str, str], stopped: bool) -> SuiteEntryResult | None:
+    def _resolve(
+        entry: SuiteEntry, status: Mapping[str, str], stopped: bool, selected: set[str] | None,
+    ) -> SuiteEntryResult | None:
         """The result of an entry that will not run, or None if it should run."""
+        if selected is not None and entry.id not in selected:
+            return SuiteEntryResult(entry, "skipped", skip_reason=NOT_SELECTED)
         if stopped:
-            return SuiteEntryResult(entry, "skipped")
+            return SuiteEntryResult(entry, "skipped", skip_reason=FAIL_FAST)
         blockers = [d for d in entry.depends_on if status.get(d) != "met"]
         return SuiteEntryResult(entry, "blocked", blocked_by=blockers) if blockers else None
 
@@ -404,13 +450,14 @@ class SuiteRunner:
     def _run_sequential(
         self, order: list[SuiteEntry], runs_dir: Path,
         on_result: Callable[[SuiteEntryResult], None] | None, fail_fast: bool,
+        selected: set[str] | None,
     ) -> list[SuiteEntryResult]:
         runner = self._runner_factory(runs_dir)
         status: dict[str, str] = {}
         results: list[SuiteEntryResult] = []
         stopped = False
         for entry in order:
-            result = self._resolve(entry, status, stopped)
+            result = self._resolve(entry, status, stopped, selected)
             if result is None:
                 run = runner.run(entry.experiment)
                 result = self._finished(entry, run.verdict, run.run_id, run.bundle_dir)
@@ -424,6 +471,7 @@ class SuiteRunner:
     def _run_parallel(
         self, order: list[SuiteEntry], runs_dir: Path,
         on_result: Callable[[SuiteEntryResult], None] | None, fail_fast: bool,
+        selected: set[str] | None,
     ) -> list[SuiteEntryResult]:
         """Start each entry once every dependency has finished; report in ``order``."""
         status: dict[str, str] = {}
@@ -461,7 +509,7 @@ class SuiteRunner:
                     if not stopped and len(running) >= self.jobs:
                         break
                     pending.remove(entry)
-                    result = self._resolve(entry, status, stopped)
+                    result = self._resolve(entry, status, stopped, selected)
                     if result is not None:
                         record(result)
                     else:
@@ -482,6 +530,7 @@ def _write_outputs(outcome: SuiteResult) -> None:
         "suite": outcome.suite.name,
         "source": str(outcome.suite.source_path) if outcome.suite.source_path else None,
         "passed": outcome.passed,
+        "only": list(outcome.only) if outcome.only is not None else None,
         "counts": {s: sum(r.status == s for r in outcome.results) for s in ("met", "unmet", "blocked", "skipped")},
         "experiments": [r.to_dict() for r in outcome.results],
         "sweeps": sweeps,
@@ -492,7 +541,7 @@ def _write_outputs(outcome: SuiteResult) -> None:
              "| Experiment | Expected | Verdict | Status | Bundle |", "|---|---|---|---|---|"]
     for r in outcome.results:
         bundle = (f"`runs/{r.bundle_dir.name}`" if r.bundle_dir
-                  else "skipped (fail-fast)" if r.status == "skipped"
+                  else f"skipped ({r.skip_reason})" if r.status == "skipped"
                   else f"blocked by {', '.join(r.blocked_by)}")
         verdict = r.verdict.upper() if r.verdict else "—"
         lines.append(f"| `{r.entry.id}` | {r.entry.expect.upper()} | {verdict} | {r.status} | {bundle} |")
@@ -515,7 +564,8 @@ def _write_outputs(outcome: SuiteResult) -> None:
             ET.SubElement(case, "failure", message=f"expected {r.entry.expect.upper()}, got {r.verdict.upper() if r.verdict else 'none'}")
         elif r.status in ("blocked", "skipped"):
             skipped += 1
-            message = "skipped after fail-fast stop" if r.status == "skipped" else f"blocked by {', '.join(r.blocked_by)}"
+            message = (f"skipped: {r.skip_reason}" if r.status == "skipped"
+                       else f"blocked by {', '.join(r.blocked_by)}")
             ET.SubElement(case, "skipped", message=message)
     suite.set("failures", str(failures))
     suite.set("skipped", str(skipped))
