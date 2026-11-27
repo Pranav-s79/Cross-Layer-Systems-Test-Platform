@@ -17,7 +17,35 @@ crosslayer history pipeline.rx_accounted --experiment sensor-pipeline-silent-dro
 | `index runs [--experiment N] [--verdict V] [--since D] [--limit N] [--json]` | Runs, newest first. `--since` takes `YYYY-MM-DD` or an ISO date-time (UTC unless it names a zone). |
 | `history CONTRACT_ID [--experiment N] [--limit N] [--json]` | That contract's verdict in each run, newest first, with the first-violation time of failures. An id the index has never seen is a config error (exit 4); a filter that matches nothing is an empty list. |
 
-`index runs` and `history` never create the database; without one they exit 4.
+`index runs`, `history`, and `regressions` never create the database; without one they exit 4.
+
+## Regressions
+
+```bash
+crosslayer regressions --db runs/index.sqlite [--experiment N] [--json]
+```
+
+Runs of one experiment and seed form a series ordered by start time (a seed
+sweep is compared per seed). For each series the latest run is compared with the
+earlier ones; with one run there is nothing to compare. Every finding names the
+first run where it appeared: the oldest run of the unbroken streak that ends at
+the latest run. The baseline is the run just before that streak, so a failure
+that has lasted five runs is still reported until a run passes.
+
+| Finding | Reported when | Class |
+|---|---|---|
+| `verdict` | the run verdict differs from the last different one | regression if it became `fail` or `error` from something else |
+| `contract` | a contract's verdict differs likewise, or a contract new to the series is `fail`/`error` | same rule |
+| `first_violation` | a contract fails in the latest and previous run and its first-violation time moved by more than `--violation-tolerance` (default 0.1, relative) | change |
+| `timing` | a stage took more than `--timing-tolerance` (default 0.5) over the median of earlier runs **and** at least `--min-seconds` (default 0.05) more | change |
+
+Exit code 1 only when a regression exists; changes (recoveries, moves between
+`fail` and `error`, timing, first-violation shifts) are listed but exit 0.
+Timings are wall-clock seconds and vary between machines, so they never fail a
+run. A series whose config hash differs from the previous run's is marked
+`[config changed]`: a difference may come from the configuration, not the code.
+The index records no threshold attributes of contract expressions, so
+first-violation time is the attribute compared.
 
 ## What is recorded
 
@@ -43,5 +71,5 @@ new file instead.
 
 The index records bundles by path and does not copy them; moving a bundle
 leaves a stale `bundle_path`. Rows are never updated or removed, so a bundle
-edited after indexing keeps its old row. Regression detection and flaky
-contracts come in the next milestone steps.
+edited after indexing keeps its old row. Flaky contracts (same config hash,
+different verdicts) come in the next milestone step.

@@ -6,6 +6,7 @@ All notable changes are recorded here, in the
 ## [Unreleased]
 
 - Add `crosslayer run --set KEY=VALUE` to override experiment parameters from the command line; the override is recorded in the bundle's configuration and config hash, so `replay` reproduces it.
+- Add `crosslayer regressions`: compares each experiment and seed's latest run with its earlier runs (verdict flips, newly failing contracts, stage timing and first-violation shifts beyond a tolerance), links each finding to the first run where it appeared, and exits 1 on a regression.
 - Add a SQLite run index (Phase 11): `crosslayer index add PATH...` records runs, contract results with first-violation time, fault labels, ground truth, timings, and top hypotheses; `crosslayer index runs` lists them and `crosslayer history CONTRACT_ID` shows one contract's verdicts over time.
 - Add guided follow-up experiments (Phase 8): `SystemAdapter.diagnostic_actions` declares experiment variants with a `clears` or `observes` outcome model, and `crosslayer diagnose` runs them by expected information gain, updating the suspects by Bayes' rule, and writes the trail to `<bundle>.diagnosis/`. Over 76 failing labeled runs, top-1 goes from 69 to 73 with 46 follow-up runs (65 to run every action).
 - Add reference components to the sensor-pipeline simulator (`reference_components`, `sim.py --reference`) and the actions that swap each one in.

@@ -181,7 +181,7 @@ sweeps), and scoring and comparison walk directories to find them.
   filters (experiment, verdict, since).
 
 ### 11.2 · Regressions and flaky contracts · `routine` · `feature/regressions`
-- [ ] `crosslayer regressions` compares the latest run of each experiment
+- [x] `crosslayer regressions` compares the latest run of each experiment
   with its previous runs: verdict flips, newly failing contracts, and stage
   timing or threshold-attribute changes beyond a stated tolerance, each
   linked to the first run where it appeared.

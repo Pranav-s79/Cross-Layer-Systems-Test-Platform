@@ -8,4 +8,7 @@ from crosslayer.core.results.index import (
     parse_since,
 )
 
-__all__ = ["DEFAULT_DB", "SCHEMA_VERSION", "AddOutcome", "RunIndex", "parse_since"]
+from crosslayer.core.results.regressions import Tolerances, analyze, has_regression, render
+
+__all__ = ["DEFAULT_DB", "SCHEMA_VERSION", "AddOutcome", "RunIndex", "Tolerances", "analyze", "has_regression",
+           "parse_since", "render"]
