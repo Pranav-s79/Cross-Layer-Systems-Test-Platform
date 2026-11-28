@@ -25,6 +25,8 @@
                            [--violation-tolerance R] [--json]   latest run vs earlier runs, per experiment and seed
     crosslayer flaky [--db FILE] [--experiment N] [--min-runs N] [--fail-on-flaky] [--json]
                                       contracts whose verdict differs between runs of one configuration
+    crosslayer dashboard [--db FILE] [--out FILE] [--experiment N] [--title T]
+                                      one self-contained HTML page from the index
 
 Exit codes: 0 pass, 1 fail/regression, 2 inconclusive, 3 error, 4 config/usage error.
 """
@@ -62,6 +64,7 @@ from crosslayer.core.results import (
     has_regression,
     parse_since,
     render,
+    render_dashboard,
     render_flaky,
     repeated_series,
 )
@@ -702,6 +705,22 @@ def _cmd_regressions(args: argparse.Namespace) -> int:
     return 1 if regressed else 0
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    with RunIndex(args.db) as index:
+        runs = index.runs(experiment=args.experiment)
+    if not runs:
+        raise ConfigError("no runs in the index" + (f" for experiment {args.experiment!r}" if args.experiment else ""),
+                          location=str(args.db))
+    page = render_dashboard(runs, title=args.title)
+    try:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(page, encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"cannot write the dashboard: {exc}", location=str(args.out)) from exc
+    print(f"dashboard {args.out} ({len(runs)} run(s))")
+    return 0
+
+
 def _cmd_flaky(args: argparse.Namespace) -> int:
     with RunIndex(args.db) as index:
         runs = index.runs(experiment=args.experiment)
@@ -890,6 +909,14 @@ def build_parser() -> argparse.ArgumentParser:
     flaky.add_argument("--fail-on-flaky", action="store_true", help="exit 1 when any contract is flaky")
     flaky.add_argument("--json", action="store_true", help="print one JSON document")
     flaky.set_defaults(func=_cmd_flaky)
+
+    dashboard = sub.add_parser("dashboard", help="write one self-contained HTML page from the run index")
+    dashboard.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"index file (default: {DEFAULT_DB})")
+    dashboard.add_argument("--out", type=Path, default=Path("runs") / "dashboard.html",
+                           help="output file (default: runs/dashboard.html)")
+    dashboard.add_argument("--experiment", help="only this experiment name")
+    dashboard.add_argument("--title", default="CrossLayer dashboard", help="page title")
+    dashboard.set_defaults(func=_cmd_dashboard)
     return parser
 
 

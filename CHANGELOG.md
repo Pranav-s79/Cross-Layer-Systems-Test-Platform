@@ -7,6 +7,7 @@ All notable changes are recorded here, in the
 
 - Add `crosslayer suite --only ID[,ID...]` to run a subset of a suite plus its dependencies (a sweep id selects every seed, `id@N` one seed); the rest are reported as skipped with reason `not selected`.
 - Add `crosslayer run --set KEY=VALUE` to override experiment parameters from the command line; the override is recorded in the bundle's configuration and config hash, so `replay` reproduces it.
+- Add `crosslayer dashboard`: writes one self-contained HTML page from the run index (suite health per day, failing contracts by owner, regressions, flaky contracts, localization accuracy), with no scripts or network resources.
 - Add `crosslayer flaky`: lists contracts (and run verdicts) whose verdict differs between runs with the same experiment, seed, and config hash, with verdict counts, flips, and the first differing run; `--fail-on-flaky` exits 1.
 - Add `crosslayer regressions`: compares each experiment and seed's latest run with its earlier runs (verdict flips, newly failing contracts, stage timing and first-violation shifts beyond a tolerance), links each finding to the first run where it appeared, and exits 1 on a regression.
 - Add a SQLite run index (Phase 11): `crosslayer index add PATH...` records runs, contract results with first-violation time, fault labels, ground truth, timings, and top hypotheses; `crosslayer index runs` lists them and `crosslayer history CONTRACT_ID` shows one contract's verdicts over time.
