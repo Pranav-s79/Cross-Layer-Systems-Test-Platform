@@ -130,7 +130,7 @@ step-to-step relations such as `PC + 4`. → [Contract language](docs/contract-l
 | [Log analysis](docs/log-analysis.md) | Turn text logs into events with YAML log profiles |
 | [Fault localization](docs/fault-localization.md) | Ranked hypotheses for where a failure started, and their measured accuracy |
 | [Run bundle format](docs/run-bundle.md) | What every run records |
-| [Run index](docs/run-index.md) | Query runs, a contract's history, regressions, and flaky contracts across bundles |
+| [Run index](docs/run-index.md) | Query runs, a contract's history, regressions, flaky contracts, and an HTML dashboard across bundles |
 | [Testing](docs/testing.md) | How CrossLayer is tested, and where to add tests |
 | [Extending](docs/extending.md) | Extension points and where the project is going |
 | [Contributing](CONTRIBUTING.md) | Dev setup, checks, schemas, commit style |

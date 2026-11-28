@@ -72,6 +72,31 @@ deterministic experiment normally agree; a finding means a contract depends on
 something the configuration does not pin (wall-clock timing, ordering, an
 unseeded source).
 
+## Dashboard
+
+```bash
+crosslayer dashboard --db runs/index.sqlite --out runs/dashboard.html [--experiment N] [--title T]
+```
+
+Writes one HTML page from the index alone (bundles are not read). It has no
+scripts and loads nothing from the network; charts are inline SVG with the same
+numbers in a table beside them. The same index gives the same bytes: the page
+never reads the clock.
+
+| Section | Shows |
+|---|---|
+| Suite health | Runs per UTC day by verdict, and the pass rate |
+| Failing contracts by owner | Failing and erroring contracts in the latest run of each experiment and seed, grouped by contract owner |
+| Regressions | Findings of `crosslayer regressions` that made the latest run worse, each with the run where it first appeared |
+| Flaky contracts | Findings of `crosslayer flaky` (default settings) |
+| Localization accuracy | Per day, runs with ground truth or a labeled fault whose true subsystem was the top hypothesis, or within the top three |
+
+Localization is scored from the three hypotheses the index keeps, by the rule
+`crosslayer localize --score` uses for subsystems, so top-3 is the widest rank
+available. Runs without a label or without a `localization.json` are not scored.
+An empty index, or an `--experiment` that matches nothing, exits 4 and writes
+nothing.
+
 ## What is recorded
 
 | Table | One row per | Columns |

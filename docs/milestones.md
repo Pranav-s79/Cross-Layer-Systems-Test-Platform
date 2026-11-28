@@ -189,7 +189,7 @@ sweeps), and scoring and comparison walk directories to find them.
   hash, reported with counts; seed sweeps are compared per seed.
 
 ### 11.3 · Dashboard · `routine` · `feature/results-dashboard`
-- [ ] `crosslayer dashboard` writes one self-contained HTML page from the
+- [x] `crosslayer dashboard` writes one self-contained HTML page from the
   index: suite health over time, per-owner failing contracts, flaky list,
   localization accuracy over time. No network resources, readable without
   JavaScript, like `report.html`.
