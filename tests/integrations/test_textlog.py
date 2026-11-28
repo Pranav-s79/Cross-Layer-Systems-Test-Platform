@@ -4,6 +4,8 @@ SYNTHETIC two-source example in experiments/textlog/."""
 from __future__ import annotations
 
 import datetime as dt
+import gzip
+import hashlib
 import re
 import shutil
 import warnings
@@ -501,3 +503,56 @@ def test_contract_tests_pass_with_full_coverage():
     report = run_contract_tests(EXPERIMENTS / "contract_tests.yaml")
     assert report.passed, [r.problems for r in report.results if not r.passed]
     assert report.uncovered() == []
+
+
+# -- compressed inputs ---------------------------------------------------------------------
+
+_GZ_LINE = "2026-11-17 09:00:00.0 hello id=1 n=2\n2026-11-17 09:00:01.0 hello id=2 n=3\n"
+
+
+def _gz_params(tmp_path: Path) -> list[dict[str, Any]]:
+    _write_profile(tmp_path, _profile_doc())
+    return [{"input": "a.log.gz", "profile": str(tmp_path / "custom.yaml")}]
+
+
+def test_gz_input_is_decompressed_under_its_uncompressed_name(tmp_path):
+    sources = _gz_params(tmp_path)
+    compressed = gzip.compress(_GZ_LINE.encode(), mtime=0)
+    result = _normalize(tmp_path / "run", sources, {"a.log.gz": compressed})
+    assert [e.event_id for e in result.events] == ["a.log:1", "a.log:2"]
+    assert all(e.raw_artifact_ref.startswith("raw_artifacts/a.log#L") for e in result.events)
+    assert (tmp_path / "run" / "raw" / "a.log").read_text() == _GZ_LINE
+    stats = result.stats["sources"][0]
+    assert stats["artifact"] == "a.log"
+    assert stats["input_sha256"] == hashlib.sha256(compressed).hexdigest()
+    assert stats["artifact_sha256"] == hashlib.sha256(_GZ_LINE.encode()).hexdigest()
+
+
+def test_plain_input_records_equal_hashes(tmp_path):
+    _write_profile(tmp_path, _profile_doc())
+    result = _normalize(tmp_path / "run", [{"input": "a.log", "profile": str(tmp_path / "custom.yaml")}],
+                        {"a.log": _GZ_LINE})
+    stats = result.stats["sources"][0]
+    assert stats["input_sha256"] == stats["artifact_sha256"]
+
+
+@pytest.mark.parametrize("content", [b"not gzip at all", gzip.compress(_GZ_LINE.encode())[:-12]],
+                         ids=["not-gzip", "truncated"])
+def test_bad_gz_input_names_the_field(tmp_path, content):
+    sources = _gz_params(tmp_path)
+    with pytest.raises(ConfigError, match=r"parameters\.sources\[0\]\.input: cannot decompress"):
+        _normalize(tmp_path / "run", sources, {"a.log.gz": content})
+
+
+def test_gz_and_plain_input_with_same_artifact_name_conflict(tmp_path):
+    _write_profile(tmp_path, _profile_doc())
+    profile = str(tmp_path / "custom.yaml")
+    with pytest.raises(ConfigError, match="file name 'a.log' is also used by"):
+        _normalize(tmp_path / "run", [{"input": "a.log", "profile": profile},
+                                      {"input": "x/a.log.gz", "profile": profile}],
+                   {"a.log": _GZ_LINE, "x/a.log.gz": gzip.compress(_GZ_LINE.encode())})
+
+
+def test_gz_input_needs_a_name_besides_the_suffix(tmp_path):
+    with pytest.raises(ConfigError, match=r"sources\[0\]\.input: '\.gz' has no file name"):
+        TextLogAdapter().validate_parameters({"sources": [{"input": ".gz", "profile": "synthetic_client"}]})
