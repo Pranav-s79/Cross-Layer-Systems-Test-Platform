@@ -59,7 +59,12 @@ contracts: [contracts.yaml]
 
 `utc_offset` and `year` describe one capture, not the format, so they can be
 given here. Each input is copied to `raw_artifacts/` under its file name; two
-inputs with the same file name are rejected.
+inputs with the same file name are rejected. A `.gz` input is decompressed and
+stored without the suffix (`ran.log.gz` becomes `raw_artifacts/ran.log`), so
+event line references point at the text the profile read. The source's stats in
+`normalized` record `input_sha256` (the file as given) and `artifact_sha256`
+(the stored text); a corrupt or truncated archive is a config error naming
+the input.
 
 ### Composite correlation joins
 

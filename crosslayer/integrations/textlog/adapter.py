@@ -14,7 +14,9 @@ plus optional facts about that capture::
         - {name: ngap_ue, keys: [ran_ue_ngap_id, amf_ue_ngap_id],
            fallback_window_ms: 250}
 
-* collect:   copy each input into ``raw_artifacts/`` under its own file name
+* collect:   copy each input into ``raw_artifacts/`` under its own file name; a
+             ``.gz`` input is decompressed and stored without the ``.gz`` suffix,
+             so evidence line numbers refer to the text the profile read
 * normalize: match each line against its profile's rules (first match wins),
              convert the timestamp to UTC, subtract the source's known clock
              offset, and time-order the events of all sources together.
@@ -30,6 +32,7 @@ every input has exactly one source runs at the start of ``collect``.
 from __future__ import annotations
 
 import codecs
+import gzip
 import hashlib
 import json
 import re
@@ -82,8 +85,13 @@ class Source:
     year: int | None = None
 
     @property
+    def compressed(self) -> bool:
+        return Path(self.input).suffix.lower() == ".gz"
+
+    @property
     def artifact(self) -> str:
-        return Path(self.input).name
+        name = Path(self.input).name
+        return name[:-3] if self.compressed else name
 
     @property
     def loc(self) -> str:
@@ -157,6 +165,8 @@ def parse_sources(parameters: Mapping[str, Any]) -> list[Source]:
         utc_offset = check_utc_offset(entry["utc_offset"], f"{loc}.utc_offset") if "utc_offset" in entry else None
         year = check_year(entry["year"], f"{loc}.year") if "year" in entry else None
         source = Source(i, entry["input"], entry["profile"], offset, utc_offset, year)
+        if not source.artifact or source.artifact.startswith("."):
+            raise ConfigError(f"{source.input!r} has no file name once .gz is removed", location=f"{loc}.input")
         for other in sources:
             if other.input == source.input:
                 raise ConfigError(f"input {source.input!r} already has a source ({other.loc})", location=f"{loc}.input")
@@ -315,9 +325,16 @@ class TextLogAdapter(SystemAdapter):
         artifacts = []
         for r in resolved:
             target = ctx.raw_dir / r.source.artifact
-            target.write_bytes(r.path.read_bytes())
-            artifacts.append(Artifact(r.source.artifact, target,
-                                      description=f"{r.source.input} read with profile {r.profile.name}"))
+            if r.source.compressed:
+                try:
+                    with gzip.open(r.path, "rb") as fh:
+                        target.write_bytes(fh.read())
+                except (OSError, EOFError) as exc:  # BadGzipFile is an OSError
+                    raise ConfigError(f"cannot decompress {r.path}: {exc}", location=f"{r.source.loc}.input") from None
+            else:
+                target.write_bytes(r.path.read_bytes())
+            note = f"{r.source.input} read with profile {r.profile.name}"
+            artifacts.append(Artifact(r.source.artifact, target, description=note + (" (decompressed)" if r.source.compressed else "")))
         return artifacts
 
     def normalize(self, ctx: RunContext, artifacts: Sequence[Artifact]) -> NormalizationResult:
@@ -413,6 +430,7 @@ def _read_source(
     stats: dict[str, Any] = {
         "input": src.source.input, "artifact": name, "profile": profile.name, "builtin": profile.builtin,
         "profile_sha256": profile.sha256, "offset_ms": src.source.offset_ms,
+        "input_sha256": _sha256(src.path), "artifact_sha256": _sha256(path),
         "lines": 0, "blank": 0, "skipped": 0, "unmatched": 0, "events": 0, "diagnostics": 0,
     }
 
@@ -469,3 +487,11 @@ def _read_source(
             events.append(event)
             stats["events"] += 1
     return stats
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

@@ -155,7 +155,7 @@ with a one-line reason and take the next one.
   the experiments they depend on (transitively), reporting the rest as
   `skipped`; sweep ids accept the base id (`random_programs`) or one seed
   (`random_programs@3`).
-- [ ] **Compressed log inputs for textlog.** Accept `.gz` inputs (stdlib
+- [x] **Compressed log inputs for textlog.** Accept `.gz` inputs (stdlib
   `gzip`): decompress into `raw_artifacts/` under the uncompressed name so
   evidence line references stay valid; record both SHA-256 values.
 - [ ] **Multi-line log records for textlog.** An optional profile key

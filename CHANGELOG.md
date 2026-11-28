@@ -5,6 +5,7 @@ All notable changes are recorded here, in the
 
 ## [Unreleased]
 
+- Accept `.gz` inputs in the textlog adapter: they are decompressed into `raw_artifacts/` without the suffix so evidence line references stay valid, and each source's stats record the SHA-256 of the input and of the stored text.
 - Add `crosslayer suite --only ID[,ID...]` to run a subset of a suite plus its dependencies (a sweep id selects every seed, `id@N` one seed); the rest are reported as skipped with reason `not selected`.
 - Add `crosslayer run --set KEY=VALUE` to override experiment parameters from the command line; the override is recorded in the bundle's configuration and config hash, so `replay` reproduces it.
 - Add `crosslayer dashboard`: writes one self-contained HTML page from the run index (suite health per day, failing contracts by owner, regressions, flaky contracts, localization accuracy), with no scripts or network resources.
